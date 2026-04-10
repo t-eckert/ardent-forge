@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     github_token: str = ""
     linear_api_key: str = ""
+    linear_team_id: str = ""
 
     # Repos
     workspace_dir: str = "/var/lib/ardent-forge/repos"
