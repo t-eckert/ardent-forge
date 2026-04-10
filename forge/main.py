@@ -43,10 +43,22 @@ def run():
             workspace_dir=settings.workspace_dir,
         ))
 
+        poller = None
+        if settings.linear_api_key and settings.linear_team_id:
+            from forge.linear.client import LinearClient
+            from forge.linear.poller import LinearPoller
+            linear_client = LinearClient(api_key=settings.linear_api_key)
+            poller = LinearPoller(
+                client=linear_client,
+                store=store,
+                team_id=settings.linear_team_id,
+            )
+
         coordinator = Coordinator(
             store=store,
             registry=registry,
             max_concurrent=settings.max_concurrent_tasks,
+            poller=poller,
         )
 
         await coordinator.startup()
