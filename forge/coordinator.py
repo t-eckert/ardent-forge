@@ -3,6 +3,7 @@ import logging
 
 from forge.handlers import HandlerRegistry
 from forge.models import TaskStatus
+from forge.state import transition
 from forge.store import TaskStore
 
 logger = logging.getLogger(__name__)
@@ -39,24 +40,38 @@ class Coordinator:
                 continue
 
             try:
-                await self._store.update_status(task.id, TaskStatus.TRIAGING)
+                current_status = TaskStatus.QUEUED
+
+                new_status = transition(current_status, TaskStatus.TRIAGING)
+                await self._store.update_status(task.id, new_status)
+                current_status = new_status
+
                 can_handle = await handler.triage(task)
                 if not can_handle:
                     await self._store.mark_failed(task.id, error="Handler declined task during triage")
                     tasks_processed += 1
                     continue
 
-                await self._store.update_status(task.id, TaskStatus.EXECUTING)
+                new_status = transition(current_status, TaskStatus.EXECUTING)
+                await self._store.update_status(task.id, new_status)
+                current_status = new_status
+
                 result = await handler.execute(task)
 
-                await self._store.update_status(task.id, TaskStatus.VERIFYING)
+                new_status = transition(current_status, TaskStatus.VERIFYING)
+                await self._store.update_status(task.id, new_status)
+                current_status = new_status
+
                 verified = await handler.verify(task)
                 if not verified:
                     await self._store.mark_failed(task.id, error="Verification failed")
                     tasks_processed += 1
                     continue
 
-                await self._store.update_status(task.id, TaskStatus.DELIVERING)
+                new_status = transition(current_status, TaskStatus.DELIVERING)
+                await self._store.update_status(task.id, new_status)
+                current_status = new_status
+
                 delivery = await handler.deliver(task)
 
                 final_result = {**result, **delivery}

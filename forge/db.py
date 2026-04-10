@@ -63,13 +63,15 @@ class Database:
             await self._conn.close()
 
     async def execute(self, sql: str, params: tuple = ()) -> aiosqlite.Cursor:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("Database not initialized")
         cursor = await self._conn.execute(sql, params)
         await self._conn.commit()
         return cursor
 
     async def fetch_one(self, sql: str, params: tuple = ()) -> dict | None:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("Database not initialized")
         cursor = await self._conn.execute(sql, params)
         row = await cursor.fetchone()
         if row is None:
@@ -77,7 +79,8 @@ class Database:
         return dict(row)
 
     async def fetch_all(self, sql: str, params: tuple = ()) -> list[dict]:
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("Database not initialized")
         cursor = await self._conn.execute(sql, params)
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]

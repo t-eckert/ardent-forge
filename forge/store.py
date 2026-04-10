@@ -31,6 +31,13 @@ class TaskStore:
             (status.value, now, task_id),
         )
 
+    async def list_all(self, limit: int = 100) -> list[Task]:
+        rows = await self._db.fetch_all(
+            "SELECT * FROM tasks ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+        return [Task.from_row(row) for row in rows]
+
     async def list_by_status(self, status: TaskStatus) -> list[Task]:
         rows = await self._db.fetch_all(
             "SELECT * FROM tasks WHERE status = ? ORDER BY created_at ASC",

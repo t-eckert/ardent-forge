@@ -57,8 +57,5 @@ async def list_tasks(status: str | None = None):
     if status:
         tasks = await store.list_by_status(TaskStatus(status))
     else:
-        tasks = await store.list_by_status(TaskStatus.QUEUED)
-        for s in [TaskStatus.TRIAGING, TaskStatus.EXECUTING, TaskStatus.VERIFYING,
-                   TaskStatus.DELIVERING, TaskStatus.COMPLETED, TaskStatus.FAILED]:
-            tasks.extend(await store.list_by_status(s))
+        tasks = await store.list_all()
     return [t.model_dump(mode="json") for t in tasks]
