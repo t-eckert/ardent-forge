@@ -45,6 +45,8 @@ def run():
             max_concurrent=settings.max_concurrent_tasks,
         )
 
+        await coordinator.startup()
+
         loop_task = asyncio.create_task(
             coordinator.run_loop(poll_interval=settings.poll_interval_seconds)
         )

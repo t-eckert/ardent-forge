@@ -14,6 +14,12 @@ class Coordinator:
         self._registry = registry
         self._max_concurrent = max_concurrent
 
+    async def startup(self):
+        """Called once on application start. Resets stuck tasks."""
+        reset_count = await self._store.reset_active_tasks()
+        if reset_count > 0:
+            logger.info(f"Reset {reset_count} stuck tasks to queued on startup")
+
     async def tick(self) -> int:
         """Run one cycle: dequeue pending tasks, process them, return count processed."""
         return await self.process_pending()

@@ -52,6 +52,23 @@ class TaskStore:
             (TaskStatus.COMPLETED.value, json.dumps(result), now, now, task_id),
         )
 
+    async def reset_active_tasks(self) -> int:
+        """Reset any tasks stuck in active (non-terminal) states back to queued.
+        Called on startup to recover from unclean shutdown."""
+        now = datetime.now(timezone.utc).isoformat()
+        active_states = (
+            TaskStatus.TRIAGING.value,
+            TaskStatus.EXECUTING.value,
+            TaskStatus.VERIFYING.value,
+            TaskStatus.DELIVERING.value,
+        )
+        placeholders = ", ".join("?" for _ in active_states)
+        cursor = await self._db.execute(
+            f"UPDATE tasks SET status = ?, updated_at = ? WHERE status IN ({placeholders})",
+            (TaskStatus.QUEUED.value, now, *active_states),
+        )
+        return cursor.rowcount
+
     async def mark_failed(self, task_id: str, error: str):
         now = datetime.now(timezone.utc).isoformat()
         task = await self.get(task_id)
