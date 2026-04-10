@@ -1,0 +1,109 @@
+import json
+from datetime import datetime, timezone
+from enum import StrEnum
+
+from pydantic import BaseModel, Field
+import ulid
+
+
+class TaskStatus(StrEnum):
+    QUEUED = "queued"
+    TRIAGING = "triaging"
+    EXECUTING = "executing"
+    VERIFYING = "verifying"
+    DELIVERING = "delivering"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class TaskType(StrEnum):
+    CODE = "code"
+    RESEARCH = "research"
+    REPORT = "report"
+    NOTEBOOK = "notebook"
+    TRIAGE = "triage"
+
+
+class TaskSource(StrEnum):
+    LINEAR = "linear"
+    CHAT = "chat"
+    SCHEDULE = "schedule"
+    WEBHOOK = "webhook"
+
+
+class Task(BaseModel):
+    id: str
+    type: TaskType
+    status: TaskStatus
+    source: TaskSource
+    source_id: str | None = None
+    repo: str | None = None
+    title: str
+    description: str
+    handler_data: dict = Field(default_factory=dict)
+    result: dict | None = None
+    retries: int = 0
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+    @classmethod
+    def new(
+        cls,
+        task_type: TaskType,
+        source: TaskSource,
+        title: str,
+        description: str,
+        repo: str | None = None,
+        source_id: str | None = None,
+    ) -> "Task":
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=str(ulid.new()),
+            type=task_type,
+            status=TaskStatus.QUEUED,
+            source=source,
+            source_id=source_id,
+            repo=repo,
+            title=title,
+            description=description,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def to_row(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.type.value,
+            "status": self.status.value,
+            "source": self.source.value,
+            "source_id": self.source_id,
+            "repo": self.repo,
+            "title": self.title,
+            "description": self.description,
+            "handler_data": json.dumps(self.handler_data),
+            "result": json.dumps(self.result) if self.result else None,
+            "retries": self.retries,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+    @classmethod
+    def from_row(cls, row: dict) -> "Task":
+        return cls(
+            id=row["id"],
+            type=TaskType(row["type"]),
+            status=TaskStatus(row["status"]),
+            source=TaskSource(row["source"]),
+            source_id=row.get("source_id"),
+            repo=row.get("repo"),
+            title=row["title"],
+            description=row["description"],
+            handler_data=json.loads(row["handler_data"]) if row["handler_data"] else {},
+            result=json.loads(row["result"]) if row.get("result") else None,
+            retries=row["retries"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+            completed_at=datetime.fromisoformat(row["completed_at"]) if row.get("completed_at") else None,
+        )
