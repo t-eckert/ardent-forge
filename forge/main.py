@@ -38,6 +38,10 @@ def run():
 
         registry = HandlerRegistry()
         registry.register(EchoHandler())
+        from forge.handlers.code import CodeHandler
+        registry.register(CodeHandler(
+            workspace_dir=settings.workspace_dir,
+        ))
 
         coordinator = Coordinator(
             store=store,
