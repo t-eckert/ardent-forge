@@ -32,8 +32,10 @@ class TaskSource(StrEnum):
 
 
 class Task(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+
     id: str
-    type: TaskType
+    type: TaskType | str
     status: TaskStatus
     source: TaskSource
     source_id: str | None = None
@@ -74,7 +76,7 @@ class Task(BaseModel):
     def to_row(self) -> dict:
         return {
             "id": self.id,
-            "type": self.type.value,
+            "type": str(self.type),
             "status": self.status.value,
             "source": self.source.value,
             "source_id": self.source_id,
@@ -91,9 +93,13 @@ class Task(BaseModel):
 
     @classmethod
     def from_row(cls, row: dict) -> "Task":
+        try:
+            task_type = TaskType(row["type"])
+        except ValueError:
+            task_type = row["type"]  # type: ignore[assignment]
         return cls(
             id=row["id"],
-            type=TaskType(row["type"]),
+            type=task_type,
             status=TaskStatus(row["status"]),
             source=TaskSource(row["source"]),
             source_id=row.get("source_id"),
