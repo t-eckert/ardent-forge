@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class Coordinator:
-    def __init__(self, store: TaskStore, registry: HandlerRegistry, max_concurrent: int = 2):
+    def __init__(self, store: TaskStore, registry: HandlerRegistry, max_concurrent: int = 2, poller=None):
         self._store = store
         self._registry = registry
         self._max_concurrent = max_concurrent
+        self._poller = poller
 
     async def startup(self):
         """Called once on application start. Resets stuck tasks."""
@@ -22,7 +23,14 @@ class Coordinator:
             logger.info(f"Reset {reset_count} stuck tasks to queued on startup")
 
     async def tick(self) -> int:
-        """Run one cycle: dequeue pending tasks, process them, return count processed."""
+        """Run one cycle: poll Linear if configured, dequeue pending tasks, process them, return count processed."""
+        if self._poller:
+            try:
+                created = await self._poller.poll()
+                if created > 0:
+                    logger.info(f"Ingested {created} tasks from Linear")
+            except Exception:
+                logger.exception("Error polling Linear")
         return await self.process_pending()
 
     async def process_pending(self) -> int:
