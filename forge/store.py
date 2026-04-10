@@ -76,6 +76,17 @@ class TaskStore:
         )
         return cursor.rowcount
 
+    async def update_handler_data(self, task_id: str, data: dict):
+        now = datetime.now(timezone.utc).isoformat()
+        task = await self.get(task_id)
+        if task is None:
+            return
+        merged = {**task.handler_data, **data}
+        await self._db.execute(
+            "UPDATE tasks SET handler_data = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(merged), now, task_id),
+        )
+
     async def mark_failed(self, task_id: str, error: str):
         now = datetime.now(timezone.utc).isoformat()
         task = await self.get(task_id)

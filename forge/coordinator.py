@@ -58,6 +58,11 @@ class Coordinator:
 
                 result = await handler.execute(task)
 
+                # Persist execute results so verify/deliver can access them
+                await self._store.update_handler_data(task.id, result)
+                # Reload task with updated handler_data
+                task = await self._store.get(task.id)
+
                 new_status = transition(current_status, TaskStatus.VERIFYING)
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
