@@ -39,14 +39,18 @@ def run():
         registry = HandlerRegistry()
         registry.register(EchoHandler())
         from forge.handlers.code import CodeHandler
-        registry.register(CodeHandler(
-            workspace_dir=settings.workspace_dir,
-        ))
+
+        registry.register(
+            CodeHandler(
+                workspace_dir=settings.workspace_dir,
+            )
+        )
 
         poller = None
         if settings.linear_api_key and settings.linear_team_id:
             from forge.linear.client import LinearClient
             from forge.linear.poller import LinearPoller
+
             linear_client = LinearClient(api_key=settings.linear_api_key)
             poller = LinearPoller(
                 client=linear_client,

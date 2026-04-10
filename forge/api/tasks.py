@@ -31,7 +31,11 @@ class CreateTaskRequest(BaseModel):
 async def create_task(req: CreateTaskRequest):
     store = get_store()
     task = Task.new(
-        task_type=TaskType(req.type) if req.type in TaskType.__members__.values() else req.type,
+        task_type=(
+            TaskType(req.type)
+            if req.type in TaskType.__members__.values()
+            else req.type
+        ),
         source=TaskSource.CHAT,
         title=req.title,
         description=req.description,

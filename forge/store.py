@@ -88,7 +88,9 @@ class TaskStore:
         )
 
     async def find_by_source_id(self, source_id: str) -> Task | None:
-        row = await self._db.fetch_one("SELECT * FROM tasks WHERE source_id = ?", (source_id,))
+        row = await self._db.fetch_one(
+            "SELECT * FROM tasks WHERE source_id = ?", (source_id,)
+        )
         if row is None:
             return None
         return Task.from_row(row)

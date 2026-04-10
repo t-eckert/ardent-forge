@@ -10,7 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class Coordinator:
-    def __init__(self, store: TaskStore, registry: HandlerRegistry, max_concurrent: int = 2, poller=None):
+    def __init__(
+        self,
+        store: TaskStore,
+        registry: HandlerRegistry,
+        max_concurrent: int = 2,
+        poller=None,
+    ):
         self._store = store
         self._registry = registry
         self._max_concurrent = max_concurrent
@@ -42,8 +48,12 @@ class Coordinator:
         for task in pending:
             handler = self._registry.get(task.type)
             if handler is None:
-                logger.warning(f"No handler for task type '{task.type}', failing task {task.id}")
-                await self._store.mark_failed(task.id, error=f"No handler registered for type '{task.type}'")
+                logger.warning(
+                    f"No handler for task type '{task.type}', failing task {task.id}"
+                )
+                await self._store.mark_failed(
+                    task.id, error=f"No handler registered for type '{task.type}'"
+                )
                 tasks_processed += 1
                 continue
 
@@ -56,7 +66,9 @@ class Coordinator:
 
                 can_handle = await handler.triage(task)
                 if not can_handle:
-                    await self._store.mark_failed(task.id, error="Handler declined task during triage")
+                    await self._store.mark_failed(
+                        task.id, error="Handler declined task during triage"
+                    )
                     tasks_processed += 1
                     continue
 

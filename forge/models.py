@@ -88,7 +88,9 @@ class Task(BaseModel):
             "retries": self.retries,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
         }
 
     @classmethod
@@ -111,5 +113,9 @@ class Task(BaseModel):
             retries=row["retries"],
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
-            completed_at=datetime.fromisoformat(row["completed_at"]) if row.get("completed_at") else None,
+            completed_at=(
+                datetime.fromisoformat(row["completed_at"])
+                if row.get("completed_at")
+                else None
+            ),
         )

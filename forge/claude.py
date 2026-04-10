@@ -40,13 +40,17 @@ class ClaudeRunner:
         self._timeout = timeout
 
     async def run(self, prompt: str, work_dir: str) -> str:
-        logger.info(f"Running Claude Code in {work_dir} (model={self._model}, timeout={self._timeout}s)")
+        logger.info(
+            f"Running Claude Code in {work_dir} (model={self._model}, timeout={self._timeout}s)"
+        )
         proc = await asyncio.create_subprocess_exec(
             "claude",
             "--print",
             "--dangerously-skip-permissions",
-            "--model", self._model,
-            "-p", prompt,
+            "--model",
+            self._model,
+            "-p",
+            prompt,
             cwd=work_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
