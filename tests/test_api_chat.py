@@ -30,9 +30,7 @@ async def test_list_messages_empty(client):
 async def test_send_message_no_api_key(client):
     resp = await client.post("/api/chat", json={"content": "Hello"})
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["role"] == "assistant"
-    assert "not configured" in data["content"].lower()
+    assert "not configured" in resp.text.lower()
 
 
 async def test_messages_persisted(client):

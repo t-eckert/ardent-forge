@@ -7,6 +7,7 @@
     children: Snippet;
   }
 
+  // svelte-ignore state_referenced_locally
   let { theme = "system", children }: Props = $props();
   initThemeStore(theme);
 </script>

@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api } from "$lib/api";
-  import type { Task, HealthResponse } from "$lib/types";
+  import type { Task, Schedule, HealthResponse } from "$lib/types";
   import TaskCard from "$lib/components/task-card.svelte";
   import EmptyState from "$lib/components/empty-state.svelte";
-  import { Lightning, CheckCircle, XCircle, Heartbeat } from "phosphor-svelte";
+  import { Lightning, CheckCircle, XCircle, Heartbeat, CalendarBlank } from "phosphor-svelte";
 
   let tasks = $state<Task[]>([]);
+  let schedules = $state<Schedule[]>([]);
   let health = $state<HealthResponse | null>(null);
   let loading = $state(true);
 
@@ -34,11 +35,13 @@
 
   async function loadData() {
     try {
-      const [taskList, healthResp] = await Promise.all([
+      const [taskList, scheduleList, healthResp] = await Promise.all([
         api.listTasks(),
+        api.listSchedules(),
         api.health(),
       ]);
       tasks = taskList;
+      schedules = scheduleList;
       health = healthResp;
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
@@ -124,6 +127,29 @@
       <div class="space-y-2">
         {#each recentFailed as task (task.id)}
           <TaskCard {task} />
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  <!-- Upcoming Schedules -->
+  {#if schedules.filter((s) => s.enabled).length > 0}
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">Upcoming Schedules</h2>
+      <div class="space-y-2">
+        {#each schedules.filter((s) => s.enabled) as schedule (schedule.id)}
+          <a
+            href="/schedule"
+            class="flex items-center gap-3 rounded-lg border border-neutral-200 p-3 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+          >
+            <CalendarBlank size={16} class="text-neutral-400" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">{schedule.name}</p>
+              <p class="text-xs text-neutral-400">
+                <span class="font-mono">{schedule.cron_expr}</span> &middot; {schedule.task_type}
+              </p>
+            </div>
+          </a>
         {/each}
       </div>
     </section>

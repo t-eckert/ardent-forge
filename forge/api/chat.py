@@ -57,10 +57,14 @@ async def send_message(req: ChatRequest):
     await store.save_chat_message(role="user", content=req.content)
 
     if not _anthropic_api_key:
-        # No API key — return a placeholder response
+        # No API key — return a streaming-compatible plaintext response
         fallback = "Chat is not configured. Set FORGE_ANTHROPIC_API_KEY to enable."
         await store.save_chat_message(role="assistant", content=fallback)
-        return {"role": "assistant", "content": fallback}
+
+        async def fallback_stream():
+            yield fallback
+
+        return StreamingResponse(fallback_stream(), media_type="text/plain")
 
     import anthropic
 
