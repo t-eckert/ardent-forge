@@ -1,5 +1,5 @@
 # nix/services/ntfy.nix
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, locals, ... }:
 
 {
   virtualisation.oci-containers.containers.ntfy = {
@@ -30,7 +30,7 @@
 
   # NTFY server config — written once, then managed in /data/ntfy/etc/
   environment.etc."ardent-forge/ntfy-server.yml.example".text = ''
-    base-url: https://ntfy.ardent-forge.tail1234.ts.net
+    base-url: https://ntfy.${locals.tailnetDomain}
     cache-file: /var/cache/ntfy/cache.db
     behind-proxy: true
   '';

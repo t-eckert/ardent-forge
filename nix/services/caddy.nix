@@ -1,10 +1,8 @@
 # nix/services/caddy.nix
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, locals, ... }:
 
 let
-  # Replace with your actual tailnet hostname after `tailscale up`
-  tsHostname = "ardent-forge";
-  tsDomain = "${tsHostname}.tail1234.ts.net";
+  tsDomain = locals.tailnetDomain;
 in {
   services.caddy = {
     enable = true;

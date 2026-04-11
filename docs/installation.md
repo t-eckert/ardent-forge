@@ -99,6 +99,11 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     # Copy the real hardware config from the bootstrap install
     cp /etc/nixos/hardware-configuration.nix nix/hardware.nix
 
+    # Create locals.nix from the example (gitignored — stays on this machine)
+    cp nix/locals.example.nix nix/locals.nix
+    # Edit with your real tailnet domain and SSH public key:
+    vim nix/locals.nix
+
     # Apply the full NixOS configuration
     sudo nixos-rebuild switch --flake ./nix#ardent-forge
 
@@ -137,7 +142,7 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     curl http://127.0.0.1:7030/health
 
     # Test via Tailscale (from Mac)
-    curl https://ardent-forge.tail1234.ts.net/health
+    curl https://<your-tailnet-domain>/health
 
     # Test Grafana
     curl -s http://127.0.0.1:3000/api/health | jq .

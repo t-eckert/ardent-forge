@@ -1,5 +1,5 @@
 # nix/services/monitoring.nix
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, locals, ... }:
 
 {
   # ── Prometheus ──────────────────────────────────────────
@@ -63,7 +63,7 @@
       server = {
         http_addr = "127.0.0.1";
         http_port = 3000;
-        root_url = "https://grafana.ardent-forge.tail1234.ts.net";
+        root_url = "https://grafana.${locals.tailnetDomain}";
       };
       security = {
         admin_user = "admin";

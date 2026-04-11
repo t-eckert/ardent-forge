@@ -16,10 +16,13 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, dotfiles }: {
+  outputs = { self, nixpkgs, home-manager, dotfiles }:
+    let
+      locals = import ./locals.nix;
+    in {
     nixosConfigurations.ardent-forge = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      specialArgs = { inherit dotfiles; };
+      specialArgs = { inherit dotfiles locals; };
       modules = [
         ./hardware.nix
         ./configuration.nix

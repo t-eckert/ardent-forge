@@ -1,4 +1,4 @@
-{ config, pkgs, lib, dotfiles, ... }:
+{ config, pkgs, lib, dotfiles, locals, ... }:
 
 {
   imports = [
@@ -54,10 +54,7 @@
   users.users.thomaseckert = {
     isNormalUser = true;
     extraGroups = [ "wheel" "podman" ];
-    openssh.authorizedKeys.keys = [
-      # 1Password SSH agent keys — add your public key here
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK+example thomaseckert"
-    ];
+    openssh.authorizedKeys.keys = locals.sshKeys;
     shell = pkgs.zsh;
   };
   programs.zsh.enable = true;
