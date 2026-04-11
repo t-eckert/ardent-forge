@@ -34,6 +34,6 @@
 
   # 1Password env file reference (no secrets, just op:// URIs)
   environment.etc."ardent-forge/the-weather.env.example".text = ''
-    OPEN_WEATHER_API_KEY=op://ArdentForge/open-weather-api-key/credential
+    OPEN_WEATHER_API_KEY=op://Ardent Forge/open-weather-api-key/credential
   '';
 }

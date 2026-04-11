@@ -60,9 +60,9 @@ in {
   # The 1Password env file maps op:// URIs to env var names.
   # This file contains NO secrets — only references.
   environment.etc."ardent-forge/forge.env.example".text = ''
-    FORGE_ANTHROPIC_API_KEY=op://ArdentForge/anthropic-api-key/credential
-    FORGE_GITHUB_TOKEN=op://ArdentForge/github-pat/credential
-    FORGE_LINEAR_API_KEY=op://ArdentForge/linear-api-key/credential
-    FORGE_LINEAR_TEAM_ID=op://ArdentForge/linear-team-id/credential
+    FORGE_ANTHROPIC_API_KEY=op://Ardent Forge/anthropic-api-key/credential
+    FORGE_GITHUB_TOKEN=op://Ardent Forge/github-pat/credential
+    FORGE_LINEAR_API_KEY=op://Ardent Forge/linear-api-key/credential
+    FORGE_LINEAR_TEAM_ID=op://Ardent Forge/linear-team-id/credential
   '';
 }
