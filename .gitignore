@@ -7,3 +7,8 @@ __pycache__/
 dist/
 *.egg-info/
 forge.db
+
+# SvelteKit
+ui/node_modules/
+ui/.svelte-kit/
+ui/build/
