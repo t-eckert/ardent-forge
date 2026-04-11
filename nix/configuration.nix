@@ -23,7 +23,7 @@
   # ── Networking ──────────────────────────────────────────
   networking = {
     hostName = "ardent-forge";
-    interfaces.eno1.ipv4.addresses = [{
+    interfaces.enp1s0.ipv4.addresses = [{
       address = "10.0.0.67";
       prefixLength = 24;
     }];
