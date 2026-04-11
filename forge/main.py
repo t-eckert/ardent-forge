@@ -1,10 +1,12 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-from forge.api import health, tasks
+from forge.api import chat, health, schedules, tasks
 from forge.config import Settings
 from forge.coordinator import Coordinator
 from forge.db import Database
@@ -17,10 +19,14 @@ def create_app(db: Database | None = None) -> FastAPI:
     app = FastAPI(title="Ardent Forge")
     app.include_router(health.router)
     app.include_router(tasks.router)
+    app.include_router(chat.router)
+    app.include_router(schedules.router)
 
     if db is not None:
         store = TaskStore(db)
         tasks.set_store(store)
+        chat.configure(store=store)
+        schedules.set_store(store)
 
     return app
 
@@ -35,6 +41,8 @@ def run():
 
         store = TaskStore(db)
         tasks.set_store(store)
+        chat.configure(store=store, anthropic_api_key=settings.anthropic_api_key)
+        schedules.set_store(store)
 
         registry = HandlerRegistry()
         registry.register(EchoHandler())
@@ -82,4 +90,9 @@ def run():
 
     app = create_app()
     app.router.lifespan_context = lifespan
+
+    ui_build_dir = os.path.join(os.path.dirname(__file__), "..", "ui", "build")
+    if os.path.isdir(ui_build_dir):
+        app.mount("/", StaticFiles(directory=ui_build_dir, html=True), name="ui")
+
     uvicorn.run(app, host=settings.host, port=settings.port)
