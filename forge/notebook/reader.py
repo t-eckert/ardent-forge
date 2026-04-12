@@ -48,3 +48,24 @@ class NotebookReader:
             return self._resolve(path).exists()
         except ValueError:
             return False
+
+    def search(self, query: str, path_prefix: str | None = None) -> list[SearchHit]:
+        target = self._resolve(path_prefix) if path_prefix else self._root
+        result = subprocess.run(
+            ["rg", "--no-heading", "--line-number", "--color=never", query, str(target)],
+            capture_output=True,
+            text=True,
+        )
+        # rg exit code 1 means no matches — that's not an error
+        if result.returncode not in (0, 1):
+            raise RuntimeError(f"ripgrep failed: {result.stderr}")
+        hits: list[SearchHit] = []
+        for line in result.stdout.splitlines():
+            # Format: /abs/path:lineno:content
+            parts = line.split(":", 2)
+            if len(parts) < 3:
+                continue
+            abs_path, lineno, content = parts
+            rel = str(Path(abs_path).relative_to(self._root))
+            hits.append(SearchHit(path=rel, line_number=int(lineno), line=content))
+        return hits

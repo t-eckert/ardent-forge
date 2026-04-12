@@ -70,3 +70,26 @@ def test_list_dir_rejects_traversal(vault: Path):
     reader = NotebookReader(vault)
     with pytest.raises(ValueError):
         reader.list_dir("../")
+
+
+def test_search_finds_matches(vault: Path):
+    (vault / "Wiki" / "Docker.md").write_text("container runtime notes")
+    (vault / "Wiki" / "Kubernetes.md").write_text("Also a container tool")
+    reader = NotebookReader(vault)
+    hits = reader.search("container")
+    paths = {h.path for h in hits}
+    assert paths == {"Wiki/Docker.md", "Wiki/Kubernetes.md"}
+
+
+def test_search_with_path_prefix(vault: Path):
+    (vault / "Wiki" / "Docker.md").write_text("container runtime")
+    (vault / "Fields" / "Redpanda" / "Notes.md").write_text("container orchestration")
+    reader = NotebookReader(vault)
+    hits = reader.search("container", path_prefix="Wiki")
+    paths = {h.path for h in hits}
+    assert paths == {"Wiki/Docker.md"}
+
+
+def test_search_no_matches_returns_empty(vault: Path):
+    reader = NotebookReader(vault)
+    assert reader.search("zzz-never-matches-anything") == []
