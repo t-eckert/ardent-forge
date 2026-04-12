@@ -23,3 +23,6 @@ class Settings(BaseSettings):
 
     # Repos
     workspace_dir: str = "/var/lib/ardent-forge/repos"
+
+    # Notebook (Obsidian vault)
+    notebook_dir: str = "/data/ardent-forge/notebook"
