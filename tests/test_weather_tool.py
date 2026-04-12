@@ -49,3 +49,52 @@ async def test_get_weather_default_location():
     assert result["current"]["temp_c"] == pytest.approx(7.82, rel=0.01)
     assert result["current"]["description"] == "overcast clouds"
     assert len(result["daily"]) == 1
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_get_weather_named_location():
+    respx.get("http://127.0.0.1:8091/geocode", params={"q": "San Diego"}).mock(
+        return_value=Response(
+            200,
+            json={
+                "name": "San Diego",
+                "country": "US",
+                "state": "California",
+                "lat": 32.7174,
+                "lon": -117.1628,
+            },
+        )
+    )
+    respx.get("http://127.0.0.1:8091/", params={"lat": "32.7174", "lon": "-117.1628"}).mock(
+        return_value=Response(
+            200,
+            json={
+                "lat": 32.7174,
+                "lon": -117.1628,
+                "current": {
+                    "dt": 1775963321,
+                    "temp": 291.4,
+                    "feels_like": 290.5,
+                    "humidity": 67,
+                    "wind_speed": 3.4,
+                    "weather": [{"description": "clear sky"}],
+                },
+                "daily": [],
+            },
+        )
+    )
+    result = await get_weather(location="San Diego")
+    assert result["location"] == "San Diego, California, US"
+    assert result["current"]["temp_c"] == pytest.approx(18.25, rel=0.01)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_get_weather_location_not_found():
+    respx.get("http://127.0.0.1:8091/geocode", params={"q": "Notarealplace"}).mock(
+        return_value=Response(404, json={"error": "location not found"})
+    )
+    result = await get_weather(location="Notarealplace")
+    assert "error" in result
+    assert "Notarealplace" in result["error"]

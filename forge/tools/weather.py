@@ -65,13 +65,28 @@ async def get_weather(
 
     If location is None, returns weather for the service's default (Ottawa).
     Otherwise geocodes the location first.
+    Returns a dict with an "error" key on failure (so it can be returned
+    as a tool_result with is_error=True).
     """
-    location_label = "Ottawa, Ontario, CA"
-    params: dict[str, str] = {}
-
     async with httpx.AsyncClient(timeout=10) as client:
+        if location:
+            geo_resp = await client.get(f"{base_url}/geocode", params={"q": location})
+            if geo_resp.status_code == 404:
+                return {"error": f"Could not find location '{location}'"}
+            if geo_resp.status_code >= 400:
+                return {"error": "Geocoding service unavailable"}
+            geo = geo_resp.json()
+            location_label = ", ".join(
+                p for p in [geo.get("name"), geo.get("state"), geo.get("country")] if p
+            )
+            params = {"lat": str(geo["lat"]), "lon": str(geo["lon"])}
+        else:
+            location_label = "Ottawa, Ontario, CA"
+            params = {}
+
         weather_resp = await client.get(f"{base_url}/", params=params)
-        weather_resp.raise_for_status()
+        if weather_resp.status_code >= 400:
+            return {"error": "Weather data temporarily unavailable"}
         data = weather_resp.json()
 
     return {
