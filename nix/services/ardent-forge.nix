@@ -41,6 +41,17 @@ in {
       # Load 1Password service account token
       EnvironmentFile = "/etc/ardent-forge/op-token";
 
+      # Build UI and sync Python deps before starting
+      ExecStartPre = pkgs.writeShellScript "ardent-forge-pre" ''
+        cd ${repoDir}
+        ${pkgs.uv}/bin/uv sync --frozen
+        if [ ! -d ui/build ] || [ ui/package.json -nt ui/build/index.html ]; then
+          cd ui
+          ${pkgs.nodejs_22}/bin/npm ci
+          ${pkgs.nodejs_22}/bin/npm run build
+        fi
+      '';
+
       # 1Password injects secrets as env vars
       ExecStart = pkgs.writeShellScript "ardent-forge-start" ''
         exec ${pkgs._1password-cli}/bin/op run \
