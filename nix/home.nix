@@ -4,12 +4,12 @@
 # nixpkgs compatibility issues (nodePackages removed), so we define the
 # essentials here directly. Revisit dotfiles import once dotfiles repo
 # is updated for latest nixpkgs-unstable.
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, locals, ... }:
 
 {
   home = {
-    username = "thomaseckert";
-    homeDirectory = "/home/thomaseckert";
+    username = locals.username;
+    homeDirectory = "/home/${locals.username}";
     stateVersion = "24.05";
   };
 

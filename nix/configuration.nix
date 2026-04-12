@@ -51,7 +51,7 @@
   i18n.defaultLocale = "en_CA.UTF-8";
 
   # ── Users ───────────────────────────────────────────────
-  users.users.thomaseckert = {
+  users.users.${locals.username} = {
     isNormalUser = true;
     extraGroups = [ "wheel" "podman" ];
     openssh.authorizedKeys.keys = locals.sshKeys;
@@ -61,7 +61,7 @@
 
   # ── Sudo ────────────────────────────────────────────────
   security.sudo.extraRules = [{
-    users = [ "thomaseckert" ];
+    users = [ locals.username ];
     commands = [{ command = "ALL"; options = [ "NOPASSWD" ]; }];
   }];
 
@@ -94,8 +94,8 @@
   # All persistent data lives under /data/<service>/
   systemd.tmpfiles.rules = [
     "d /data 0755 root root -"
-    "d /data/ardent-forge 0750 thomaseckert users -"
-    "d /data/ardent-forge/repos 0750 thomaseckert users -"
+    "d /data/ardent-forge 0750 ${locals.username} users -"
+    "d /data/ardent-forge/repos 0750 ${locals.username} users -"
     "d /data/prometheus 0750 prometheus prometheus -"
     "d /data/grafana 0750 grafana grafana -"
     "d /data/loki 0750 loki loki -"

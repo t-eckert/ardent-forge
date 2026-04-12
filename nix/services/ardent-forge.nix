@@ -1,5 +1,5 @@
 # nix/services/ardent-forge.nix
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, locals, ... }:
 
 let
   forgeDir = "/data/ardent-forge";
@@ -25,17 +25,16 @@ in {
       FORGE_WORKSPACE_DIR = "${forgeDir}/repos";
       FORGE_HOST = "127.0.0.1";
       FORGE_PORT = "7030";
-      HOME = "/home/thomaseckert";
+      HOME = "/home/${locals.username}";
     };
 
     serviceConfig = {
       Type = "simple";
-      User = "thomaseckert";
+      User = locals.username;
       Group = "users";
       WorkingDirectory = repoDir;
 
       # 1Password injects secrets as env vars
-      # Requires: `op signin` done once interactively as thomaseckert
       ExecStart = pkgs.writeShellScript "ardent-forge-start" ''
         exec ${pkgs._1password-cli}/bin/op run \
           --env-file ${forgeDir}/forge.env \
@@ -51,7 +50,7 @@ in {
       ProtectHome = "read-only";
       ReadWritePaths = [
         forgeDir
-        "/home/thomaseckert"
+        "/home/${locals.username}"
       ];
       PrivateTmp = true;
     };

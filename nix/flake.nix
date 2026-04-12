@@ -34,9 +34,9 @@
             useGlobalPkgs = true;
             useUserPackages = true;
             extraSpecialArgs = {
-              inherit dotfiles;
+              inherit dotfiles locals;
             };
-            users.thomaseckert = import ./home.nix;
+            users.${locals.username} = import ./home.nix;
           };
         }
       ];
