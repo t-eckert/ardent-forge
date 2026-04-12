@@ -40,6 +40,29 @@ def run():
         await db.initialize()
 
         store = TaskStore(db)
+        from pathlib import Path
+
+        from forge.notebook import NotebookReader, NotebookWriter
+
+        notebook_reader: NotebookReader | None = None
+        notebook_writer: NotebookWriter | None = None
+        notebook_path = Path(settings.notebook_dir)
+        if notebook_path.is_dir():
+            try:
+                notebook_reader = NotebookReader(notebook_path)
+                notebook_writer = NotebookWriter(notebook_path)
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    f"Notebook disabled: {e}"
+                )
+        else:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"Notebook directory {notebook_path} not found; notebook features disabled"
+            )
         tasks.set_store(store)
         chat.configure(store=store, anthropic_api_key=settings.anthropic_api_key)
         schedules.set_store(store)
