@@ -26,3 +26,8 @@ class Settings(BaseSettings):
 
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"
+
+    # Self-building loop
+    self_repo: str = "t-eckert/ardent-forge"
+    self_repo_url: str = "https://github.com/t-eckert/ardent-forge.git"
+    planner_claude_model: str = "claude-opus-4-20250514"

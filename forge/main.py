@@ -77,6 +77,17 @@ def run():
             )
         )
 
+        # Self-building: plan handler (always registered)
+        from forge.handlers.plan import PlanHandler
+
+        registry.register(
+            PlanHandler(
+                workspace_dir=settings.workspace_dir,
+                self_repo=settings.self_repo,
+                claude_model=settings.planner_claude_model,
+            )
+        )
+
         if notebook_reader is not None:
             from forge.claude import ClaudeRunner
             from forge.handlers.research import ResearchHandler
@@ -103,11 +114,64 @@ def run():
                 team_id=settings.linear_team_id,
             )
 
+            from forge.handlers.tickets import TicketsHandler
+            from forge.linear.projects import LinearProjectsAPI
+
+            tickets_linear = LinearProjectsAPI(linear_client)
+            registry.register(
+                TicketsHandler(
+                    workspace_dir=settings.workspace_dir,
+                    linear=tickets_linear,
+                    team_id=settings.linear_team_id,
+                    self_repo=settings.self_repo,
+                )
+            )
+
+        # Self-building watchers
+        from forge.git import GitOps
+        from forge.watchers.spec_watcher import SpecWatcher
+        from forge.watchers.plan_merge_watcher import PlanMergeWatcher
+
+        watchers: list = []
+        try:
+            af_repo_path = await GitOps(settings.workspace_dir).ensure_repo(
+                settings.self_repo_url, settings.self_repo
+            )
+
+            async def _fetch_main() -> None:
+                git = GitOps(settings.workspace_dir)
+                await git._run("git fetch origin main", cwd=af_repo_path)
+                await git._run("git checkout main", cwd=af_repo_path)
+                await git._run("git reset --hard origin/main", cwd=af_repo_path)
+
+            watchers.append(
+                SpecWatcher(
+                    store=store,
+                    repo_path=af_repo_path,
+                    fetch_fn=_fetch_main,
+                    self_repo=settings.self_repo,
+                )
+            )
+            watchers.append(
+                PlanMergeWatcher(
+                    store=store,
+                    repo_path=af_repo_path,
+                    fetch_fn=_fetch_main,
+                    self_repo=settings.self_repo,
+                )
+            )
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).exception(
+                "self-building watchers disabled: could not clone AF repo"
+            )
+
         coordinator = Coordinator(
             store=store,
             registry=registry,
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
+            watchers=watchers,
         )
 
         await coordinator.startup()
