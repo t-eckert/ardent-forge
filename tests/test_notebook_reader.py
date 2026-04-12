@@ -93,3 +93,22 @@ def test_search_with_path_prefix(vault: Path):
 def test_search_no_matches_returns_empty(vault: Path):
     reader = NotebookReader(vault)
     assert reader.search("zzz-never-matches-anything") == []
+
+
+def test_resolve_wikilink_found(vault: Path):
+    reader = NotebookReader(vault)
+    result = reader.resolve_wikilink("Kubernetes")
+    assert result == Path("Wiki/Kubernetes.md")
+
+
+def test_resolve_wikilink_missing(vault: Path):
+    reader = NotebookReader(vault)
+    assert reader.resolve_wikilink("Does-Not-Exist") is None
+
+
+def test_resolve_wikilink_prefers_shortest_path(vault: Path):
+    (vault / "Notes.md").write_text("root level")
+    (vault / "Fields" / "Redpanda" / "Notes.md").write_text("nested")
+    reader = NotebookReader(vault)
+    result = reader.resolve_wikilink("Notes")
+    assert result == Path("Notes.md")

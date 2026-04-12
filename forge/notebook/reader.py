@@ -69,3 +69,12 @@ class NotebookReader:
             rel = str(Path(abs_path).relative_to(self._root))
             hits.append(SearchHit(path=rel, line_number=int(lineno), line=content))
         return hits
+
+    def resolve_wikilink(self, name: str) -> Path | None:
+        filename = f"{name}.md"
+        matches = list(self._root.rglob(filename))
+        if not matches:
+            return None
+        # Shortest path (fewest parts) wins — matches Obsidian behavior.
+        best = min(matches, key=lambda p: len(p.relative_to(self._root).parts))
+        return best.relative_to(self._root)
