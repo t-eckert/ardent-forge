@@ -9,6 +9,7 @@
     ./services/caddy.nix
     ./services/ntfy.nix
     ./services/the-weather.nix
+    ./services/autodeploy.nix
   ];
 
   # ── System ──────────────────────────────────────────────
@@ -82,6 +83,7 @@
     curl
     htop
     _1password-cli
+    ghostty.terminfo
   ];
 
   # ── Data directories ───────────────────────────────────
