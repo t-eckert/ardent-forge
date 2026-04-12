@@ -1,0 +1,81 @@
+"""Weather tool — calls The Weather service for current + 8-day forecast."""
+
+import logging
+from datetime import datetime, timezone
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_BASE_URL = "http://127.0.0.1:8091"
+
+WEATHER_TOOL_SCHEMA = {
+    "name": "get_weather",
+    "description": (
+        "Get current weather and 8-day daily forecast for a location. "
+        "Use this when the user asks about weather, temperature, rain, snow, or "
+        "any meteorological condition. Defaults to Ottawa if no location is given."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": (
+                    "City name, optionally with state/country, e.g. 'San Diego' "
+                    "or 'San Diego, California'. Omit for the default location (Ottawa)."
+                ),
+            }
+        },
+    },
+}
+
+
+def _kelvin_to_celsius(k: float) -> float:
+    return round(k - 273.15, 1)
+
+
+def _format_current(current: dict) -> dict:
+    return {
+        "time": datetime.fromtimestamp(current["dt"], tz=timezone.utc).isoformat(),
+        "temp_c": _kelvin_to_celsius(current["temp"]),
+        "feels_like_c": _kelvin_to_celsius(current["feels_like"]),
+        "humidity": current.get("humidity"),
+        "wind_kph": round(current.get("wind_speed", 0) * 3.6, 1),
+        "description": current["weather"][0]["description"] if current.get("weather") else "",
+    }
+
+
+def _format_daily(day: dict) -> dict:
+    return {
+        "date": datetime.fromtimestamp(day["dt"], tz=timezone.utc).date().isoformat(),
+        "min_c": _kelvin_to_celsius(day["temp"]["min"]),
+        "max_c": _kelvin_to_celsius(day["temp"]["max"]),
+        "precipitation_mm": round(day.get("rain", 0) + day.get("snow", 0), 1),
+        "description": day["weather"][0]["description"] if day.get("weather") else "",
+    }
+
+
+async def get_weather(
+    location: str | None = None,
+    base_url: str = DEFAULT_BASE_URL,
+) -> dict[str, Any]:
+    """Get current weather + 8-day forecast.
+
+    If location is None, returns weather for the service's default (Ottawa).
+    Otherwise geocodes the location first.
+    """
+    location_label = "Ottawa, Ontario, CA"
+    params: dict[str, str] = {}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        weather_resp = await client.get(f"{base_url}/", params=params)
+        weather_resp.raise_for_status()
+        data = weather_resp.json()
+
+    return {
+        "location": location_label,
+        "current": _format_current(data["current"]),
+        "daily": [_format_daily(d) for d in data.get("daily", [])],
+    }
