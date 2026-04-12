@@ -35,6 +35,8 @@
             useUserPackages = true;
             extraSpecialArgs = {
               inherit dotfiles locals;
+              isDarwin = false;
+              isLinux = true;
             };
             users.${locals.username} = import ./home.nix;
           };

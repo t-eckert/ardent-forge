@@ -1,12 +1,19 @@
 # nix/home.nix
 #
-# Standalone home config for the Bee Link. The dotfiles linux config has
-# nixpkgs compatibility issues (nodePackages removed), so we define the
-# essentials here directly. Revisit dotfiles import once dotfiles repo
-# is updated for latest nixpkgs-unstable.
-{ config, pkgs, lib, locals, ... }:
+# Imports dotfiles modules for shell, git, neovim, and starship config.
+# Packages are managed here (not via dotfiles packages.nix) to avoid
+# the dotfiles `self` dependency for custom Go tools.
+{ config, pkgs, lib, dotfiles, locals, ... }:
 
 {
+  imports = [
+    # Dotfiles modules — full shell/editor/git config
+    "${dotfiles}/nix/home/shell.nix"
+    "${dotfiles}/nix/home/git.nix"
+    "${dotfiles}/nix/home/programs/neovim.nix"
+    "${dotfiles}/nix/home/programs/starship.nix"
+  ];
+
   home = {
     username = locals.username;
     homeDirectory = "/home/${locals.username}";
@@ -15,25 +22,20 @@
 
   programs.home-manager.enable = true;
 
-  # Shell
-  programs.zsh = {
+  # XDG directories
+  xdg = {
     enable = true;
-    enableCompletion = true;
-    autosuggestion.enable = true;
-    syntaxHighlighting.enable = true;
+    configHome = "${config.home.homeDirectory}/.config";
+    dataHome = "${config.home.homeDirectory}/.local/share";
+    cacheHome = "${config.home.homeDirectory}/.cache";
   };
 
-  programs.starship.enable = true;
-
-  programs.git = {
-    enable = true;
-    userName = "Thomas Eckert";
-    userEmail = "thomas.eckert@hey.com";
-  };
-
-  programs.neovim = {
-    enable = true;
-    defaultEditor = true;
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+    BAT_THEME = "base16";
+    FORGE_DB_PATH = "/data/ardent-forge/forge.db";
+    FORGE_WORKSPACE_DIR = "/data/ardent-forge/repos";
   };
 
   home.packages = with pkgs; [
@@ -48,7 +50,6 @@
     tree
     curl
     wget
-    lazygit
     htop
 
     # Languages
@@ -58,6 +59,26 @@
     python313
     uv
     deno
+    rustup
+
+    # Language servers (for Neovim)
+    lua-language-server
+    typescript-language-server
+    nil
+    pyright
+    stylua
+    nixpkgs-fmt
+    prettier
+    shellcheck
+    fd
+    tree-sitter
+
+    # Cloud & Infra
+    kubectl
+    kubernetes-helm
+    k9s
+    flyctl
+    terraform
 
     # Containers
     podman
@@ -65,15 +86,32 @@
     # Terminal
     zellij
     atuin
+    lazygit
+
+    # Networking
+    caddy
+    nmap
   ];
 
-  # Environment variables for dev work
-  home.sessionVariables = {
-    FORGE_DB_PATH = "/data/ardent-forge/forge.db";
-    FORGE_WORKSPACE_DIR = "/data/ardent-forge/repos";
+  # Link Neovim config from dotfiles
+  xdg.configFile."nvim" = {
+    source = "${dotfiles}/config/nvim";
+    recursive = true;
   };
 
-  # Git config — clone the ardent-forge repo on first setup
+  # Link Zellij config from dotfiles
+  xdg.configFile."zellij" = {
+    source = "${dotfiles}/config/zellij";
+    recursive = true;
+  };
+
+  # Link Atuin config from dotfiles
+  xdg.configFile."atuin" = {
+    source = "${dotfiles}/config/atuin";
+    recursive = true;
+  };
+
+  # First-boot setup script
   home.file.".local/bin/forge-setup" = {
     executable = true;
     text = ''
