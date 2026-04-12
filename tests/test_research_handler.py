@@ -70,3 +70,65 @@ async def test_triage_declines_empty_title(handler: ResearchHandler):
 async def test_triage_declines_whitespace_title(handler: ResearchHandler):
     task = _research_task(title="   ")
     assert await handler.triage(task) is False
+
+
+@pytest.mark.asyncio
+async def test_execute_detects_new_file(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    def write_file(_prompt: str, _work_dir: str) -> str:
+        (vault / "Wiki" / "OpenClaw.md").write_text("# OpenClaw\n\n" + "x" * 300)
+        return "done"
+
+    runner.side_effect = write_file
+    task = _research_task()
+    result = await handler.execute(task)
+
+    assert result["new_files"] == ["Wiki/OpenClaw.md"]
+    assert result["claude_output"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_execute_ignores_pre_existing_files(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    (vault / "Wiki" / "Existing.md").write_text("pre-existing content")
+
+    def write_file(_prompt: str, _work_dir: str) -> str:
+        (vault / "Wiki" / "New.md").write_text("new content" * 50)
+        return ""
+
+    runner.side_effect = write_file
+    task = _research_task()
+    result = await handler.execute(task)
+
+    assert result["new_files"] == ["Wiki/New.md"]
+
+
+@pytest.mark.asyncio
+async def test_execute_passes_notebook_root_as_work_dir(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    task = _research_task()
+    await handler.execute(task)
+    assert len(runner.calls) == 1
+    _prompt, work_dir = runner.calls[0]
+    assert work_dir == str(vault)
+
+
+@pytest.mark.asyncio
+async def test_execute_ignores_files_outside_allowed_prefixes(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    def write_elsewhere(_prompt: str, _work_dir: str) -> str:
+        (vault / "People" / "Foo.md").write_text("oops")
+        return ""
+
+    runner.side_effect = write_elsewhere
+    task = _research_task()
+    result = await handler.execute(task)
+    # Snapshot is limited to allowed prefixes — a write to People/ is invisible
+    assert result["new_files"] == []
+
+
+@pytest.mark.asyncio
+async def test_execute_truncates_claude_output(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    def huge_output(_prompt: str, _work_dir: str) -> str:
+        return "x" * 5000
+
+    runner.side_effect = huge_output
+    task = _research_task()
+    result = await handler.execute(task)
+    assert len(result["claude_output"]) == 2000

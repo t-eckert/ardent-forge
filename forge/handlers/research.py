@@ -29,3 +29,28 @@ class ResearchHandler:
             logger.warning(f"Task {task.id} has empty title, declining")
             return False
         return True
+
+    def _snapshot(self) -> set[str]:
+        """Relative paths of all files under allowed prefixes."""
+        found: set[str] = set()
+        for prefix in ALLOWED_WRITE_PREFIXES:
+            base = self._root / prefix.rstrip("/")
+            if not base.is_dir():
+                continue
+            for path in base.rglob("*"):
+                if path.is_file():
+                    found.add(str(path.relative_to(self._root)))
+        return found
+
+    async def execute(self, task: Task) -> dict:
+        from forge.handlers.research_prompt import build_research_prompt
+
+        before = self._snapshot()
+        prompt = build_research_prompt(title=task.title, description=task.description)
+        output = await self._claude.run(prompt, str(self._root))
+        after = self._snapshot()
+        new_files = sorted(after - before)
+        return {
+            "claude_output": output[:2000],
+            "new_files": new_files,
+        }
