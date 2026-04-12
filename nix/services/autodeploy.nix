@@ -76,6 +76,9 @@ in {
   systemd.services.ardent-forge-autodeploy = {
     description = "Pull main and nixos-rebuild switch if there are new commits";
     # Run as root — nixos-rebuild switch needs it.
+    environment = {
+      HOME = "/root";
+    };
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${autodeployScript}";
