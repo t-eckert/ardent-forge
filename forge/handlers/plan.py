@@ -59,7 +59,31 @@ class PlanHandler:
         return True
 
     async def execute(self, task: Task) -> dict:
-        raise NotImplementedError  # Task 6
+        spec_path = extract_spec_path(task.description)
+        if not spec_path:
+            raise RuntimeError(f"No spec path in task {task.id}")
+
+        repo_url = f"https://github.com/{self._self_repo}.git"
+        branch_name = f"forge/plan-{task.id[:12]}"
+
+        repo_path = await self._git.ensure_repo(repo_url, self._self_repo)
+        worktree_path = await self._git.create_worktree(repo_path, branch_name)
+
+        spec_abs = Path(worktree_path) / spec_path
+        if not spec_abs.exists():
+            raise RuntimeError(f"Spec file not found in worktree: {spec_abs}")
+        spec_body = spec_abs.read_text()
+
+        prompt = build_plan_prompt(spec_path=spec_path, spec_body=spec_body)
+        output = await self._claude.run(prompt, worktree_path)
+
+        return {
+            "worktree_path": worktree_path,
+            "repo_path": repo_path,
+            "branch_name": branch_name,
+            "spec_path": spec_path,
+            "claude_output": output[:2000],
+        }
 
     async def verify(self, task: Task) -> bool:
         raise NotImplementedError  # Task 7
