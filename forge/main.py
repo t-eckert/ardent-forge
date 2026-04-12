@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -33,6 +34,11 @@ def create_app(db: Database | None = None) -> FastAPI:
 
 def run():
     settings = Settings()
+
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -31,3 +31,6 @@ class Settings(BaseSettings):
     self_repo: str = "t-eckert/ardent-forge"
     self_repo_url: str = "https://github.com/t-eckert/ardent-forge.git"
     planner_claude_model: str = "claude-opus-4-20250514"
+
+    # Observability
+    log_level: str = "INFO"
