@@ -132,3 +132,70 @@ async def test_execute_truncates_claude_output(handler: ResearchHandler, vault: 
     task = _research_task()
     result = await handler.execute(task)
     assert len(result["claude_output"]) == 2000
+
+
+@pytest.mark.asyncio
+async def test_execute_retries_on_timeout(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    call_count = {"n": 0}
+
+    def flaky(_prompt: str, _work_dir: str) -> str:
+        call_count["n"] += 1
+        if call_count["n"] < 2:
+            raise TimeoutError("first try")
+        (vault / "Wiki" / "Later.md").write_text("x" * 300)
+        return "ok"
+
+    runner.side_effect = flaky
+    task = _research_task()
+    result = await handler.execute(task)
+    assert call_count["n"] == 2
+    assert result["new_files"] == ["Wiki/Later.md"]
+
+
+@pytest.mark.asyncio
+async def test_execute_retries_on_runtime_error(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    call_count = {"n": 0}
+
+    def flaky(_prompt: str, _work_dir: str) -> str:
+        call_count["n"] += 1
+        if call_count["n"] < 3:
+            raise RuntimeError("boom")
+        (vault / "Wiki" / "Finally.md").write_text("x" * 300)
+        return "ok"
+
+    runner.side_effect = flaky
+    task = _research_task()
+    result = await handler.execute(task)
+    assert call_count["n"] == 3
+    assert result["new_files"] == ["Wiki/Finally.md"]
+
+
+@pytest.mark.asyncio
+async def test_execute_raises_after_max_retries(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    def always_fail(_prompt: str, _work_dir: str) -> str:
+        raise TimeoutError("forever")
+
+    runner.side_effect = always_fail
+    task = _research_task()
+    with pytest.raises(TimeoutError):
+        await handler.execute(task)
+
+
+@pytest.mark.asyncio
+async def test_execute_retry_passes_context_to_prompt(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+    prompts: list[str] = []
+    call_count = {"n": 0}
+
+    def capture(prompt: str, _work_dir: str) -> str:
+        prompts.append(prompt)
+        call_count["n"] += 1
+        if call_count["n"] < 2:
+            raise RuntimeError("first failure message")
+        (vault / "Wiki" / "Ok.md").write_text("x" * 300)
+        return "ok"
+
+    runner.side_effect = capture
+    task = _research_task()
+    await handler.execute(task)
+    assert "Previous Attempt" in prompts[1]
+    assert "first failure message" in prompts[1]

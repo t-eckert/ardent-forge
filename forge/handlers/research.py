@@ -46,8 +46,24 @@ class ResearchHandler:
         from forge.handlers.research_prompt import build_research_prompt
 
         before = self._snapshot()
-        prompt = build_research_prompt(title=task.title, description=task.description)
-        output = await self._claude.run(prompt, str(self._root))
+        retry_context: str | None = None
+        output = ""
+
+        for attempt in range(MAX_RETRIES + 1):
+            prompt = build_research_prompt(
+                title=task.title,
+                description=task.description,
+                retry_context=retry_context,
+            )
+            try:
+                output = await self._claude.run(prompt, str(self._root))
+                break
+            except (TimeoutError, RuntimeError) as e:
+                logger.warning(f"Research attempt {attempt + 1} failed: {e}")
+                retry_context = f"Attempt {attempt + 1} failed: {e}"
+                if attempt == MAX_RETRIES:
+                    raise
+
         after = self._snapshot()
         new_files = sorted(after - before)
         return {
