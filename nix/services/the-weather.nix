@@ -12,6 +12,10 @@
 
     path = [ pkgs._1password-cli pkgs.podman ];
 
+    environment = {
+      HOME = "/root";
+    };
+
     serviceConfig = {
       Type = "simple";
 
