@@ -35,7 +35,7 @@ class LinearClient:
 
     async def get_labeled_issues(self, team_id: str, label: str) -> list[dict]:
         query = """
-        query GetIssues($teamId: String!, $label: String!) {
+        query GetIssues($teamId: ID!, $label: String!) {
             issues(filter: { team: { id: { eq: $teamId } }, assignee: { null: true }, labels: { name: { eq: $label } }, state: { type: { in: ["backlog", "unstarted"] } } }, first: 20, orderBy: createdAt) {
                 nodes { id identifier title description state { name type } labels { nodes { name } } assignee { id name } }
             }
@@ -46,7 +46,7 @@ class LinearClient:
 
     async def update_issue_state(self, issue_id: str, state_id: str) -> bool:
         query = """
-        mutation UpdateIssue($issueId: String!, $stateId: String!) {
+        mutation UpdateIssue($issueId: ID!, $stateId: ID!) {
             issueUpdate(id: $issueId, input: { stateId: $stateId }) { success }
         }
         """
@@ -55,7 +55,7 @@ class LinearClient:
 
     async def add_comment(self, issue_id: str, body: str) -> bool:
         query = """
-        mutation AddComment($issueId: String!, $body: String!) {
+        mutation AddComment($issueId: ID!, $body: String!) {
             commentCreate(input: { issueId: $issueId, body: $body }) { success }
         }
         """
@@ -64,7 +64,7 @@ class LinearClient:
 
     async def get_workflow_states(self, team_id: str) -> list[dict]:
         query = """
-        query GetStates($teamId: String!) {
+        query GetStates($teamId: ID!) {
             workflowStates(filter: { team: { id: { eq: $teamId } } }) { nodes { id name type } }
         }
         """
@@ -73,7 +73,7 @@ class LinearClient:
 
     async def assign_to_me(self, issue_id: str, user_id: str) -> bool:
         query = """
-        mutation AssignIssue($issueId: String!, $assigneeId: String!) {
+        mutation AssignIssue($issueId: ID!, $assigneeId: ID!) {
             issueUpdate(id: $issueId, input: { assigneeId: $assigneeId }) { success }
         }
         """
