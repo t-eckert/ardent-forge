@@ -69,6 +69,7 @@
         admin_user = "admin";
         # Set on first boot, then managed in Grafana UI
         admin_password = "$__env{GRAFANA_ADMIN_PASSWORD}";
+        secret_key = "$__file{/data/grafana/secret_key}";
       };
       database = {
         type = "postgres";
@@ -141,35 +142,22 @@
     };
   };
 
-  # Promtail — ships systemd journal logs to Loki
-  services.promtail = {
+  # Alloy — ships systemd journal logs to Loki (replaces deprecated Promtail)
+  services.alloy = {
     enable = true;
-    configuration = {
-      server = {
-        http_listen_port = 9080;
-        grpc_listen_port = 0;
-      };
-
-      positions.filename = "/var/lib/promtail/positions.yaml";
-
-      clients = [{
-        url = "http://127.0.0.1:3100/loki/api/v1/push";
-      }];
-
-      scrape_configs = [{
-        job_name = "journal";
-        journal = {
-          max_age = "12h";
-          labels = {
-            job = "systemd-journal";
-            host = "ardent-forge";
-          };
-        };
-        relabel_configs = [{
-          source_labels = [ "__journal__systemd_unit" ];
-          target_label = "unit";
-        }];
-      }];
-    };
   };
+
+  environment.etc."alloy/config.alloy".text = ''
+    loki.source.journal "journal" {
+      max_age    = "12h"
+      labels     = { job = "systemd-journal", host = "ardent-forge" }
+      forward_to = [loki.write.local.receiver]
+    }
+
+    loki.write "local" {
+      endpoint {
+        url = "http://127.0.0.1:3100/loki/api/v1/push"
+      }
+    }
+  '';
 }
