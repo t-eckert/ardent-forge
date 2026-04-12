@@ -14,7 +14,7 @@ let
     set -euo pipefail
     export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
 
-    exec op run --env-file ${repoDir}/nix/services/notebook-sync.env -- bash -c '
+    exec op run --env-file ${repoDir}/nix/services/notebook-sync.env -- ${pkgs.bash}/bin/bash -c '
       set -euo pipefail
 
       if [ ! -d "${notebookDir}/.git" ]; then
