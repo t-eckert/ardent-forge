@@ -76,6 +76,10 @@ class TicketsHandler:
         repo_url = f"https://github.com/{self._self_repo}.git"
         repo_path = await self._git.ensure_repo(repo_url, self._self_repo)
 
+        await self._git._run("git fetch origin main", cwd=repo_path)
+        await self._git._run("git checkout main", cwd=repo_path)
+        await self._git._run("git reset --hard origin/main", cwd=repo_path)
+
         plan_abs = Path(repo_path) / plan_rel
         spec_abs = Path(repo_path) / spec_rel
         if not plan_abs.exists() or not spec_abs.exists():
@@ -135,7 +139,7 @@ class TicketsHandler:
             return {"status": "delivered", "error": "missing repo or spec path"}
 
         try:
-            changed = await self._git.get_changed_files(repo_path, base_branch="HEAD")
+            changed = await self._git.get_working_tree_changes(repo_path)
             violation = check_handler_allowlist(
                 handler=self.task_type,
                 repo=self._self_repo,

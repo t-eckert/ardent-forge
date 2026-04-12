@@ -108,3 +108,33 @@ async def test_commit_all_raises_when_nothing_staged(tmp_path):
     git._run = AsyncMock(side_effect=["", ""])
     with pytest.raises(RuntimeError, match="nothing staged"):
         await git.commit_all("/tmp/wt", "empty commit")
+
+
+async def test_get_working_tree_changes_parses_porcelain_output(tmp_path):
+    from unittest.mock import AsyncMock
+    from forge.git import GitOps
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(return_value=" M file.py\n?? new.py\nR  old.py -> new.py\n")
+    result = await git.get_working_tree_changes("/tmp/wt")
+    assert result == ["file.py", "new.py", "new.py"]
+
+
+async def test_get_working_tree_changes_skips_blank_lines(tmp_path):
+    from unittest.mock import AsyncMock
+    from forge.git import GitOps
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(return_value="\n M a.py\n\n?? b.py\n\n")
+    result = await git.get_working_tree_changes("/tmp/wt")
+    assert result == ["a.py", "b.py"]
+
+
+async def test_get_working_tree_changes_uses_git_status_porcelain(tmp_path):
+    from unittest.mock import AsyncMock, call
+    from forge.git import GitOps
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(return_value="")
+    await git.get_working_tree_changes("/tmp/wt")
+    git._run.assert_awaited_once_with("git status --porcelain", cwd="/tmp/wt")

@@ -36,6 +36,20 @@ class GitOps:
     async def get_diff(self, worktree_path: str, base_branch: str) -> str:
         return await self._run(f"git diff {base_branch}...HEAD", cwd=worktree_path)
 
+    async def get_working_tree_changes(self, path: str) -> list[str]:
+        output = await self._run("git status --porcelain", cwd=path)
+        files: list[str] = []
+        for line in output.splitlines():
+            if not line.strip():
+                continue
+            # porcelain format: XY <space> filename   (XY is 2 char status)
+            # for renames: "R  old -> new"
+            rest = line[3:] if len(line) > 3 else ""
+            if " -> " in rest:
+                rest = rest.split(" -> ", 1)[1]
+            files.append(rest.strip())
+        return files
+
     async def get_changed_files(self, worktree_path: str, base_branch: str = "main") -> list[str]:
         output = await self._run(
             f"git diff --name-only {base_branch}...HEAD",

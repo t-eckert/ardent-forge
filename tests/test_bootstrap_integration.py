@@ -70,6 +70,7 @@ async def test_full_bootstrap_loop(tmp_path: Path):
         team_id="t1",
     )
     handler._git.ensure_repo = AsyncMock(return_value=str(repo))
+    handler._git._run = AsyncMock(return_value="")
     result = await handler.execute(tickets_task)
 
     assert result["issue_identifiers"] == ["FORGE-1", "FORGE-2"]

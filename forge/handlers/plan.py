@@ -92,7 +92,7 @@ class PlanHandler:
             logger.error(f"No worktree_path in handler_data for task {task.id}")
             return False
         try:
-            changed = await self._git.get_changed_files(worktree_path, base_branch="main")
+            changed = await self._git.get_working_tree_changes(worktree_path)
         except RuntimeError as e:
             logger.error(f"Failed to list changed files: {e}")
             return False

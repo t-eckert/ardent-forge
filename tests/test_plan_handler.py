@@ -75,7 +75,7 @@ async def test_execute_clones_creates_worktree_and_invokes_claude(tmp_path):
 
 async def test_verify_passes_when_diff_is_plan_and_spec_only():
     handler = PlanHandler(workspace_dir="/tmp/wsp")
-    handler._git.get_changed_files = AsyncMock(return_value=[
+    handler._git.get_working_tree_changes = AsyncMock(return_value=[
         "docs/superpowers/plans/2026-04-15-foo.md",
         "docs/superpowers/specs/2026-04-15-foo.md",
     ])
@@ -86,7 +86,7 @@ async def test_verify_passes_when_diff_is_plan_and_spec_only():
 
 async def test_verify_fails_when_diff_touches_code():
     handler = PlanHandler(workspace_dir="/tmp/wsp")
-    handler._git.get_changed_files = AsyncMock(return_value=[
+    handler._git.get_working_tree_changes = AsyncMock(return_value=[
         "docs/superpowers/plans/2026-04-15-foo.md",
         "forge/main.py",
     ])

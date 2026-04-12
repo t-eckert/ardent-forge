@@ -106,6 +106,7 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
         self_repo="t-eckert/ardent-forge",
     )
     handler._git.ensure_repo = AsyncMock(return_value=str(repo))
+    handler._git._run = AsyncMock(return_value="")
 
     task = _ticket_task(
         "plan: docs/superpowers/plans/2026-04-15-foo.md spec: docs/superpowers/specs/2026-04-15-foo.md"
@@ -119,3 +120,69 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
     from forge.frontmatter import read_spec, SpecStatus
     parsed = read_spec(specs / "2026-04-15-foo.md")
     assert parsed.status == SpecStatus.EXECUTING
+
+
+async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Path):
+    """execute() must reset the working tree to origin/main before reading files."""
+    repo = tmp_path / "repo"
+    plans = repo / "docs" / "superpowers" / "plans"
+    specs = repo / "docs" / "superpowers" / "specs"
+    plans.mkdir(parents=True)
+    specs.mkdir(parents=True)
+    (plans / "2026-04-15-foo.md").write_text(
+        "# Foo Plan\n\n## Task 1: One\n\nbody1\n"
+    )
+    (specs / "2026-04-15-foo.md").write_text(
+        "---\nstatus: planned\ntitle: Foo\n---\n\nbody\n"
+    )
+
+    linear = AsyncMock()
+    linear.create_project = AsyncMock(return_value=("p1", "https://linear.app/x/p1"))
+    linear.get_label_id = AsyncMock(return_value=None)
+    linear.create_issue = AsyncMock(return_value=("i1", "FORGE-1", "u1"))
+
+    handler = TicketsHandler(
+        workspace_dir="/tmp/w", linear=linear, team_id="t1",
+        self_repo="t-eckert/ardent-forge",
+    )
+    handler._git.ensure_repo = AsyncMock(return_value=str(repo))
+    handler._git._run = AsyncMock(return_value="")
+
+    task = _ticket_task(
+        "plan: docs/superpowers/plans/2026-04-15-foo.md spec: docs/superpowers/specs/2026-04-15-foo.md"
+    )
+    await handler.execute(task)
+
+    run_calls = [call[0][0] for call in handler._git._run.call_args_list]
+    assert any("fetch origin main" in c for c in run_calls), "missing: git fetch origin main"
+    assert any("checkout main" in c for c in run_calls), "missing: git checkout main"
+    assert any("reset --hard origin/main" in c for c in run_calls), "missing: git reset --hard origin/main"
+
+    # Verify the fetch/checkout/reset appear before any subsequent file-reading step
+    fetch_idx = next(i for i, c in enumerate(run_calls) if "fetch origin main" in c)
+    checkout_idx = next(i for i, c in enumerate(run_calls) if "checkout main" in c)
+    reset_idx = next(i for i, c in enumerate(run_calls) if "reset --hard origin/main" in c)
+    assert fetch_idx < checkout_idx < reset_idx
+
+
+async def test_tickets_deliver_uses_working_tree_changes():
+    """deliver() must call get_working_tree_changes, not get_changed_files."""
+    handler = TicketsHandler(
+        workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1",
+        self_repo="t-eckert/ardent-forge",
+    )
+    handler._git.get_working_tree_changes = AsyncMock(return_value=["docs/superpowers/specs/2026-04-15-foo.md"])
+    handler._git.commit_all = AsyncMock(return_value=None)
+    handler._git._run = AsyncMock(return_value="")
+
+    task = _ticket_task("plan: docs/superpowers/plans/x.md spec: docs/superpowers/specs/x.md")
+    task.handler_data = {
+        "repo_path": "/tmp/repo",
+        "spec_path": "docs/superpowers/specs/2026-04-15-foo.md",
+        "project_url": "https://linear.app/x/p1",
+        "issue_identifiers": ["FORGE-1"],
+    }
+    result = await handler.deliver(task)
+
+    handler._git.get_working_tree_changes.assert_awaited_once_with("/tmp/repo")
+    assert result["status"] == "delivered"
