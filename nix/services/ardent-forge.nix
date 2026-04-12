@@ -13,10 +13,12 @@ in {
     requires = [ "postgresql.service" ];
 
     path = with pkgs; [
+      bash
+      coreutils
       git
       gh
       _1password-cli
-      nodejs_22  # for Claude Code CLI
+      nodejs_22
       uv
     ];
 
