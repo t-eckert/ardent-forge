@@ -26,6 +26,10 @@ in {
       FORGE_HOST = "127.0.0.1";
       FORGE_PORT = "7030";
       HOME = "/home/${locals.username}";
+      # Force uv to use Nix-provided Python instead of downloading its own
+      # (NixOS can't run dynamically linked binaries from generic Linux)
+      UV_PYTHON = "${pkgs.python313}/bin/python3";
+      UV_PYTHON_DOWNLOADS = "never";
     };
 
     serviceConfig = {
