@@ -36,3 +36,15 @@ class NotebookReader:
 
     def read(self, path: str) -> str:
         return self._resolve(path).read_text()
+
+    def list_dir(self, path: str) -> list[str]:
+        target = self._resolve(path) if path else self._root
+        if not target.is_dir():
+            raise NotADirectoryError(f"Not a directory: {path}")
+        return [p.name for p in target.iterdir()]
+
+    def exists(self, path: str) -> bool:
+        try:
+            return self._resolve(path).exists()
+        except ValueError:
+            return False

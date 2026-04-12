@@ -35,3 +35,38 @@ def test_read_missing_file_raises_filenotfound(vault: Path):
     reader = NotebookReader(vault)
     with pytest.raises(FileNotFoundError):
         reader.read("Wiki/Does-Not-Exist.md")
+
+
+def test_list_dir_returns_entries(vault: Path):
+    reader = NotebookReader(vault)
+    entries = sorted(reader.list_dir("Wiki"))
+    assert entries == ["Kubernetes.md"]
+
+
+def test_list_dir_nested(vault: Path):
+    reader = NotebookReader(vault)
+    entries = sorted(reader.list_dir("Fields/Redpanda"))
+    assert entries == ["Customers.md"]
+
+
+def test_list_dir_empty_string_is_root(vault: Path):
+    reader = NotebookReader(vault)
+    entries = sorted(reader.list_dir(""))
+    assert "Wiki" in entries
+    assert "Fields" in entries
+
+
+def test_exists_true(vault: Path):
+    reader = NotebookReader(vault)
+    assert reader.exists("Wiki/Kubernetes.md") is True
+
+
+def test_exists_false(vault: Path):
+    reader = NotebookReader(vault)
+    assert reader.exists("Wiki/Does-Not-Exist.md") is False
+
+
+def test_list_dir_rejects_traversal(vault: Path):
+    reader = NotebookReader(vault)
+    with pytest.raises(ValueError):
+        reader.list_dir("../")
