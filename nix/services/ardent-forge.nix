@@ -34,6 +34,9 @@ in {
       Group = "users";
       WorkingDirectory = repoDir;
 
+      # Load 1Password service account token
+      EnvironmentFile = "/etc/ardent-forge/op-token";
+
       # 1Password injects secrets as env vars
       ExecStart = pkgs.writeShellScript "ardent-forge-start" ''
         exec ${pkgs._1password-cli}/bin/op run \
