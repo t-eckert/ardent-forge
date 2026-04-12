@@ -59,12 +59,6 @@
   };
   programs.zsh.enable = true;
 
-  # ── Sudo ────────────────────────────────────────────────
-  security.sudo.extraRules = [{
-    users = [ locals.username ];
-    commands = [{ command = "ALL"; options = [ "NOPASSWD" ]; }];
-  }];
-
   # ── SSH ─────────────────────────────────────────────────
   services.openssh = {
     enable = true;
