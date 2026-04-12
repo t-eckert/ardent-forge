@@ -43,6 +43,10 @@ class ClaudeRunner:
         logger.info(
             f"Running Claude Code in {work_dir} (model={self._model}, timeout={self._timeout}s)"
         )
+        env = {**os.environ, "CLAUDE_NO_TELEMETRY": "1"}
+        # Claude CLI reads ANTHROPIC_API_KEY (unprefixed); config uses FORGE_ prefix.
+        if "ANTHROPIC_API_KEY" not in env and "FORGE_ANTHROPIC_API_KEY" in env:
+            env["ANTHROPIC_API_KEY"] = env["FORGE_ANTHROPIC_API_KEY"]
         proc = await asyncio.create_subprocess_exec(
             "claude",
             "--print",
@@ -54,7 +58,7 @@ class ClaudeRunner:
             cwd=work_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, "CLAUDE_NO_TELEMETRY": "1"},
+            env=env,
         )
         try:
             stdout, stderr = await asyncio.wait_for(
@@ -66,7 +70,7 @@ class ClaudeRunner:
             raise TimeoutError(f"Claude Code timed out after {self._timeout}s")
         output = stdout.decode()
         if proc.returncode != 0:
-            error = stderr.decode()
+            error = stderr.decode().strip() or output.strip() or "(no output)"
             logger.error(f"Claude Code failed (rc={proc.returncode}): {error}")
             raise RuntimeError(f"Claude Code failed: {error}")
         return output
