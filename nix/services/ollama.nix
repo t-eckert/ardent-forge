@@ -23,7 +23,7 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${pkgs.ollama}/bin/ollama pull qwen2.5:3b";
+      ExecStart = "${pkgs.ollama-cpu}/bin/ollama pull qwen2.5:3b";
     };
   };
 }
