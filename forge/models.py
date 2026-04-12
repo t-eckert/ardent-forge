@@ -22,6 +22,8 @@ class TaskType(StrEnum):
     REPORT = "report"
     NOTEBOOK = "notebook"
     TRIAGE = "triage"
+    PLAN = "plan"
+    TICKETS = "tickets"
 
 
 class TaskSource(StrEnum):

@@ -42,3 +42,9 @@ def test_task_to_row_and_back():
     assert restored.title == task.title
     assert restored.status == task.status
     assert restored.handler_data == task.handler_data
+
+
+def test_task_type_includes_plan_and_tickets():
+    from forge.models import TaskType
+    assert TaskType.PLAN == "plan"
+    assert TaskType.TICKETS == "tickets"
