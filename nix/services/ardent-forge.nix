@@ -17,6 +17,8 @@ in {
       coreutils
       git
       gh
+      openssh
+      ripgrep
       _1password-cli
       nodejs_22
       uv
