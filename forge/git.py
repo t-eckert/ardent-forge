@@ -36,6 +36,13 @@ class GitOps:
     async def get_diff(self, worktree_path: str, base_branch: str) -> str:
         return await self._run(f"git diff {base_branch}...HEAD", cwd=worktree_path)
 
+    async def get_changed_files(self, worktree_path: str, base_branch: str = "main") -> list[str]:
+        output = await self._run(
+            f"git diff --name-only {base_branch}...HEAD",
+            cwd=worktree_path,
+        )
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
     async def create_pr(
         self,
         worktree_path: str,

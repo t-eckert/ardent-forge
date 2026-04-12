@@ -71,3 +71,32 @@ async def test_execute_clones_creates_worktree_and_invokes_claude(tmp_path):
     assert result["spec_path"] == "docs/superpowers/specs/2026-04-15-foo.md"
     assert result["branch_name"].startswith("forge/plan-")
     handler._claude.run.assert_awaited_once()
+
+
+async def test_verify_passes_when_diff_is_plan_and_spec_only():
+    handler = PlanHandler(workspace_dir="/tmp/wsp")
+    handler._git.get_changed_files = AsyncMock(return_value=[
+        "docs/superpowers/plans/2026-04-15-foo.md",
+        "docs/superpowers/specs/2026-04-15-foo.md",
+    ])
+    task = _task()
+    task.handler_data = {"worktree_path": "/tmp/wt"}
+    assert await handler.verify(task) is True
+
+
+async def test_verify_fails_when_diff_touches_code():
+    handler = PlanHandler(workspace_dir="/tmp/wsp")
+    handler._git.get_changed_files = AsyncMock(return_value=[
+        "docs/superpowers/plans/2026-04-15-foo.md",
+        "forge/main.py",
+    ])
+    task = _task()
+    task.handler_data = {"worktree_path": "/tmp/wt"}
+    assert await handler.verify(task) is False
+
+
+async def test_verify_fails_when_no_worktree():
+    handler = PlanHandler(workspace_dir="/tmp/wsp")
+    task = _task()
+    task.handler_data = {}
+    assert await handler.verify(task) is False

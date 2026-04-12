@@ -4,6 +4,7 @@ from pathlib import Path
 
 from forge.claude import ClaudeRunner
 from forge.git import GitOps
+from forge.guardrails import check_handler_allowlist
 from forge.models import Task
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,27 @@ class PlanHandler:
         }
 
     async def verify(self, task: Task) -> bool:
-        raise NotImplementedError  # Task 7
+        worktree_path = task.handler_data.get("worktree_path")
+        if not worktree_path:
+            logger.error(f"No worktree_path in handler_data for task {task.id}")
+            return False
+        try:
+            changed = await self._git.get_changed_files(worktree_path, base_branch="main")
+        except RuntimeError as e:
+            logger.error(f"Failed to list changed files: {e}")
+            return False
+        violation = check_handler_allowlist(
+            handler=self.task_type,
+            repo=self._self_repo,
+            changed_files=changed,
+        )
+        if violation:
+            logger.error(f"Verification failed for task {task.id}: {violation}")
+            return False
+        if not changed:
+            logger.error(f"Plan handler produced no changes for task {task.id}")
+            return False
+        return True
 
     async def deliver(self, task: Task) -> dict:
         raise NotImplementedError  # Task 8

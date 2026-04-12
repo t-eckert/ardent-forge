@@ -73,3 +73,13 @@ async def _run(cmd: str) -> str:
     )
     stdout, _ = await proc.communicate()
     return stdout.decode()
+
+
+async def test_get_changed_files_parses_git_output(tmp_path):
+    from unittest.mock import AsyncMock
+    from forge.git import GitOps
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(return_value="a.py\nb/c.py\n\n")
+    result = await git.get_changed_files("/tmp/wt", base_branch="main")
+    assert result == ["a.py", "b/c.py"]
