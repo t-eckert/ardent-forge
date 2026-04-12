@@ -46,3 +46,9 @@ class NotebookWriter:
         except Exception:
             Path(tmp_path).unlink(missing_ok=True)
             raise
+
+    def append(self, path: str, content: str) -> None:
+        target = self._validate_and_resolve(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "a") as f:
+            f.write(content)

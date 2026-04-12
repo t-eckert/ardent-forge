@@ -71,3 +71,22 @@ def test_allowed_prefixes_exposed():
     assert "Wiki/" in ALLOWED_WRITE_PREFIXES
     assert "Fields/" in ALLOWED_WRITE_PREFIXES
     assert "Log/" in ALLOWED_WRITE_PREFIXES
+
+
+def test_append_creates_file_if_missing(vault: Path):
+    writer = NotebookWriter(vault)
+    writer.append("Log/2026-04-12.md", "first line\n")
+    assert (vault / "Log" / "2026-04-12.md").read_text() == "first line\n"
+
+
+def test_append_extends_existing_file(vault: Path):
+    (vault / "Log" / "2026-04-12.md").write_text("existing\n")
+    writer = NotebookWriter(vault)
+    writer.append("Log/2026-04-12.md", "added\n")
+    assert (vault / "Log" / "2026-04-12.md").read_text() == "existing\nadded\n"
+
+
+def test_append_enforces_allowlist(vault: Path):
+    writer = NotebookWriter(vault)
+    with pytest.raises(NotebookWriteError):
+        writer.append("People/Alice.md", "no")
