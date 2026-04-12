@@ -83,3 +83,26 @@ class ResearchHandler:
                 continue
             return True
         return False
+
+    async def deliver(self, task: Task) -> dict:
+        new_files = task.handler_data.get("new_files", [])
+        summaries: list[dict] = []
+        for rel in new_files:
+            if not any(rel.startswith(prefix) for prefix in ALLOWED_WRITE_PREFIXES):
+                continue
+            path = self._root / rel
+            if not path.is_file():
+                continue
+            text = path.read_text()
+            summaries.append(
+                {
+                    "path": rel,
+                    "word_count": len(text.split()),
+                    "preview": text[:500],
+                }
+            )
+        return {
+            "status": "delivered",
+            "files": summaries,
+            "notebook_commit_pending": True,
+        }

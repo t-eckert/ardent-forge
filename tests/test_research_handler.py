@@ -247,3 +247,52 @@ async def test_verify_false_when_file_missing_from_disk(handler: ResearchHandler
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Vanished.md"]}
     assert await handler.verify(task) is False
+
+
+@pytest.mark.asyncio
+async def test_deliver_returns_summaries(handler: ResearchHandler, vault: Path):
+    content = "# OpenClaw\n\nAn agentic platform built on Claude.\n" + ("word " * 50)
+    (vault / "Wiki" / "OpenClaw.md").write_text(content)
+
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/OpenClaw.md"]}
+
+    result = await handler.deliver(task)
+    assert result["status"] == "delivered"
+    assert result["notebook_commit_pending"] is True
+    assert len(result["files"]) == 1
+    summary = result["files"][0]
+    assert summary["path"] == "Wiki/OpenClaw.md"
+    assert summary["word_count"] >= 50
+    assert summary["preview"].startswith("# OpenClaw")
+
+
+@pytest.mark.asyncio
+async def test_deliver_truncates_preview(handler: ResearchHandler, vault: Path):
+    long = "a" * 2000
+    (vault / "Wiki" / "Long.md").write_text(long)
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Long.md"]}
+    result = await handler.deliver(task)
+    assert len(result["files"][0]["preview"]) == 500
+
+
+@pytest.mark.asyncio
+async def test_deliver_skips_files_outside_allowlist(handler: ResearchHandler, vault: Path):
+    (vault / "Wiki" / "Keep.md").write_text("x" * 300)
+    (vault / "People" / "Skip.md").write_text("x" * 300)
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Keep.md", "People/Skip.md"]}
+    result = await handler.deliver(task)
+    paths = [f["path"] for f in result["files"]]
+    assert paths == ["Wiki/Keep.md"]
+
+
+@pytest.mark.asyncio
+async def test_deliver_skips_missing_files(handler: ResearchHandler, vault: Path):
+    (vault / "Wiki" / "Real.md").write_text("x" * 300)
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Real.md", "Wiki/Gone.md"]}
+    result = await handler.deliver(task)
+    paths = [f["path"] for f in result["files"]]
+    assert paths == ["Wiki/Real.md"]
