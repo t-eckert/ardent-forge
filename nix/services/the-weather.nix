@@ -14,6 +14,10 @@
 
     serviceConfig = {
       Type = "simple";
+
+      # Load 1Password service account token (same one ardent-forge uses)
+      EnvironmentFile = "/etc/ardent-forge/op-token";
+
       ExecStartPre = "${pkgs.podman}/bin/podman pull ghcr.io/t-eckert/the-weather:latest";
       ExecStart = pkgs.writeShellScript "the-weather-start" ''
         exec op run --env-file /data/ardent-forge/the-weather.env -- \
