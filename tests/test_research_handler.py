@@ -199,3 +199,51 @@ async def test_execute_retry_passes_context_to_prompt(handler: ResearchHandler, 
     await handler.execute(task)
     assert "Previous Attempt" in prompts[1]
     assert "first failure message" in prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_verify_true_when_new_file_in_allowed_dir_with_content(handler: ResearchHandler, vault: Path):
+    (vault / "Wiki" / "Ok.md").write_text("x" * 300)
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Ok.md"]}
+    assert await handler.verify(task) is True
+
+
+@pytest.mark.asyncio
+async def test_verify_false_when_no_new_files(handler: ResearchHandler):
+    task = _research_task()
+    task.handler_data = {"new_files": []}
+    assert await handler.verify(task) is False
+
+
+@pytest.mark.asyncio
+async def test_verify_false_when_file_too_small(handler: ResearchHandler, vault: Path):
+    (vault / "Wiki" / "Stub.md").write_text("tiny")
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Stub.md"]}
+    assert await handler.verify(task) is False
+
+
+@pytest.mark.asyncio
+async def test_verify_false_when_only_file_is_outside_allowlist(handler: ResearchHandler, vault: Path):
+    (vault / "People" / "Foo.md").write_text("x" * 300)
+    task = _research_task()
+    task.handler_data = {"new_files": ["People/Foo.md"]}
+    assert await handler.verify(task) is False
+
+
+@pytest.mark.asyncio
+async def test_verify_true_when_mixed_files_include_valid_one(handler: ResearchHandler, vault: Path):
+    (vault / "People" / "Foo.md").write_text("x" * 300)
+    (vault / "Fields").mkdir(exist_ok=True)
+    (vault / "Fields" / "Redpanda.md").write_text("x" * 300)
+    task = _research_task()
+    task.handler_data = {"new_files": ["People/Foo.md", "Fields/Redpanda.md"]}
+    assert await handler.verify(task) is True
+
+
+@pytest.mark.asyncio
+async def test_verify_false_when_file_missing_from_disk(handler: ResearchHandler):
+    task = _research_task()
+    task.handler_data = {"new_files": ["Wiki/Vanished.md"]}
+    assert await handler.verify(task) is False

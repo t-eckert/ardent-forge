@@ -70,3 +70,16 @@ class ResearchHandler:
             "claude_output": output[:2000],
             "new_files": new_files,
         }
+
+    async def verify(self, task: Task) -> bool:
+        new_files = task.handler_data.get("new_files", [])
+        for rel in new_files:
+            if not any(rel.startswith(prefix) for prefix in ALLOWED_WRITE_PREFIXES):
+                continue
+            path = self._root / rel
+            if not path.is_file():
+                continue
+            if path.stat().st_size < MIN_FILE_BYTES:
+                continue
+            return True
+        return False
