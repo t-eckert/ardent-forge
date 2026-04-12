@@ -77,6 +77,20 @@ def run():
             )
         )
 
+        if notebook_reader is not None:
+            from forge.claude import ClaudeRunner
+            from forge.handlers.research import ResearchHandler
+
+            registry.register(
+                ResearchHandler(
+                    claude_runner=ClaudeRunner(
+                        model="claude-sonnet-4-20250514",
+                        timeout=600,
+                    ),
+                    notebook_root=Path(settings.notebook_dir),
+                )
+            )
+
         poller = None
         if settings.linear_api_key and settings.linear_team_id:
             from forge.linear.client import LinearClient
