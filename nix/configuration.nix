@@ -10,6 +10,7 @@
     ./services/ntfy.nix
     ./services/the-weather.nix
     ./services/autodeploy.nix
+    ./services/notebook-sync.nix
   ];
 
   # ── System ──────────────────────────────────────────────
