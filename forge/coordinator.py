@@ -16,11 +16,13 @@ class Coordinator:
         registry: HandlerRegistry,
         max_concurrent: int = 2,
         poller=None,
+        watchers: list | None = None,
     ):
         self._store = store
         self._registry = registry
         self._max_concurrent = max_concurrent
         self._poller = poller
+        self._watchers = watchers or []
 
     async def startup(self):
         """Called once on application start. Resets stuck tasks."""
@@ -37,6 +39,15 @@ class Coordinator:
                     logger.info(f"Ingested {created} tasks from Linear")
             except Exception:
                 logger.exception("Error polling Linear")
+
+        for watcher in self._watchers:
+            try:
+                n = await watcher.poll()
+                if n > 0:
+                    logger.info(f"Watcher {watcher.__class__.__name__} enqueued {n} tasks")
+            except Exception:
+                logger.exception(f"Error in watcher {watcher.__class__.__name__}")
+
         return await self.process_pending()
 
     async def process_pending(self) -> int:

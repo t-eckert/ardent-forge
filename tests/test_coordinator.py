@@ -104,3 +104,26 @@ async def test_coordinator_tick_processes_and_returns(coordinator, store):
 
     processed = await coordinator.tick()
     assert processed == 1
+
+
+async def test_coordinator_calls_extra_watchers_in_tick():
+    from unittest.mock import AsyncMock
+
+    class FakeStore:
+        async def list_pending(self, limit):
+            return []
+
+        async def reset_active_tasks(self):
+            return 0
+
+    store = FakeStore()
+    registry = HandlerRegistry()
+    w1 = AsyncMock()
+    w1.poll = AsyncMock(return_value=2)
+    w2 = AsyncMock()
+    w2.poll = AsyncMock(return_value=0)
+
+    coord = Coordinator(store=store, registry=registry, watchers=[w1, w2])
+    await coord.tick()
+    w1.poll.assert_awaited_once()
+    w2.poll.assert_awaited_once()
