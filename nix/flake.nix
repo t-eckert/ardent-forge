@@ -18,7 +18,9 @@
 
   outputs = { self, nixpkgs, home-manager, dotfiles }:
     let
-      locals = import ./locals.nix;
+      # locals.nix is gitignored, so we import from an absolute path.
+      # On the Bee Link this lives alongside the repo checkout.
+      locals = import /data/ardent-forge/repo/nix/locals.nix;
     in {
     nixosConfigurations.ardent-forge = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
