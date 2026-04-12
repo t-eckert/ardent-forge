@@ -19,6 +19,7 @@ in {
       gh
       openssh
       ripgrep
+      claude-code
       _1password-cli
       nodejs_22
       uv
