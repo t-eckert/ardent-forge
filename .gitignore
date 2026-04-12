@@ -11,9 +11,6 @@ forge.db
 # NixOS local config (contains tailnet domain, SSH keys)
 nix/locals.nix
 
-# NixOS flake.lock — generated on first build, conflicts with deploys
-nix/flake.lock
-
 # SvelteKit
 ui/node_modules/
 ui/.svelte-kit/

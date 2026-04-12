@@ -5,7 +5,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      # Pinned to match dotfiles' home-manager; newer commits broke
+      # programs.zsh.initContent (list-vs-string type change).
+      url = "github:nix-community/home-manager/f4ad5068ee8e89e4a7c2e963e10dd35cd77b37b7";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
