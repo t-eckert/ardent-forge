@@ -7,12 +7,21 @@
 
 {
   imports = [
-    # Dotfiles modules — full shell/editor/git config
+    # Dotfiles modules — shell/git/starship config
+    # neovim.nix skipped — its extraPackages references removed nodePackages
     "${dotfiles}/nix/home/shell.nix"
     "${dotfiles}/nix/home/git.nix"
-    "${dotfiles}/nix/home/programs/neovim.nix"
     "${dotfiles}/nix/home/programs/starship.nix"
   ];
+
+  # Neovim — configured here since dotfiles neovim.nix has nixpkgs compat issues
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+    viAlias = true;
+    vimAlias = true;
+    vimdiffAlias = true;
+  };
 
   home = {
     username = locals.username;
