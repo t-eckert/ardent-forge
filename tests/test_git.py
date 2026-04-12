@@ -83,3 +83,28 @@ async def test_get_changed_files_parses_git_output(tmp_path):
     git._run = AsyncMock(return_value="a.py\nb/c.py\n\n")
     result = await git.get_changed_files("/tmp/wt", base_branch="main")
     assert result == ["a.py", "b/c.py"]
+
+
+async def test_commit_all_stages_and_commits(tmp_path):
+    from unittest.mock import AsyncMock, call
+    from forge.git import GitOps
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(side_effect=["", "M  some_file.py\n", ""])
+    await git.commit_all("/tmp/wt", "plan: add feature")
+    assert git._run.call_count == 3
+    calls = git._run.call_args_list
+    assert "git add -A" in calls[0][0][0]
+    assert "git status --porcelain" in calls[1][0][0]
+    assert 'git commit -m "plan: add feature"' in calls[2][0][0]
+
+
+async def test_commit_all_raises_when_nothing_staged(tmp_path):
+    from unittest.mock import AsyncMock
+    from forge.git import GitOps
+    import pytest
+
+    git = GitOps(str(tmp_path))
+    git._run = AsyncMock(side_effect=["", ""])
+    with pytest.raises(RuntimeError, match="nothing staged"):
+        await git.commit_all("/tmp/wt", "empty commit")

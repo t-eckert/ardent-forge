@@ -100,3 +100,24 @@ async def test_verify_fails_when_no_worktree():
     task = _task()
     task.handler_data = {}
     assert await handler.verify(task) is False
+
+
+async def test_deliver_commits_opens_pr_and_returns_url():
+    handler = PlanHandler(workspace_dir="/tmp/wsp")
+    handler._git.commit_all = AsyncMock(return_value=None)
+    handler._git.create_pr = AsyncMock(return_value="https://github.com/x/y/pull/1")
+    handler._git.cleanup_worktree = AsyncMock(return_value=None)
+
+    task = _task()
+    task.handler_data = {
+        "worktree_path": "/tmp/wt",
+        "repo_path": "/tmp/repo",
+        "branch_name": "forge/plan-abc",
+        "spec_path": "docs/superpowers/specs/2026-04-15-foo.md",
+    }
+    result = await handler.deliver(task)
+
+    assert result["status"] == "delivered"
+    assert result["pr_url"] == "https://github.com/x/y/pull/1"
+    handler._git.commit_all.assert_awaited_once()
+    handler._git.create_pr.assert_awaited_once()

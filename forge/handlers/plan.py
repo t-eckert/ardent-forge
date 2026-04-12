@@ -110,4 +110,40 @@ class PlanHandler:
         return True
 
     async def deliver(self, task: Task) -> dict:
-        raise NotImplementedError  # Task 8
+        worktree_path = task.handler_data.get("worktree_path")
+        repo_path = task.handler_data.get("repo_path")
+        branch_name = task.handler_data.get("branch_name", "")
+        spec_path = task.handler_data.get("spec_path")
+
+        if not worktree_path or not repo_path or not spec_path:
+            return {"status": "delivered", "error": "Missing handler_data"}
+
+        commit_msg = f"plan: {task.title}"
+        await self._git.commit_all(worktree_path, commit_msg)
+
+        body = (
+            f"Plan generated from {spec_path}.\n\n"
+            "On merge, Ardent Forge will create Linear tickets for each numbered step.\n\n"
+            "---\nAutomated by Ardent Forge (plan handler)"
+        )
+        try:
+            pr_url = await self._git.create_pr(
+                worktree_path=worktree_path,
+                title=f"plan: {task.title}",
+                body=body,
+            )
+        except RuntimeError as e:
+            logger.error(f"PR creation failed: {e}")
+            pr_url = f"PR creation failed: {e}"
+
+        try:
+            await self._git.cleanup_worktree(repo_path, worktree_path)
+        except RuntimeError:
+            logger.warning(f"Failed to cleanup worktree {worktree_path}")
+
+        return {
+            "status": "delivered",
+            "pr_url": pr_url,
+            "branch": branch_name,
+            "spec_path": spec_path,
+        }

@@ -43,6 +43,14 @@ class GitOps:
         )
         return [line.strip() for line in output.splitlines() if line.strip()]
 
+    async def commit_all(self, worktree_path: str, message: str) -> None:
+        await self._run("git add -A", cwd=worktree_path)
+        status = await self._run("git status --porcelain", cwd=worktree_path)
+        if not status.strip():
+            raise RuntimeError("commit_all called but nothing staged")
+        safe_msg = message.replace('"', '\\"')
+        await self._run(f'git commit -m "{safe_msg}"', cwd=worktree_path)
+
     async def create_pr(
         self,
         worktree_path: str,
