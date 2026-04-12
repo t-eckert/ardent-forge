@@ -35,9 +35,6 @@
             useUserPackages = true;
             extraSpecialArgs = {
               inherit dotfiles;
-              self = dotfiles;  # dotfiles modules expect `self` for package refs
-              isDarwin = false;
-              isLinux = true;
             };
             users.thomaseckert = import ./home.nix;
           };

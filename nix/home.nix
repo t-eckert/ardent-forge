@@ -1,35 +1,70 @@
 # nix/home.nix
-{ config, pkgs, lib, dotfiles, ... }:
+#
+# Standalone home config for the Bee Link. The dotfiles linux config has
+# nixpkgs compatibility issues (nodePackages removed), so we define the
+# essentials here directly. Revisit dotfiles import once dotfiles repo
+# is updated for latest nixpkgs-unstable.
+{ config, pkgs, lib, ... }:
 
 {
-  imports = [
-    # Import the Linux home config from dotfiles
-    # This brings in: zsh, git, neovim, starship, and core packages
-    "${dotfiles}/nix/linux/default.nix"
-  ];
-
   home = {
     username = "thomaseckert";
     homeDirectory = "/home/thomaseckert";
     stateVersion = "24.05";
   };
 
-  # Ardent Forge-specific additions on top of dotfiles
-  home.packages = with pkgs; [
-    # Python tooling for Ardent Forge development
-    uv
-    python313
+  programs.home-manager.enable = true;
 
-    # Container management
+  # Shell
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    autosuggestion.enable = true;
+    syntaxHighlighting.enable = true;
+  };
+
+  programs.starship.enable = true;
+
+  programs.git = {
+    enable = true;
+    userName = "Thomas Eckert";
+    userEmail = "thomas.eckert@hey.com";
+  };
+
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+  };
+
+  home.packages = with pkgs; [
+    # Core tools
+    git
+    gh
+    ripgrep
+    fzf
+    bat
+    jq
+    yq
+    tree
+    curl
+    wget
+    lazygit
+    htop
+
+    # Languages
+    go
+    gopls
+    nodejs_22
+    python313
+    uv
+    deno
+
+    # Containers
     podman
 
-    # Claude Code CLI (installed via npm)
-    # Run: npm install -g @anthropic-ai/claude-code
-    # after first login
-
-    # Monitoring tools
-    prometheus
-    grafana-loki
+    # Terminal
+    zellij
+    atuin
   ];
 
   # Environment variables for dev work
