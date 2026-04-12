@@ -1,29 +1,37 @@
 # nix/services/notebook-sync.nix
 #
 # Runs syncshot against the local Notebook clone, committing and pushing
-# every 30 seconds. Initial clone is performed by ExecStartPre if the
-# directory is empty.
+# every 30 seconds. The clone is created on first start if missing.
+# Everything runs inside `op run` so FORGE_GITHUB_TOKEN is available for
+# both the initial clone and syncshot's push.
 { config, pkgs, lib, locals, ... }:
 
 let
   notebookDir = "/data/ardent-forge/notebook";
-  notebookRepo = "https://github.com/t-eckert/Notebook.git";
   repoDir = "/data/ardent-forge/repo";
 
-  preStart = pkgs.writeShellScript "notebook-sync-pre" ''
+  startScript = pkgs.writeShellScript "notebook-sync-start" ''
     set -euo pipefail
-    export PATH=${lib.makeBinPath [ pkgs.git pkgs.coreutils ]}:$PATH
+    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
 
-    if [ ! -d "${notebookDir}/.git" ]; then
-      echo "Cloning Notebook into ${notebookDir}"
-      git clone "${notebookRepo}" "${notebookDir}"
-    fi
+    exec op run --env-file ${repoDir}/nix/services/notebook-sync.env -- bash -c '
+      set -euo pipefail
 
-    cd "${notebookDir}"
-    git config user.name "Ardent Forge"
-    git config user.email "forge@${locals.tailnetDomain}"
-    # Use FORGE_GITHUB_TOKEN for auth via the credential helper
-    git config credential.helper '!f() { echo "username=x-access-token"; echo "password=$FORGE_GITHUB_TOKEN"; }; f'
+      if [ ! -d "${notebookDir}/.git" ]; then
+        echo "Cloning Notebook into ${notebookDir}"
+        git -c credential.helper= clone \
+          "https://x-access-token:$FORGE_GITHUB_TOKEN@github.com/t-eckert/Notebook.git" \
+          "${notebookDir}"
+      fi
+
+      cd "${notebookDir}"
+      git remote set-url origin https://github.com/t-eckert/Notebook.git
+      git config user.name "Ardent Forge"
+      git config user.email "forge@${locals.tailnetDomain}"
+      git config credential.helper "!f() { echo username=x-access-token; echo \"password=$FORGE_GITHUB_TOKEN\"; }; f"
+
+      exec python3 ${repoDir}/scripts/syncshot.py --period 30
+    '
   '';
 in {
   systemd.services.ardent-forge-notebook-sync = {
@@ -32,10 +40,11 @@ in {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
 
-    path = with pkgs; [ git coreutils python313 ];
-
+    # Neutral HOME — avoids picking up the user's dotfiles git config,
+    # which rewrites https://github.com/ to git@github.com: (no SSH key
+    # is configured for this service, so the rewrite breaks clone/push).
     environment = {
-      HOME = "/home/${locals.username}";
+      HOME = "/data/ardent-forge";
     };
 
     serviceConfig = {
@@ -46,12 +55,7 @@ in {
 
       EnvironmentFile = "/etc/ardent-forge/op-token";
 
-      ExecStartPre = "+${preStart}";
-      ExecStart = pkgs.writeShellScript "notebook-sync-start" ''
-        exec ${pkgs._1password-cli}/bin/op run \
-          --env-file ${repoDir}/nix/services/notebook-sync.env \
-          -- ${pkgs.python313}/bin/python3 ${repoDir}/scripts/syncshot.py --period 30
-      '';
+      ExecStart = "${startScript}";
 
       Restart = "on-failure";
       RestartSec = 30;
