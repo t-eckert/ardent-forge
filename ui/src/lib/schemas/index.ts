@@ -1,4 +1,6 @@
 export * from './primitives';
 export * from './widgets';
-// Higher-level schemas land in later phases:
-//   ./thread, ./agent, ./field, ./task
+export * from './thread';
+export * from './task';
+export * from './agent';
+// Later: ./field
