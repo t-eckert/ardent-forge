@@ -1,7 +1,11 @@
+---
+status: ready-to-plan
+title: Connectors and flexible agents
+---
+
 # Connectors and Flexible Agents — Design Spec
 
 **Date:** 2026-04-12
-**Status:** ready-to-plan
 
 ## Context
 
