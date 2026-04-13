@@ -15,3 +15,6 @@ nix/locals.nix
 ui/node_modules/
 ui/.svelte-kit/
 ui/build/
+
+*storybook.log
+storybook-static

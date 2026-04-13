@@ -1,13 +1,25 @@
 <script lang="ts">
-  interface Props {
-    message: string;
-  }
+	import type { Snippet } from 'svelte';
+	import { cn } from '$lib/utils/cn';
 
-  let { message }: Props = $props();
+	interface Props {
+		title?: string;
+		message?: string;
+		class?: string;
+		children?: Snippet;
+	}
+
+	let { title, message, class: klass, children }: Props = $props();
 </script>
 
 <div
-  class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-200 py-12 dark:border-neutral-800"
+	class={cn(
+		'flex flex-col items-center justify-center gap-2 py-10 text-center',
+		'text-[var(--color-graphite)] font-mono text-[11px] tracking-wider',
+		klass
+	)}
 >
-  <p class="text-sm text-neutral-400 dark:text-neutral-500">{message}</p>
+	{#if title}<div class="text-[var(--color-slate)] text-sm font-sans">{title}</div>{/if}
+	{#if message}<div>{message}</div>{/if}
+	{#if children}{@render children()}{/if}
 </div>
