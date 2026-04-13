@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from forge.api import chat, health, schedules, tasks
 from forge.config import Settings
@@ -22,6 +24,10 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(tasks.router)
     app.include_router(chat.router)
     app.include_router(schedules.router)
+
+    @app.get("/metrics")
+    async def metrics():
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     if db is not None:
         store = TaskStore(db)

@@ -1,7 +1,20 @@
 import asyncio
 import logging
+import time
 
 from forge.handlers import HandlerRegistry
+from forge.metrics import (
+    ACTIVE_TASKS,
+    HANDLER_ERRORS_TOTAL,
+    LINEAR_POLLS_TOTAL,
+    LINEAR_TASKS_INGESTED,
+    QUEUE_DEPTH,
+    TASK_DURATION_SECONDS,
+    TASK_STAGE_DURATION_SECONDS,
+    TASKS_TOTAL,
+    TICK_DURATION_SECONDS,
+    TICKS_TOTAL,
+)
 from forge.models import TaskStatus
 from forge.state import transition
 from forge.store import TaskStore
@@ -32,12 +45,18 @@ class Coordinator:
 
     async def tick(self) -> int:
         """Run one cycle: poll Linear if configured, dequeue pending tasks, process them, return count processed."""
+        tick_start = time.monotonic()
+        TICKS_TOTAL.inc()
+
         if self._poller:
             try:
                 created = await self._poller.poll()
+                LINEAR_POLLS_TOTAL.labels(result="success").inc()
                 if created > 0:
+                    LINEAR_TASKS_INGESTED.inc(created)
                     logger.info(f"Ingested {created} tasks from Linear")
             except Exception:
+                LINEAR_POLLS_TOTAL.labels(result="error").inc()
                 logger.exception("Error polling Linear")
 
         for watcher in self._watchers:
@@ -48,10 +67,13 @@ class Coordinator:
             except Exception:
                 logger.exception(f"Error in watcher {watcher.__class__.__name__}")
 
-        return await self.process_pending()
+        result = await self.process_pending()
+        TICK_DURATION_SECONDS.observe(time.monotonic() - tick_start)
+        return result
 
     async def process_pending(self) -> int:
         pending = await self._store.list_pending(limit=self._max_concurrent)
+        QUEUE_DEPTH.set(len(pending))
         if not pending:
             return 0
 
@@ -65,9 +87,12 @@ class Coordinator:
                 await self._store.mark_failed(
                     task.id, error=f"No handler registered for type '{task.type}'"
                 )
+                TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                 tasks_processed += 1
                 continue
 
+            task_start = time.monotonic()
+            ACTIVE_TASKS.inc()
             try:
                 current_status = TaskStatus.QUEUED
 
@@ -75,11 +100,16 @@ class Coordinator:
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
 
+                stage_start = time.monotonic()
                 can_handle = await handler.triage(task)
+                TASK_STAGE_DURATION_SECONDS.labels(stage="triage").observe(
+                    time.monotonic() - stage_start
+                )
                 if not can_handle:
                     await self._store.mark_failed(
                         task.id, error="Handler declined task during triage"
                     )
+                    TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                     tasks_processed += 1
                     continue
 
@@ -87,7 +117,11 @@ class Coordinator:
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
 
+                stage_start = time.monotonic()
                 result = await handler.execute(task)
+                TASK_STAGE_DURATION_SECONDS.labels(stage="execute").observe(
+                    time.monotonic() - stage_start
+                )
 
                 # Persist execute results so verify/deliver can access them
                 await self._store.update_handler_data(task.id, result)
@@ -98,9 +132,14 @@ class Coordinator:
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
 
+                stage_start = time.monotonic()
                 verified = await handler.verify(task)
+                TASK_STAGE_DURATION_SECONDS.labels(stage="verify").observe(
+                    time.monotonic() - stage_start
+                )
                 if not verified:
                     await self._store.mark_failed(task.id, error="Verification failed")
+                    TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                     tasks_processed += 1
                     continue
 
@@ -108,16 +147,28 @@ class Coordinator:
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
 
+                stage_start = time.monotonic()
                 delivery = await handler.deliver(task)
+                TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
+                    time.monotonic() - stage_start
+                )
 
                 final_result = {**result, **delivery}
                 await self._store.mark_completed(task.id, final_result)
+                TASKS_TOTAL.labels(type=task.type, status="completed").inc()
+                TASK_DURATION_SECONDS.labels(type=task.type).observe(
+                    time.monotonic() - task_start
+                )
                 tasks_processed += 1
 
             except Exception as e:
                 logger.exception(f"Error processing task {task.id}")
                 await self._store.mark_failed(task.id, error=str(e))
+                TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+                HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
                 tasks_processed += 1
+            finally:
+                ACTIVE_TASKS.dec()
 
         return tasks_processed
 

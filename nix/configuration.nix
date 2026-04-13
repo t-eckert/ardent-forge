@@ -59,6 +59,8 @@
     openssh.authorizedKeys.keys = locals.sshKeys;
     shell = pkgs.zsh;
   };
+  # Let Grafana read git-managed dashboard JSON files from the repo
+  users.users.grafana.extraGroups = [ "users" ];
   programs.zsh.enable = true;
 
   # ── SSH ─────────────────────────────────────────────────

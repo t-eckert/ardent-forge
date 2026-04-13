@@ -50,7 +50,7 @@
     port = 9100;
     enabledCollectors = [
       "cpu" "diskstats" "filesystem" "loadavg"
-      "meminfo" "netdev" "stat" "time" "vmstat"
+      "meminfo" "netdev" "stat" "systemd" "time" "vmstat"
     ];
   };
 
@@ -85,13 +85,23 @@
         {
           name = "Prometheus";
           type = "prometheus";
+          uid = "prometheus";
           url = "http://127.0.0.1:9090";
           isDefault = true;
         }
         {
           name = "Loki";
           type = "loki";
+          uid = "loki";
           url = "http://127.0.0.1:3100";
+        }
+      ];
+
+      dashboards.settings.providers = [
+        {
+          name = "default";
+          options.path = "/data/ardent-forge/repo/grafana/dashboards";
+          options.foldersFromFilesStructure = true;
         }
       ];
     };
@@ -151,6 +161,18 @@
     loki.source.journal "journal" {
       max_age    = "12h"
       labels     = { job = "systemd-journal", host = "ardent-forge" }
+      forward_to = [loki.relabel.journal.receiver]
+    }
+
+    loki.relabel "journal" {
+      rule {
+        source_labels = ["__journal__systemd_unit"]
+        target_label  = "unit"
+      }
+      rule {
+        source_labels = ["__journal_priority_keyword"]
+        target_label  = "level"
+      }
       forward_to = [loki.write.local.receiver]
     }
 
