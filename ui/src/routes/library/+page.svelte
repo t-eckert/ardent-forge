@@ -1,7 +1,5 @@
 <script lang="ts">
-	// LibraryIndex will land in Phase 7.
+	import { LibraryIndex } from '$lib/library';
 </script>
 
-<div class="p-8">
-	<p class="font-mono text-xs tracking-wider text-neutral-500">LIBRARY · placeholder</p>
-</div>
+<LibraryIndex />

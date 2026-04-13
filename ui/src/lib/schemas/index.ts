@@ -3,4 +3,4 @@ export * from './widgets';
 export * from './thread';
 export * from './task';
 export * from './agent';
-// Later: ./field
+export * from './field';
