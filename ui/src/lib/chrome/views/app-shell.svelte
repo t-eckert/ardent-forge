@@ -4,6 +4,8 @@
 	import Sidebar from '../components/sidebar.svelte';
 	import BreadcrumbStrip from '../components/breadcrumb-strip.svelte';
 	import { chromeState } from '../state/chrome.state.svelte';
+	import { PaletteOverlay, mountPaletteKeybinding } from '$lib/palette';
+	import { MOCK_RESULTS } from '$lib/palette/_stories/mock-data';
 
 	interface Props {
 		children: Snippet;
@@ -14,6 +16,11 @@
 	const path = $derived(page.url?.pathname ?? '/');
 	const activeSpine = $derived(chromeState.spineFor(path));
 	const trail = $derived(chromeState.breadcrumbFor(path));
+
+	$effect(() => {
+		const off = mountPaletteKeybinding();
+		return off;
+	});
 </script>
 
 <div class="flex min-h-screen bg-[var(--color-paper)]">
@@ -25,3 +32,5 @@
 		</div>
 	</main>
 </div>
+
+<PaletteOverlay results={MOCK_RESULTS} />
