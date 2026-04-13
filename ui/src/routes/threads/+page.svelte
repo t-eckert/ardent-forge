@@ -1,7 +1,9 @@
 <script lang="ts">
-	// ThreadsListView will land in Phase 6.
+	import { ThreadsView } from '$lib/threads';
+	import { makeThreadList, makeRenameThread } from '$lib/mocks';
+
+	// Expose the rename thread alongside the default list so it's routable to /threads/thread-rename-t-client
+	const threads = [makeRenameThread(), ...makeThreadList()];
 </script>
 
-<div class="p-8">
-	<p class="font-mono text-xs tracking-wider text-neutral-500">THREADS · placeholder</p>
-</div>
+<ThreadsView {threads} />

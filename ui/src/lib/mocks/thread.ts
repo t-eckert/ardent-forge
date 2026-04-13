@@ -1,4 +1,5 @@
-import { Thread, type Thread as ThreadT } from '$lib/schemas/thread';
+import { Thread, ThreadDetail, type Thread as ThreadT, type ThreadDetail as ThreadDetailT } from '$lib/schemas/thread';
+import { makeCodeDiff } from './widgets/code-diff';
 
 export function makeThread(overrides: Partial<ThreadT> = {}): ThreadT {
 	return Thread.parse({
@@ -51,4 +52,40 @@ function hoursAgoIso(h: number): string {
 }
 function daysAgoIso(d: number): string {
 	return new Date(Date.now() - d * 86_400_000).toISOString();
+}
+
+/** A full thread detail seeded with the code.diff conversation from the Chat Widgets artboard. */
+export function makeRenameThread(): ThreadDetailT {
+	const base = makeThread({
+		id: 'thread-rename-t-client',
+		title: 'Rename tClient → temporalClient',
+		preview: 'Found tClient in 4 files. Dry-run diff attached.',
+		kind: 'code+tools',
+		lastActivityIso: minutesAgoIso(12),
+		unread: false,
+		widgetCount: 1
+	});
+	return ThreadDetail.parse({
+		...base,
+		messages: [
+			{
+				role: 'user',
+				id: 'msg-1',
+				iso: minutesAgoIso(14),
+				content: 'Rename tClient to temporalClient across the coordinator package.'
+			},
+			{
+				role: 'assistant',
+				id: 'msg-2',
+				iso: minutesAgoIso(12),
+				toolProfile: 'CODE+TOOLS',
+				text: 'Found tClient in 4 files — 14 occurrences. Proposed rename below; no callers outside the coordinator package, so this is a clean change.',
+				widgets: [makeCodeDiff()]
+			}
+		]
+	});
+}
+
+function minutesAgoIso(m: number): string {
+	return new Date(Date.now() - m * 60_000).toISOString();
 }
