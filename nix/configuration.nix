@@ -84,6 +84,7 @@
     curl
     htop
     _1password-cli
+    claude-code
     ghostty.terminfo
   ];
 
