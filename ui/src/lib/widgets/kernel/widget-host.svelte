@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { WidgetPayload } from '$lib/schemas/widgets';
 	import CodeDiff from '../code-diff/code-diff.svelte';
+	import Weather from '../weather/weather.svelte';
+	import Purchases from '../purchases/purchases.svelte';
+	import Workouts from '../workouts/workouts.svelte';
+	import PlacesMap from '../places-map/places-map.svelte';
 
 	/**
 	 * Renders any tool payload by discriminating on `tool`. Widget-host is the single
@@ -20,8 +24,15 @@
 
 {#if payload.tool === 'code.diff'}
 	<CodeDiff {payload} />
+{:else if payload.tool === 'weather.forecast'}
+	<Weather {payload} />
+{:else if payload.tool === 'finance.purchases'}
+	<Purchases {payload} />
+{:else if payload.tool === 'health.workouts'}
+	<Workouts {payload} />
+{:else if payload.tool === 'places.map'}
+	<PlacesMap {payload} />
 {:else}
-	<!-- unreachable once every tool in the discriminator has a render branch -->
 	<div class="font-mono text-[11px] text-[var(--color-warn)]">
 		unknown tool: {(payload as { tool: string }).tool}
 	</div>
