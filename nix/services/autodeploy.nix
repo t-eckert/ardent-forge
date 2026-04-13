@@ -18,15 +18,20 @@ let
     ])}:$PATH
 
     cd ${repoDir}
-    git config --global --add safe.directory ${repoDir}
 
-    git fetch --quiet origin main || {
+    # Run git operations as the repo owner to avoid creating root-owned
+    # objects in .git/objects/ (nixos-rebuild needs root, git does not).
+    run_as_user() {
+      ${pkgs.sudo}/bin/sudo -u ${locals.username} -- "$@"
+    }
+
+    run_as_user git fetch --quiet origin main || {
       echo "git fetch failed"
       exit 0  # transient — try again next tick
     }
 
-    local_sha=$(git rev-parse HEAD)
-    remote_sha=$(git rev-parse origin/main)
+    local_sha=$(run_as_user git rev-parse HEAD)
+    remote_sha=$(run_as_user git rev-parse origin/main)
 
     if [ "$local_sha" = "$remote_sha" ]; then
       exit 0
@@ -47,9 +52,9 @@ let
     }
 
     short_remote=$(echo "$remote_sha" | cut -c1-8)
-    commit_msg=$(git log -1 --format=%s "$remote_sha" || echo "")
+    commit_msg=$(run_as_user git log -1 --format=%s "$remote_sha" || echo "")
 
-    if ! git pull --ff-only --quiet origin main; then
+    if ! run_as_user git pull --ff-only --quiet origin main; then
       notify "Ardent Forge deploy: git pull failed" \
              "Could not fast-forward to $short_remote" "high"
       exit 1
@@ -75,7 +80,7 @@ $tail" "high"
 in {
   systemd.services.ardent-forge-autodeploy = {
     description = "Pull main and nixos-rebuild switch if there are new commits";
-    # Run as root — nixos-rebuild switch needs it.
+    # Runs as root for nixos-rebuild; git ops are sudo'd to the repo owner.
     environment = {
       HOME = "/root";
     };
