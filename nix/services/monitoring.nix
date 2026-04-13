@@ -63,7 +63,8 @@
       server = {
         http_addr = "127.0.0.1";
         http_port = 3000;
-        root_url = "https://grafana.${locals.tailnetDomain}";
+        root_url = "https://${locals.tailnetDomain}/svc/grafana/";
+        serve_from_sub_path = true;
       };
       security = {
         admin_user = "admin";
@@ -81,21 +82,29 @@
     };
 
     provision = {
-      datasources.settings.datasources = [
-        {
-          name = "Prometheus";
-          type = "prometheus";
-          uid = "prometheus";
-          url = "http://127.0.0.1:9090";
-          isDefault = true;
-        }
-        {
-          name = "Loki";
-          type = "loki";
-          uid = "loki";
-          url = "http://127.0.0.1:3100";
-        }
-      ];
+      datasources.settings = {
+        deleteDatasources = [
+          { name = "Prometheus"; orgId = 1; }
+          { name = "Loki"; orgId = 1; }
+        ];
+        datasources = [
+          {
+            name = "Prometheus";
+            type = "prometheus";
+            uid = "prometheus";
+            url = "http://127.0.0.1:9090";
+            isDefault = true;
+            orgId = 1;
+          }
+          {
+            name = "Loki";
+            type = "loki";
+            uid = "loki";
+            url = "http://127.0.0.1:3100";
+            orgId = 1;
+          }
+        ];
+      };
 
       dashboards.settings.providers = [
         {

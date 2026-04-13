@@ -9,31 +9,23 @@ in {
 
     # Caddy serves all HTTP services behind Tailscale
     virtualHosts = {
-      # Ardent Forge UI + API
       "https://${tsDomain}" = {
         extraConfig = ''
-          reverse_proxy 127.0.0.1:7030
-        '';
-      };
+          # Services under /svc/
+          handle /svc/grafana* {
+            reverse_proxy 127.0.0.1:3000
+          }
+          handle_path /svc/prometheus* {
+            reverse_proxy 127.0.0.1:9090
+          }
+          handle_path /svc/ntfy* {
+            reverse_proxy 127.0.0.1:8090
+          }
 
-      # Grafana
-      "https://grafana.${tsDomain}" = {
-        extraConfig = ''
-          reverse_proxy 127.0.0.1:3000
-        '';
-      };
-
-      # Prometheus (direct access for debugging)
-      "https://prometheus.${tsDomain}" = {
-        extraConfig = ''
-          reverse_proxy 127.0.0.1:9090
-        '';
-      };
-
-      # NTFY
-      "https://ntfy.${tsDomain}" = {
-        extraConfig = ''
-          reverse_proxy 127.0.0.1:8090
+          # Everything else → Ardent Forge UI + API
+          handle {
+            reverse_proxy 127.0.0.1:7030
+          }
         '';
       };
     };
