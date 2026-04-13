@@ -1,0 +1,109 @@
+<script lang="ts">
+	import SpineItem from './spine-item.svelte';
+	import { Sun, ChatCircle, Books, Robot } from '$lib/icons';
+	import { Meta, Eyebrow } from '$lib/typography';
+	import { StatusDot, KeycapHint } from '$lib/components';
+	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
+	import { pinned } from '$lib/stores/pinned.state.svelte';
+	import { sync } from '$lib/stores/sync.state.svelte';
+	import { formatRelative } from '$lib/utils/date';
+
+	interface Props {
+		active: Spine | null;
+		/** ISO date string; when set, the current day's abbreviation is shown next to Today */
+		todayDow?: string;
+		/** Unread thread count */
+		threadCount?: number;
+		/** Total library entries */
+		libraryCount?: number;
+		/** Running agent count */
+		agentsRunning?: number;
+	}
+
+	let {
+		active,
+		todayDow = new Date().toLocaleDateString('en-CA', { weekday: 'short' }).toUpperCase(),
+		threadCount = 0,
+		libraryCount = 0,
+		agentsRunning = 0
+	}: Props = $props();
+
+	const syncTone = $derived(
+		sync.overall === 'failing' ? 'warn' : sync.overall === 'stale' ? 'warn' : 'moss'
+	);
+</script>
+
+<aside
+	class="flex flex-col w-[220px] min-h-screen bg-[var(--color-bench)] border-r border-[var(--color-border)] px-3.5 py-5 gap-0.5"
+>
+	<!-- Brand -->
+	<div class="flex items-center gap-2.5 px-1.5 pb-[18px]">
+		<div
+			class="flex items-center justify-center w-6 h-6 bg-[var(--color-ink)] text-[var(--color-paper)] font-display text-[15px] rounded-[3px]"
+		>
+			A
+		</div>
+		<span class="text-sm font-medium">Ardent Forge</span>
+	</div>
+
+	<!-- Spine -->
+	<SpineItem href="/today" label="Today" icon={Sun} active={active === 'today'}>
+		{#snippet meta()}
+			<Meta size="xs">{todayDow}</Meta>
+		{/snippet}
+	</SpineItem>
+	<SpineItem href="/threads" label="Threads" icon={ChatCircle} active={active === 'threads'}>
+		{#snippet meta()}
+			<Meta size="xs">{threadCount || ''}</Meta>
+		{/snippet}
+	</SpineItem>
+	<SpineItem href="/library" label="Library" icon={Books} active={active === 'library'}>
+		{#snippet meta()}
+			<Meta size="xs">{libraryCount ? libraryCount.toLocaleString() : ''}</Meta>
+		{/snippet}
+	</SpineItem>
+	<SpineItem href="/agents" label="Agents" icon={Robot} active={active === 'agents'}>
+		{#snippet meta()}
+			{#if agentsRunning > 0}
+				<span class="inline-flex items-center gap-1">
+					<StatusDot tone="moss" />
+					<Meta size="xs">{agentsRunning}</Meta>
+				</span>
+			{/if}
+		{/snippet}
+	</SpineItem>
+
+	<!-- Pinned -->
+	{#if pinned.items.length > 0}
+		<div class="pt-5 pb-1.5 px-2.5">
+			<Eyebrow>PINNED</Eyebrow>
+		</div>
+		{#each pinned.items as item (item.id)}
+			<a
+				href={item.href}
+				class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60 rounded"
+			>
+				<span class="font-mono text-[var(--color-graphite)]">◆</span>
+				<span class="truncate">{item.label}</span>
+			</a>
+		{/each}
+	{/if}
+
+	<!-- Footer: ⌘K + sync -->
+	<div class="mt-auto pt-2.5 border-t border-[var(--color-border)]">
+		<div class="flex items-center justify-between px-2.5 py-1">
+			<Meta size="xs">Quick find</Meta>
+			<KeycapHint keys={['⌘', 'K']} />
+		</div>
+		<div class="flex items-center gap-1.5 px-2.5 py-1.5">
+			<StatusDot tone={syncTone} />
+			<Meta size="xs">
+				{#if sync.lastSyncIso}
+					synced · {formatRelative(sync.lastSyncIso)}
+				{:else}
+					no sources
+				{/if}
+			</Meta>
+		</div>
+	</div>
+</aside>
