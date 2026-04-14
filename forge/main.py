@@ -17,6 +17,7 @@ from forge.coordinator import Coordinator
 from forge.db import Database
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
+from forge.orchestrator import ForgeOrchestrator
 from forge.store import TaskStore
 
 
@@ -191,6 +192,20 @@ def run():
             _logging.getLogger(__name__).exception(
                 "self-building watchers disabled: could not clone AF repo"
             )
+
+        # Orchestrator — needs both registries fully populated.
+        orchestrator = ForgeOrchestrator(
+            connectors=connectors,
+            agents=registry,
+            store=store,
+        )
+        chat.configure(
+            store=store,
+            connectors=connectors,
+            orchestrator=orchestrator,
+            anthropic_api_key=settings.anthropic_api_key,
+        )
+        app.state.orchestrator = orchestrator
 
         coordinator = Coordinator(
             store=store,

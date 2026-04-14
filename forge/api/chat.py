@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from forge.connectors import ConnectorRegistry
+from forge.orchestrator import ForgeOrchestrator
 from forge.store import TaskStore
 
 logger = logging.getLogger(__name__)
@@ -13,14 +14,9 @@ router = APIRouter(prefix="/api/chat")
 
 _store: TaskStore | None = None
 _connectors: ConnectorRegistry | None = None
+_orchestrator: ForgeOrchestrator | None = None
 _anthropic_api_key: str | None = None
 _chat_model: str = "claude-sonnet-4-20250514"
-
-SYSTEM_PROMPT = """You are Ardent Forge's assistant. You help the user manage tasks, check on agent activity, answer questions about their projects, and use available tools to look up real-world information.
-
-Use your tools whenever they apply. For example, if the user asks about weather, call the get_weather tool — don't say you can't check it.
-
-When the user asks you to do something that sounds like a long-running task (write code, research something, generate a report), let them know they can create a task for it. But for quick lookups your tools can handle, just answer directly."""
 
 
 def _default_anthropic_client(api_key: str):
@@ -40,13 +36,16 @@ def set_anthropic_client_factory(factory):
 def configure(
     store: TaskStore,
     connectors: ConnectorRegistry | None = None,
+    orchestrator: ForgeOrchestrator | None = None,
     anthropic_api_key: str | None = None,
     model: str | None = None,
 ):
-    global _store, _connectors, _anthropic_api_key, _chat_model
+    global _store, _connectors, _orchestrator, _anthropic_api_key, _chat_model
     _store = store
     if connectors is not None:
         _connectors = connectors
+    if orchestrator is not None:
+        _orchestrator = orchestrator
     _anthropic_api_key = anthropic_api_key
     if model:
         _chat_model = model
@@ -98,10 +97,18 @@ async def send_message(req: ChatRequest):
 
         return StreamingResponse(fallback_stream(), media_type="text/plain")
 
+    orchestrator = _orchestrator
     connectors = _connectors
-    tool_schemas: list[dict] = []
-    if connectors is not None:
-        tool_schemas = [t.to_anthropic_schema() for t in connectors.all_tools()]
+    if orchestrator is not None:
+        system_prompt = orchestrator.system_prompt()
+        tool_schemas = orchestrator.tool_schemas()
+    else:
+        # Back-compat path if the orchestrator wasn't wired (e.g. isolated tests).
+        from forge.orchestrator.persona import PERSONA
+        system_prompt = PERSONA
+        tool_schemas = (
+            [t.to_anthropic_schema() for t in connectors.all_tools()] if connectors else []
+        )
 
     client = _anthropic_client_factory(_anthropic_api_key)
 
@@ -119,7 +126,7 @@ async def send_message(req: ChatRequest):
                 stream_kwargs: dict = {
                     "model": _chat_model,
                     "max_tokens": 4096,
-                    "system": SYSTEM_PROMPT,
+                    "system": system_prompt,
                     "messages": messages,
                 }
                 if tool_schemas:
@@ -144,7 +151,10 @@ async def send_message(req: ChatRequest):
                 for block in final_message.content:
                     if block.type != "tool_use":
                         continue
-                    tool = connectors.find_tool(block.name) if connectors else None
+                    if orchestrator is not None:
+                        tool, _shape = orchestrator.resolve_tool_call(block.name)
+                    else:
+                        tool = connectors.find_tool(block.name) if connectors else None
                     if tool is None:
                         tool_results.append({
                             "type": "tool_result",
