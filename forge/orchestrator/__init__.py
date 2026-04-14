@@ -53,10 +53,15 @@ class ForgeOrchestrator:
             return None
         try:
             idx = self.memory.read_index()
-            return idx or None
         except Exception:
             logger.exception("memory.read_index raised")
             return None
+        try:
+            from forge.metrics import MEMORY_READS_TOTAL
+            MEMORY_READS_TOTAL.inc()
+        except Exception:
+            pass
+        return idx or None
 
     def system_prompt(self, thread_context: ThreadContext | None = None) -> str:
         """Build the system prompt for a turn in the given context."""
@@ -116,6 +121,11 @@ class ForgeOrchestrator:
             task_id=task.id,
         )
         await self.thread_store.mark_activity(thread_id, unread=True)
+        try:
+            from forge.metrics import RESOLUTION_POSTS_TOTAL
+            RESOLUTION_POSTS_TOTAL.labels(agent=agent_label).inc()
+        except Exception:
+            pass
         return msg
 
 

@@ -83,6 +83,11 @@ async def clear_messages():
 
 @router.post("")
 async def send_message(req: ChatRequest):
+    from forge.metrics import CHAT_TURNS_TOTAL, CHAT_TURN_DURATION_SECONDS
+    import time as _time
+
+    turn_start = _time.monotonic()
+    turn_shape = "synchronous"  # updated inside generate() if tools are used
     store = get_store()
 
     # Save user message
@@ -120,7 +125,9 @@ async def send_message(req: ChatRequest):
     ]
 
     async def generate():
+        nonlocal turn_shape
         full_response = ""
+        tool_use_happened = False
         try:
             for _ in range(5):  # cap tool-use loops to prevent runaway
                 stream_kwargs: dict = {
@@ -141,6 +148,7 @@ async def send_message(req: ChatRequest):
                 if final_message.stop_reason != "tool_use":
                     break
 
+                tool_use_happened = True
                 # Append assistant message with tool use blocks
                 messages.append(
                     {"role": "assistant", "content": final_message.content}
@@ -169,6 +177,15 @@ async def send_message(req: ChatRequest):
                         logger.exception("Tool %s raised", block.name)
                         result = {"error": str(exc)}
                     is_error = isinstance(result, dict) and "error" in result
+                    try:
+                        from forge.metrics import CHAT_TOOL_CALLS_TOTAL
+                        CHAT_TOOL_CALLS_TOTAL.labels(
+                            tool=block.name,
+                            connector=getattr(tool, "connector_name", "unknown"),
+                            result="error" if is_error else "ok",
+                        ).inc()
+                    except Exception:
+                        pass
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
@@ -177,12 +194,20 @@ async def send_message(req: ChatRequest):
                     })
 
                 messages.append({"role": "user", "content": tool_results})
+            if tool_use_happened:
+                turn_shape = "synchronous_tool"
         except Exception as e:
             logger.exception("Chat streaming error")
             error_msg = f"\n\n[Error: {e}]"
             full_response += error_msg
             yield error_msg
+            turn_shape = "error"
         finally:
             await store.save_chat_message(role="assistant", content=full_response)
+            try:
+                CHAT_TURNS_TOTAL.labels(shape=turn_shape).inc()
+                CHAT_TURN_DURATION_SECONDS.observe(_time.monotonic() - turn_start)
+            except Exception:
+                pass
 
     return StreamingResponse(generate(), media_type="text/plain")

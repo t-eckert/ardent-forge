@@ -63,3 +63,50 @@ HANDLER_ERRORS_TOTAL = Counter(
     "Unhandled exceptions during task processing",
     ["type"],
 )
+
+# -- Orchestrator / chat --
+
+CHAT_TURNS_TOTAL = Counter(
+    "forge_chat_turns_total",
+    "Chat turns handled by the orchestrator, labelled by turn shape",
+    ["shape"],  # synchronous | task_dispatch | task_resolution | error
+)
+
+CHAT_TOOL_CALLS_TOTAL = Counter(
+    "forge_chat_tool_calls_total",
+    "Tool invocations triggered during a chat turn",
+    ["tool", "connector", "result"],
+)
+
+CHAT_TURN_DURATION_SECONDS = Histogram(
+    "forge_chat_turn_duration_seconds",
+    "Wall-clock time from user message to final assistant token",
+    buckets=[0.5, 1, 2, 5, 10, 20, 60],
+)
+
+RESOLUTION_POSTS_TOTAL = Counter(
+    "forge_resolution_posts_total",
+    "Task resolution messages posted back to origin threads",
+    ["agent"],
+)
+
+# -- Connectors --
+
+CONNECTOR_HEALTH = Gauge(
+    "forge_connector_health",
+    "1 if the connector's health() returned true on last check",
+    ["connector"],
+)
+
+# -- Memory --
+
+MEMORY_READS_TOTAL = Counter(
+    "forge_memory_reads_total",
+    "Memory index loads (once per chat turn that includes memory)",
+)
+
+MEMORY_WRITES_TOTAL = Counter(
+    "forge_memory_writes_total",
+    "Memory file writes — cumulative across types",
+    ["type"],
+)

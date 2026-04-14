@@ -155,6 +155,11 @@ class MemoryStore:
         )
         self._entry_path(fname).write_text(entry.to_markdown())
         self._regenerate_index()
+        try:
+            from forge.metrics import MEMORY_WRITES_TOTAL
+            MEMORY_WRITES_TOTAL.labels(type=type).inc()
+        except Exception:
+            pass  # Metrics are best-effort; never block a memory write.
         return entry
 
     def remove(self, filename: str) -> bool:
