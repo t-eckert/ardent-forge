@@ -24,7 +24,9 @@ from forge.orchestrator.system_prompt import ThreadContext, build_system_prompt
 if TYPE_CHECKING:
     from forge.agents import AgentRegistry
     from forge.connectors import ConnectorRegistry
+    from forge.models import Task
     from forge.store import TaskStore
+    from forge.thread_store import ThreadMessage, ThreadStore
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ class ForgeOrchestrator:
     connectors: "ConnectorRegistry"
     agents: "AgentRegistry"
     store: "TaskStore | None" = None
+    thread_store: "ThreadStore | None" = None
     # Supplied by the memory layer in Phase E. Empty until then.
     memory_index_provider: "callable[[], str] | None" = None
 
@@ -75,6 +78,44 @@ class ForgeOrchestrator:
         """Look up a tool + decide its turn shape. Returns (tool, turn_shape)."""
         tool = self.connectors.find_tool(name) if self.connectors else None
         return tool, decide_turn_shape(tool)
+
+    async def post_resolution(
+        self,
+        *,
+        task: "Task",
+        result: dict,
+    ) -> "ThreadMessage | None":
+        """If this task has an origin thread, post a resolution message to it.
+
+        The message is authored by Forge (role='assistant'), with variant
+        'task-resolved' and a narration produced by narrate_resolution(). The
+        task's final handler_data is attached as a widget payload so the UI can
+        embed the artifact inline.
+
+        Returns the persisted ThreadMessage, or None if the task had no origin
+        thread or the thread_store is not wired.
+        """
+        if self.thread_store is None:
+            return None
+        thread_id = await self.thread_store.origin_thread_for(task.id)
+        if thread_id is None:
+            return None
+
+        agent = self.agents.get(task.type) if self.agents else None
+        agent_label = getattr(agent, "name", task.type)
+
+        narration = narrate_resolution(agent_label, task.title, result or {})
+
+        msg = await self.thread_store.append_message(
+            thread_id=thread_id,
+            role="assistant",
+            content=narration,
+            variant="task-resolved",
+            widgets=[result] if result else [],
+            task_id=task.id,
+        )
+        await self.thread_store.mark_activity(thread_id, unread=True)
+        return msg
 
 
 __all__ = [

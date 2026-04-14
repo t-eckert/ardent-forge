@@ -44,6 +44,42 @@ CREATE TABLE IF NOT EXISTS schedules (
     last_run TEXT,
     next_run TEXT NOT NULL
 );
+
+-- Threads — named conversations. One Forge voice; many threads per user.
+CREATE TABLE IF NOT EXISTS threads (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'chat',
+    last_activity_at TEXT NOT NULL,
+    unread INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+-- Thread messages — supersedes chat_messages. Has thread_id FK + variant
+-- (text | widget | task-dispatched | task-resolved | memory-saved) + optional
+-- widgets JSON payload and optional task_id for dispatch/resolve variants.
+CREATE TABLE IF NOT EXISTS thread_messages (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    variant TEXT NOT NULL DEFAULT 'text',
+    widgets TEXT NOT NULL DEFAULT '[]',
+    task_id TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS thread_messages_thread_id ON thread_messages (thread_id, created_at);
+
+-- Task ↔ Thread join. Many-to-many. A task has at most one 'origin' relation
+-- (drives the resolution post-back); many 'referenced' relations are fine.
+CREATE TABLE IF NOT EXISTS thread_tasks (
+    thread_id TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    relation TEXT NOT NULL CHECK (relation IN ('origin', 'referenced')),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (thread_id, task_id, relation)
+);
+CREATE INDEX IF NOT EXISTS thread_tasks_task_id ON thread_tasks (task_id);
 """
 
 

@@ -19,6 +19,7 @@ from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.orchestrator import ForgeOrchestrator
 from forge.store import TaskStore
+from forge.thread_store import ThreadStore
 
 
 def create_app(db: Database | None = None) -> FastAPI:
@@ -194,10 +195,12 @@ def run():
             )
 
         # Orchestrator — needs both registries fully populated.
+        thread_store = ThreadStore(db)
         orchestrator = ForgeOrchestrator(
             connectors=connectors,
             agents=registry,
             store=store,
+            thread_store=thread_store,
         )
         chat.configure(
             store=store,
@@ -206,12 +209,14 @@ def run():
             anthropic_api_key=settings.anthropic_api_key,
         )
         app.state.orchestrator = orchestrator
+        app.state.thread_store = thread_store
 
         coordinator = Coordinator(
             store=store,
             registry=registry,
             connectors=connectors,
             settings=settings,
+            orchestrator=orchestrator,
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
             watchers=watchers,

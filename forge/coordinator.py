@@ -33,6 +33,7 @@ class Coordinator:
         max_concurrent: int = 2,
         poller=None,
         watchers: list | None = None,
+        orchestrator=None,
     ):
         self._store = store
         self._registry = registry
@@ -41,6 +42,7 @@ class Coordinator:
         self._max_concurrent = max_concurrent
         self._poller = poller
         self._watchers = watchers or []
+        self._orchestrator = orchestrator
 
     async def startup(self):
         """Called once on application start. Resets stuck tasks."""
@@ -177,6 +179,21 @@ class Coordinator:
                 TASK_DURATION_SECONDS.labels(type=task.type).observe(
                     time.monotonic() - task_start
                 )
+
+                # Post-back resolution to the origin thread, if any. Thread-born
+                # tasks get narrated by Forge in the same thread; cron/watcher
+                # tasks stay silent and reveal themselves via state.
+                if self._orchestrator is not None:
+                    try:
+                        reloaded = await self._store.get(task.id)
+                        if reloaded is not None:
+                            await self._orchestrator.post_resolution(
+                                task=reloaded, result=aggregated
+                            )
+                    except Exception:
+                        logger.exception(
+                            "Failed to post resolution for task %s", task.id
+                        )
 
             except Exception as e:
                 logger.exception(f"Error processing task {task.id}")
