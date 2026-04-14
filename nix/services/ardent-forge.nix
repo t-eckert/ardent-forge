@@ -22,6 +22,7 @@ in {
       claude-code
       _1password-cli
       nodejs_22
+      pnpm
       uv
     ];
 
@@ -46,14 +47,16 @@ in {
       # Load 1Password service account token
       EnvironmentFile = "/etc/ardent-forge/op-token";
 
-      # Build UI and sync Python deps before starting
+      # Build UI and sync Python deps before starting.
+      # Uses pnpm (not npm) — our lockfile is pnpm-lock.yaml; npm ci would
+      # choke on the unmaintained package-lock.json.
       ExecStartPre = pkgs.writeShellScript "ardent-forge-pre" ''
         cd ${repoDir}
         ${pkgs.uv}/bin/uv sync --frozen
         if [ ! -d ui/build ] || [ ui/package.json -nt ui/build/index.html ]; then
           cd ui
-          ${pkgs.nodejs_22}/bin/npm ci
-          ${pkgs.nodejs_22}/bin/npm run build
+          ${pkgs.pnpm}/bin/pnpm install --frozen-lockfile --prod=false
+          ${pkgs.pnpm}/bin/pnpm build
         fi
       '';
 
