@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from forge.frontmatter import SpecStatus, read_spec, update_spec_status
-from forge.handlers.tickets import TicketsHandler
+from forge.agents.tickets import TicketsAgent
+from forge.agents import AgentContext
+
+ctx = AgentContext(tools=[], store=None, settings=None)
 from forge.watchers.plan_merge_watcher import PlanMergeWatcher
 from forge.watchers.spec_watcher import SpecWatcher
 
@@ -64,14 +67,14 @@ async def test_full_bootstrap_loop(tmp_path: Path):
         ("i1", "FORGE-1", "u1"),
         ("i2", "FORGE-2", "u2"),
     ])
-    handler = TicketsHandler(
+    handler = TicketsAgent(
         workspace_dir=str(tmp_path / "ws"),
         linear=linear,
         team_id="t1",
     )
     handler._git.ensure_repo = AsyncMock(return_value=str(repo))
     handler._git._run = AsyncMock(return_value="")
-    result = await handler.execute(tickets_task)
+    result = await handler.execute(tickets_task, ctx)
 
     assert result["issue_identifiers"] == ["FORGE-1", "FORGE-2"]
     assert read_spec(spec_file).status == SpecStatus.EXECUTING

@@ -2,24 +2,27 @@ import pytest
 
 from forge.coordinator import Coordinator
 from forge.db import Database
-from forge.handlers import HandlerRegistry
+from forge.agents import AgentContext, AgentRegistry
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.store import TaskStore
 
 
 class DataProducingHandler:
-    task_type: str = "data_test"
+    name = "data_test"
+    task_type = "data_test"
+    stages = ["triage", "execute", "verify", "deliver"]
+    connectors: list[str] = []
 
-    async def triage(self, task: Task) -> bool:
+    async def triage(self, task: Task, ctx: AgentContext) -> bool:
         return True
 
-    async def execute(self, task: Task) -> dict:
+    async def execute(self, task: Task, ctx: AgentContext) -> dict:
         return {"computed_value": "hello from execute"}
 
-    async def verify(self, task: Task) -> bool:
+    async def verify(self, task: Task, ctx: AgentContext) -> bool:
         return task.handler_data.get("computed_value") == "hello from execute"
 
-    async def deliver(self, task: Task) -> dict:
+    async def deliver(self, task: Task, ctx: AgentContext) -> dict:
         val = task.handler_data.get("computed_value", "missing")
         return {"status": "delivered", "echo": val}
 
@@ -39,7 +42,7 @@ def store(db):
 
 @pytest.fixture
 def registry():
-    reg = HandlerRegistry()
+    reg = AgentRegistry()
     reg.register(DataProducingHandler())
     return reg
 

@@ -4,8 +4,8 @@ import pytest
 
 from forge.coordinator import Coordinator
 from forge.db import Database
-from forge.handlers import HandlerRegistry
-from forge.handlers.echo import EchoHandler
+from forge.agents import AgentRegistry
+from forge.agents.echo import EchoAgent
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.store import TaskStore
 
@@ -25,8 +25,8 @@ def store(db):
 
 @pytest.fixture
 def registry():
-    reg = HandlerRegistry()
-    reg.register(EchoHandler())
+    reg = AgentRegistry()
+    reg.register(EchoAgent())
     return reg
 
 
@@ -117,7 +117,7 @@ async def test_coordinator_calls_extra_watchers_in_tick():
             return 0
 
     store = FakeStore()
-    registry = HandlerRegistry()
+    registry = AgentRegistry()
     w1 = AsyncMock()
     w1.poll = AsyncMock(return_value=2)
     w2 = AsyncMock()

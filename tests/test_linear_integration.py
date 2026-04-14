@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 
 from forge.coordinator import Coordinator
 from forge.db import Database
-from forge.handlers import HandlerRegistry
-from forge.handlers.echo import EchoHandler
+from forge.agents import AgentRegistry
+from forge.agents.echo import EchoAgent
 from forge.linear.poller import LinearPoller
 from forge.models import TaskSource, TaskStatus
 from forge.store import TaskStore
@@ -25,8 +25,8 @@ def store(db):
 
 @pytest.fixture
 def registry():
-    reg = HandlerRegistry()
-    reg.register(EchoHandler())
+    reg = AgentRegistry()
+    reg.register(EchoAgent())
     return reg
 
 

@@ -2,8 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from forge.handlers.research import ResearchHandler
+from forge.agents.research import ResearchAgent
+from forge.agents import AgentContext
 from forge.models import Task, TaskSource, TaskType
+
+
+
+ctx = AgentContext(tools=[], store=None, settings=None)
 
 
 class StubClaudeRunner:
@@ -37,8 +42,8 @@ def runner() -> StubClaudeRunner:
 
 
 @pytest.fixture
-def handler(vault: Path, runner: StubClaudeRunner) -> ResearchHandler:
-    return ResearchHandler(claude_runner=runner, notebook_root=vault)
+def handler(vault: Path, runner: StubClaudeRunner) -> ResearchAgent:
+    return ResearchAgent(claude_runner=runner, notebook_root=vault)
 
 
 def _research_task(title: str = "OpenClaw Use Cases", description: str = "Collect blog posts.") -> Task:
@@ -50,44 +55,44 @@ def _research_task(title: str = "OpenClaw Use Cases", description: str = "Collec
     )
 
 
-def test_handler_task_type(handler: ResearchHandler):
+def test_handler_task_type(handler: ResearchAgent):
     assert handler.task_type == "research"
 
 
 @pytest.mark.asyncio
-async def test_triage_accepts_non_empty_title(handler: ResearchHandler):
+async def test_triage_accepts_non_empty_title(handler: ResearchAgent):
     task = _research_task(title="Real title")
-    assert await handler.triage(task) is True
+    assert await handler.triage(task, ctx) is True
 
 
 @pytest.mark.asyncio
-async def test_triage_declines_empty_title(handler: ResearchHandler):
+async def test_triage_declines_empty_title(handler: ResearchAgent):
     task = _research_task(title="")
-    assert await handler.triage(task) is False
+    assert await handler.triage(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_triage_declines_whitespace_title(handler: ResearchHandler):
+async def test_triage_declines_whitespace_title(handler: ResearchAgent):
     task = _research_task(title="   ")
-    assert await handler.triage(task) is False
+    assert await handler.triage(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_execute_detects_new_file(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_detects_new_file(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     def write_file(_prompt: str, _work_dir: str) -> str:
         (vault / "Wiki" / "OpenClaw.md").write_text("# OpenClaw\n\n" + "x" * 300)
         return "done"
 
     runner.side_effect = write_file
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
 
     assert result["new_files"] == ["Wiki/OpenClaw.md"]
     assert result["claude_output"] == "done"
 
 
 @pytest.mark.asyncio
-async def test_execute_ignores_pre_existing_files(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_ignores_pre_existing_files(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     (vault / "Wiki" / "Existing.md").write_text("pre-existing content")
 
     def write_file(_prompt: str, _work_dir: str) -> str:
@@ -96,46 +101,46 @@ async def test_execute_ignores_pre_existing_files(handler: ResearchHandler, vaul
 
     runner.side_effect = write_file
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
 
     assert result["new_files"] == ["Wiki/New.md"]
 
 
 @pytest.mark.asyncio
-async def test_execute_passes_notebook_root_as_work_dir(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_passes_notebook_root_as_work_dir(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     task = _research_task()
-    await handler.execute(task)
+    await handler.execute(task, ctx)
     assert len(runner.calls) == 1
     _prompt, work_dir = runner.calls[0]
     assert work_dir == str(vault)
 
 
 @pytest.mark.asyncio
-async def test_execute_ignores_files_outside_allowed_prefixes(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_ignores_files_outside_allowed_prefixes(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     def write_elsewhere(_prompt: str, _work_dir: str) -> str:
         (vault / "People" / "Foo.md").write_text("oops")
         return ""
 
     runner.side_effect = write_elsewhere
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
     # Snapshot is limited to allowed prefixes — a write to People/ is invisible
     assert result["new_files"] == []
 
 
 @pytest.mark.asyncio
-async def test_execute_truncates_claude_output(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_truncates_claude_output(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     def huge_output(_prompt: str, _work_dir: str) -> str:
         return "x" * 5000
 
     runner.side_effect = huge_output
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
     assert len(result["claude_output"]) == 2000
 
 
 @pytest.mark.asyncio
-async def test_execute_retries_on_timeout(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_retries_on_timeout(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     call_count = {"n": 0}
 
     def flaky(_prompt: str, _work_dir: str) -> str:
@@ -147,13 +152,13 @@ async def test_execute_retries_on_timeout(handler: ResearchHandler, vault: Path,
 
     runner.side_effect = flaky
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
     assert call_count["n"] == 2
     assert result["new_files"] == ["Wiki/Later.md"]
 
 
 @pytest.mark.asyncio
-async def test_execute_retries_on_runtime_error(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_retries_on_runtime_error(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     call_count = {"n": 0}
 
     def flaky(_prompt: str, _work_dir: str) -> str:
@@ -165,24 +170,24 @@ async def test_execute_retries_on_runtime_error(handler: ResearchHandler, vault:
 
     runner.side_effect = flaky
     task = _research_task()
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
     assert call_count["n"] == 3
     assert result["new_files"] == ["Wiki/Finally.md"]
 
 
 @pytest.mark.asyncio
-async def test_execute_raises_after_max_retries(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_raises_after_max_retries(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     def always_fail(_prompt: str, _work_dir: str) -> str:
         raise TimeoutError("forever")
 
     runner.side_effect = always_fail
     task = _research_task()
     with pytest.raises(TimeoutError):
-        await handler.execute(task)
+        await handler.execute(task, ctx)
 
 
 @pytest.mark.asyncio
-async def test_execute_retry_passes_context_to_prompt(handler: ResearchHandler, vault: Path, runner: StubClaudeRunner):
+async def test_execute_retry_passes_context_to_prompt(handler: ResearchAgent, vault: Path, runner: StubClaudeRunner):
     prompts: list[str] = []
     call_count = {"n": 0}
 
@@ -196,68 +201,68 @@ async def test_execute_retry_passes_context_to_prompt(handler: ResearchHandler, 
 
     runner.side_effect = capture
     task = _research_task()
-    await handler.execute(task)
+    await handler.execute(task, ctx)
     assert "Previous Attempt" in prompts[1]
     assert "first failure message" in prompts[1]
 
 
 @pytest.mark.asyncio
-async def test_verify_true_when_new_file_in_allowed_dir_with_content(handler: ResearchHandler, vault: Path):
+async def test_verify_true_when_new_file_in_allowed_dir_with_content(handler: ResearchAgent, vault: Path):
     (vault / "Wiki" / "Ok.md").write_text("x" * 300)
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Ok.md"]}
-    assert await handler.verify(task) is True
+    assert await handler.verify(task, ctx) is True
 
 
 @pytest.mark.asyncio
-async def test_verify_false_when_no_new_files(handler: ResearchHandler):
+async def test_verify_false_when_no_new_files(handler: ResearchAgent):
     task = _research_task()
     task.handler_data = {"new_files": []}
-    assert await handler.verify(task) is False
+    assert await handler.verify(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_verify_false_when_file_too_small(handler: ResearchHandler, vault: Path):
+async def test_verify_false_when_file_too_small(handler: ResearchAgent, vault: Path):
     (vault / "Wiki" / "Stub.md").write_text("tiny")
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Stub.md"]}
-    assert await handler.verify(task) is False
+    assert await handler.verify(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_verify_false_when_only_file_is_outside_allowlist(handler: ResearchHandler, vault: Path):
+async def test_verify_false_when_only_file_is_outside_allowlist(handler: ResearchAgent, vault: Path):
     (vault / "People" / "Foo.md").write_text("x" * 300)
     task = _research_task()
     task.handler_data = {"new_files": ["People/Foo.md"]}
-    assert await handler.verify(task) is False
+    assert await handler.verify(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_verify_true_when_mixed_files_include_valid_one(handler: ResearchHandler, vault: Path):
+async def test_verify_true_when_mixed_files_include_valid_one(handler: ResearchAgent, vault: Path):
     (vault / "People" / "Foo.md").write_text("x" * 300)
     (vault / "Fields").mkdir(exist_ok=True)
     (vault / "Fields" / "Redpanda.md").write_text("x" * 300)
     task = _research_task()
     task.handler_data = {"new_files": ["People/Foo.md", "Fields/Redpanda.md"]}
-    assert await handler.verify(task) is True
+    assert await handler.verify(task, ctx) is True
 
 
 @pytest.mark.asyncio
-async def test_verify_false_when_file_missing_from_disk(handler: ResearchHandler):
+async def test_verify_false_when_file_missing_from_disk(handler: ResearchAgent):
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Vanished.md"]}
-    assert await handler.verify(task) is False
+    assert await handler.verify(task, ctx) is False
 
 
 @pytest.mark.asyncio
-async def test_deliver_returns_summaries(handler: ResearchHandler, vault: Path):
+async def test_deliver_returns_summaries(handler: ResearchAgent, vault: Path):
     content = "# OpenClaw\n\nAn agentic platform built on Claude.\n" + ("word " * 50)
     (vault / "Wiki" / "OpenClaw.md").write_text(content)
 
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/OpenClaw.md"]}
 
-    result = await handler.deliver(task)
+    result = await handler.deliver(task, ctx)
     assert result["status"] == "delivered"
     assert result["notebook_commit_pending"] is True
     assert len(result["files"]) == 1
@@ -268,31 +273,31 @@ async def test_deliver_returns_summaries(handler: ResearchHandler, vault: Path):
 
 
 @pytest.mark.asyncio
-async def test_deliver_truncates_preview(handler: ResearchHandler, vault: Path):
+async def test_deliver_truncates_preview(handler: ResearchAgent, vault: Path):
     long = "a" * 2000
     (vault / "Wiki" / "Long.md").write_text(long)
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Long.md"]}
-    result = await handler.deliver(task)
+    result = await handler.deliver(task, ctx)
     assert len(result["files"][0]["preview"]) == 500
 
 
 @pytest.mark.asyncio
-async def test_deliver_skips_files_outside_allowlist(handler: ResearchHandler, vault: Path):
+async def test_deliver_skips_files_outside_allowlist(handler: ResearchAgent, vault: Path):
     (vault / "Wiki" / "Keep.md").write_text("x" * 300)
     (vault / "People" / "Skip.md").write_text("x" * 300)
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Keep.md", "People/Skip.md"]}
-    result = await handler.deliver(task)
+    result = await handler.deliver(task, ctx)
     paths = [f["path"] for f in result["files"]]
     assert paths == ["Wiki/Keep.md"]
 
 
 @pytest.mark.asyncio
-async def test_deliver_skips_missing_files(handler: ResearchHandler, vault: Path):
+async def test_deliver_skips_missing_files(handler: ResearchAgent, vault: Path):
     (vault / "Wiki" / "Real.md").write_text("x" * 300)
     task = _research_task()
     task.handler_data = {"new_files": ["Wiki/Real.md", "Wiki/Gone.md"]}
-    result = await handler.deliver(task)
+    result = await handler.deliver(task, ctx)
     paths = [f["path"] for f in result["files"]]
     assert paths == ["Wiki/Real.md"]

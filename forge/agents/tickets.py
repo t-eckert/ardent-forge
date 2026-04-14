@@ -3,6 +3,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from forge.agents import AgentContext
 from forge.frontmatter import SpecStatus, update_spec_status
 from forge.git import GitOps
 from forge.guardrails import check_handler_allowlist
@@ -47,8 +48,11 @@ def extract_spec_path_from_tickets_task(description: str) -> str | None:
     return m.group(1) if m else None
 
 
-class TicketsHandler:
-    task_type: str = "tickets"
+class TicketsAgent:
+    name = "tickets"
+    task_type = "tickets"
+    stages = ["triage", "execute", "verify", "deliver"]
+    connectors = ["linear"]
 
     def __init__(
         self,
@@ -64,10 +68,10 @@ class TicketsHandler:
         self._self_repo = self_repo
         self._label = label
 
-    async def triage(self, task: Task) -> bool:
+    async def triage(self, task: Task, ctx: AgentContext) -> bool:
         return extract_plan_path(task.description) is not None
 
-    async def execute(self, task: Task) -> dict:
+    async def execute(self, task: Task, ctx: AgentContext) -> dict:
         plan_rel = extract_plan_path(task.description)
         spec_rel = extract_spec_path_from_tickets_task(task.description)
         if not plan_rel or not spec_rel:
@@ -128,11 +132,11 @@ class TicketsHandler:
             "plan_path": plan_rel,
         }
 
-    async def verify(self, task: Task) -> bool:
+    async def verify(self, task: Task, ctx: AgentContext) -> bool:
         data = task.handler_data
         return bool(data.get("project_id") and data.get("issue_identifiers"))
 
-    async def deliver(self, task: Task) -> dict:
+    async def deliver(self, task: Task, ctx: AgentContext) -> dict:
         repo_path = task.handler_data.get("repo_path")
         spec_rel = task.handler_data.get("spec_path")
         if not repo_path or not spec_rel:

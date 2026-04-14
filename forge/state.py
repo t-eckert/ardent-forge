@@ -1,11 +1,33 @@
 from forge.models import TaskStatus
 
+# Stage-aware transitions. Agents declare which stages they run; the coordinator
+# skips stages not declared and transitions directly through. Every forward
+# transition is legal here as long as it respects pipeline ordering.
 VALID_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
-    TaskStatus.QUEUED: {TaskStatus.TRIAGING, TaskStatus.EXECUTING},
-    TaskStatus.TRIAGING: {TaskStatus.EXECUTING, TaskStatus.FAILED},
-    TaskStatus.EXECUTING: {TaskStatus.VERIFYING, TaskStatus.FAILED},
-    TaskStatus.VERIFYING: {TaskStatus.DELIVERING, TaskStatus.FAILED},
-    TaskStatus.DELIVERING: {TaskStatus.COMPLETED, TaskStatus.FAILED},
+    TaskStatus.QUEUED: {
+        TaskStatus.TRIAGING,
+        TaskStatus.EXECUTING,  # agents without triage start here
+        TaskStatus.FAILED,
+    },
+    TaskStatus.TRIAGING: {
+        TaskStatus.EXECUTING,
+        TaskStatus.FAILED,
+    },
+    TaskStatus.EXECUTING: {
+        TaskStatus.VERIFYING,
+        TaskStatus.DELIVERING,  # agents with deliver but no verify
+        TaskStatus.COMPLETED,   # execute-only agents
+        TaskStatus.FAILED,
+    },
+    TaskStatus.VERIFYING: {
+        TaskStatus.DELIVERING,
+        TaskStatus.COMPLETED,   # agents with verify but no deliver
+        TaskStatus.FAILED,
+    },
+    TaskStatus.DELIVERING: {
+        TaskStatus.COMPLETED,
+        TaskStatus.FAILED,
+    },
     TaskStatus.COMPLETED: set(),
     TaskStatus.FAILED: {TaskStatus.QUEUED},
 }

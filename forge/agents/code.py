@@ -1,5 +1,6 @@
 import logging
 
+from forge.agents import AgentContext
 from forge.claude import ClaudeRunner, build_prompt
 from forge.git import GitOps
 from forge.models import Task
@@ -10,8 +11,13 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 2
 
 
-class CodeHandler:
-    task_type: str = "code"
+class CodeAgent:
+    """Full-pipeline agent: clones repo, runs Claude, verifies, opens PR."""
+
+    name = "code"
+    task_type = "code"
+    stages = ["triage", "execute", "verify", "deliver"]
+    connectors = ["github"]  # declared for future; tools list may be empty until registered
 
     def __init__(
         self,
@@ -22,13 +28,13 @@ class CodeHandler:
         self._git = GitOps(workspace_dir)
         self._claude = ClaudeRunner(model=claude_model, timeout=claude_timeout)
 
-    async def triage(self, task: Task) -> bool:
+    async def triage(self, task: Task, ctx: AgentContext) -> bool:
         if not task.repo:
             logger.warning(f"Task {task.id} has no repo, cannot handle")
             return False
         return True
 
-    async def execute(self, task: Task) -> dict:
+    async def execute(self, task: Task, ctx: AgentContext) -> dict:
         repo_url = f"https://github.com/{task.repo}.git"
         branch_name = f"forge/{task.id[:12]}"
 
@@ -71,7 +77,7 @@ class CodeHandler:
             "claude_output": output[:2000],
         }
 
-    async def verify(self, task: Task) -> bool:
+    async def verify(self, task: Task, ctx: AgentContext) -> bool:
         worktree_path = task.handler_data.get("worktree_path")
         if not worktree_path:
             logger.error(f"No worktree_path in handler_data for task {task.id}")
@@ -79,7 +85,7 @@ class CodeHandler:
         result = await run_verification(worktree_path)
         return result.success
 
-    async def deliver(self, task: Task) -> dict:
+    async def deliver(self, task: Task, ctx: AgentContext) -> dict:
         worktree_path = task.handler_data.get("worktree_path")
         repo_path = task.handler_data.get("repo_path")
         branch_name = task.handler_data.get("branch_name", "")

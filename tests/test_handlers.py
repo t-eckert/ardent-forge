@@ -1,8 +1,13 @@
+"""Echo-agent smoke tests + AgentRegistry lookup semantics."""
+
 import pytest
 
-from forge.handlers import HandlerRegistry
-from forge.handlers.echo import EchoHandler
+from forge.agents import AgentContext, AgentRegistry
+from forge.agents.echo import EchoAgent
 from forge.models import Task, TaskSource, TaskType
+
+
+ctx = AgentContext(tools=[], store=None, settings=None)
 
 
 @pytest.fixture
@@ -11,47 +16,33 @@ def task():
         task_type=TaskType.CODE,
         source=TaskSource.CHAT,
         title="Echo test",
-        description="Test the echo handler",
+        description="Test the echo agent",
     )
 
 
 @pytest.fixture
 def registry():
-    reg = HandlerRegistry()
-    reg.register(EchoHandler())
+    reg = AgentRegistry()
+    reg.register(EchoAgent())
     return reg
 
 
-async def test_echo_handler_triage(task):
-    handler = EchoHandler()
-    result = await handler.triage(task)
-    assert result is True
-
-
-async def test_echo_handler_execute(task):
-    handler = EchoHandler()
-    result = await handler.execute(task)
+async def test_echo_agent_execute(task):
+    agent = EchoAgent()
+    result = await agent.execute(task, ctx)
     assert "echo" in result["message"].lower()
 
 
-async def test_echo_handler_verify(task):
-    handler = EchoHandler()
-    result = await handler.verify(task)
-    assert result is True
+async def test_echo_agent_declares_execute_only():
+    # EchoAgent is the canonical "no-triage, no-verify, no-deliver" sample.
+    assert EchoAgent.stages == ["execute"]
 
 
-async def test_echo_handler_deliver(task):
-    handler = EchoHandler()
-    result = await handler.deliver(task)
-    assert "delivered" in result["status"]
-
-
-async def test_registry_finds_handler(registry, task):
-    handler = registry.get("echo")
-    assert handler is not None
-    assert handler.task_type == "echo"
+async def test_registry_finds_agent(registry):
+    agent = registry.get("echo")
+    assert agent is not None
+    assert agent.task_type == "echo"
 
 
 async def test_registry_returns_none_for_unknown(registry):
-    handler = registry.get("nonexistent")
-    assert handler is None
+    assert registry.get("nonexistent") is None

@@ -1,4 +1,5 @@
-from forge.handlers.tickets import parse_plan_tasks
+from forge.agents.tickets import parse_plan_tasks
+from forge.agents import AgentContext
 
 PLAN_SAMPLE = """# Foo Plan
 
@@ -27,6 +28,10 @@ PLAN_SAMPLE = """# Foo Plan
 """
 
 
+
+ctx = AgentContext(tools=[], store=None, settings=None)
+
+
 def test_parse_plan_tasks_returns_one_per_task_header():
     tasks = parse_plan_tasks(PLAN_SAMPLE)
     assert len(tasks) == 2
@@ -48,7 +53,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from forge.handlers.tickets import TicketsHandler, extract_plan_path, extract_spec_path_from_tickets_task
+from forge.agents.tickets import TicketsAgent, extract_plan_path, extract_spec_path_from_tickets_task
+from forge.agents import AgentContext
 from forge.models import Task, TaskSource, TaskType
 
 
@@ -73,11 +79,11 @@ def test_extract_spec_path_from_tickets_task():
 
 
 async def test_tickets_triage_requires_plan_path():
-    handler = TicketsHandler(
+    handler = TicketsAgent(
         workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1"
     )
-    assert await handler.triage(_ticket_task("plan: docs/superpowers/plans/x.md")) is True
-    assert await handler.triage(_ticket_task("no")) is False
+    assert await handler.triage(_ticket_task("plan: docs/superpowers/plans/x.md"), ctx) is True
+    assert await handler.triage(_ticket_task("no"), ctx) is False
 
 
 async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
@@ -101,7 +107,7 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
         ("i2", "FORGE-2", "u2"),
     ])
 
-    handler = TicketsHandler(
+    handler = TicketsAgent(
         workspace_dir="/tmp/w", linear=linear, team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
@@ -111,7 +117,7 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
     task = _ticket_task(
         "plan: docs/superpowers/plans/2026-04-15-foo.md spec: docs/superpowers/specs/2026-04-15-foo.md"
     )
-    result = await handler.execute(task)
+    result = await handler.execute(task, ctx)
 
     assert result["project_id"] == "p1"
     assert result["issue_identifiers"] == ["FORGE-1", "FORGE-2"]
@@ -141,7 +147,7 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
     linear.get_label_id = AsyncMock(return_value=None)
     linear.create_issue = AsyncMock(return_value=("i1", "FORGE-1", "u1"))
 
-    handler = TicketsHandler(
+    handler = TicketsAgent(
         workspace_dir="/tmp/w", linear=linear, team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
@@ -151,7 +157,7 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
     task = _ticket_task(
         "plan: docs/superpowers/plans/2026-04-15-foo.md spec: docs/superpowers/specs/2026-04-15-foo.md"
     )
-    await handler.execute(task)
+    await handler.execute(task, ctx)
 
     run_calls = [call[0][0] for call in handler._git._run.call_args_list]
     assert any("fetch origin main" in c for c in run_calls), "missing: git fetch origin main"
@@ -167,7 +173,7 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
 
 async def test_tickets_deliver_uses_working_tree_changes():
     """deliver() must call get_working_tree_changes, not get_changed_files."""
-    handler = TicketsHandler(
+    handler = TicketsAgent(
         workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
@@ -182,7 +188,7 @@ async def test_tickets_deliver_uses_working_tree_changes():
         "project_url": "https://linear.app/x/p1",
         "issue_identifiers": ["FORGE-1"],
     }
-    result = await handler.deliver(task)
+    result = await handler.deliver(task, ctx)
 
     handler._git.get_working_tree_changes.assert_awaited_once_with("/tmp/repo")
     assert result["status"] == "delivered"

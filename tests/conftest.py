@@ -1,4 +1,6 @@
 import pytest
+
+from forge.agents import AgentContext
 from forge.db import Database
 
 
@@ -8,3 +10,9 @@ async def db():
     await database.initialize()
     yield database
     await database.close()
+
+
+@pytest.fixture
+def agent_ctx():
+    """Minimal AgentContext for unit tests that exercise an agent directly."""
+    return AgentContext(tools=[], store=None, settings=None)

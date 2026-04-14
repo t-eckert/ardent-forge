@@ -2,7 +2,8 @@ import asyncio
 import logging
 import time
 
-from forge.handlers import HandlerRegistry
+from forge.agents import AgentContext, AgentRegistry
+from forge.connectors import ConnectorRegistry
 from forge.metrics import (
     ACTIVE_TASKS,
     HANDLER_ERRORS_TOTAL,
@@ -26,13 +27,17 @@ class Coordinator:
     def __init__(
         self,
         store: TaskStore,
-        registry: HandlerRegistry,
+        registry: AgentRegistry,
+        connectors: ConnectorRegistry | None = None,
+        settings=None,
         max_concurrent: int = 2,
         poller=None,
         watchers: list | None = None,
     ):
         self._store = store
         self._registry = registry
+        self._connectors = connectors
+        self._settings = settings
         self._max_concurrent = max_concurrent
         self._poller = poller
         self._watchers = watchers or []
@@ -44,7 +49,7 @@ class Coordinator:
             logger.info(f"Reset {reset_count} stuck tasks to queued on startup")
 
     async def tick(self) -> int:
-        """Run one cycle: poll Linear if configured, dequeue pending tasks, process them, return count processed."""
+        """Run one cycle: poll Linear if configured, dequeue pending tasks, process them."""
         tick_start = time.monotonic()
         TICKS_TOTAL.inc()
 
@@ -71,6 +76,12 @@ class Coordinator:
         TICK_DURATION_SECONDS.observe(time.monotonic() - tick_start)
         return result
 
+    def _build_context(self, agent) -> AgentContext:
+        tools = []
+        if self._connectors is not None and agent.connectors:
+            tools = self._connectors.tools_for(agent.connectors)
+        return AgentContext(tools=tools, store=self._store, settings=self._settings)
+
     async def process_pending(self) -> int:
         pending = await self._store.list_pending(limit=self._max_concurrent)
         QUEUE_DEPTH.set(len(pending))
@@ -79,13 +90,13 @@ class Coordinator:
 
         tasks_processed = 0
         for task in pending:
-            handler = self._registry.get(task.type)
-            if handler is None:
+            agent = self._registry.get(task.type)
+            if agent is None:
                 logger.warning(
-                    f"No handler for task type '{task.type}', failing task {task.id}"
+                    f"No agent for task type '{task.type}', failing task {task.id}"
                 )
                 await self._store.mark_failed(
-                    task.id, error=f"No handler registered for type '{task.type}'"
+                    task.id, error=f"No agent registered for type '{task.type}'"
                 )
                 TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                 tasks_processed += 1
@@ -94,79 +105,84 @@ class Coordinator:
             task_start = time.monotonic()
             ACTIVE_TASKS.inc()
             try:
+                tasks_processed += 1
+                ctx = self._build_context(agent)
                 current_status = TaskStatus.QUEUED
+                stages = agent.stages
+                aggregated: dict = {}
 
-                new_status = transition(current_status, TaskStatus.TRIAGING)
-                await self._store.update_status(task.id, new_status)
-                current_status = new_status
+                # Triage — optional.
+                if "triage" in stages:
+                    new_status = transition(current_status, TaskStatus.TRIAGING)
+                    await self._store.update_status(task.id, new_status)
+                    current_status = new_status
 
-                stage_start = time.monotonic()
-                can_handle = await handler.triage(task)
-                TASK_STAGE_DURATION_SECONDS.labels(stage="triage").observe(
-                    time.monotonic() - stage_start
-                )
-                if not can_handle:
-                    await self._store.mark_failed(
-                        task.id, error="Handler declined task during triage"
+                    stage_start = time.monotonic()
+                    ok = await agent.triage(task, ctx)
+                    TASK_STAGE_DURATION_SECONDS.labels(stage="triage").observe(
+                        time.monotonic() - stage_start
                     )
-                    TASKS_TOTAL.labels(type=task.type, status="failed").inc()
-                    tasks_processed += 1
-                    continue
+                    if not ok:
+                        await self._store.mark_failed(
+                            task.id, error="Agent declined task during triage"
+                        )
+                        TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+                        continue
 
+                # Execute — always present per AgentRegistry validation.
                 new_status = transition(current_status, TaskStatus.EXECUTING)
                 await self._store.update_status(task.id, new_status)
                 current_status = new_status
 
                 stage_start = time.monotonic()
-                result = await handler.execute(task)
+                result = await agent.execute(task, ctx)
                 TASK_STAGE_DURATION_SECONDS.labels(stage="execute").observe(
                     time.monotonic() - stage_start
                 )
-
-                # Persist execute results so verify/deliver can access them
-                await self._store.update_handler_data(task.id, result)
-                # Reload task with updated handler_data
+                aggregated = dict(result or {})
+                await self._store.update_handler_data(task.id, aggregated)
                 task = await self._store.get(task.id)
 
-                new_status = transition(current_status, TaskStatus.VERIFYING)
-                await self._store.update_status(task.id, new_status)
-                current_status = new_status
+                # Verify — optional.
+                if "verify" in stages:
+                    new_status = transition(current_status, TaskStatus.VERIFYING)
+                    await self._store.update_status(task.id, new_status)
+                    current_status = new_status
 
-                stage_start = time.monotonic()
-                verified = await handler.verify(task)
-                TASK_STAGE_DURATION_SECONDS.labels(stage="verify").observe(
-                    time.monotonic() - stage_start
-                )
-                if not verified:
-                    await self._store.mark_failed(task.id, error="Verification failed")
-                    TASKS_TOTAL.labels(type=task.type, status="failed").inc()
-                    tasks_processed += 1
-                    continue
+                    stage_start = time.monotonic()
+                    verified = await agent.verify(task, ctx)
+                    TASK_STAGE_DURATION_SECONDS.labels(stage="verify").observe(
+                        time.monotonic() - stage_start
+                    )
+                    if not verified:
+                        await self._store.mark_failed(task.id, error="Verification failed")
+                        TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+                        continue
 
-                new_status = transition(current_status, TaskStatus.DELIVERING)
-                await self._store.update_status(task.id, new_status)
-                current_status = new_status
+                # Deliver — optional.
+                if "deliver" in stages:
+                    new_status = transition(current_status, TaskStatus.DELIVERING)
+                    await self._store.update_status(task.id, new_status)
+                    current_status = new_status
 
-                stage_start = time.monotonic()
-                delivery = await handler.deliver(task)
-                TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
-                    time.monotonic() - stage_start
-                )
+                    stage_start = time.monotonic()
+                    delivery = await agent.deliver(task, ctx)
+                    TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
+                        time.monotonic() - stage_start
+                    )
+                    aggregated = {**aggregated, **(delivery or {})}
 
-                final_result = {**result, **delivery}
-                await self._store.mark_completed(task.id, final_result)
+                await self._store.mark_completed(task.id, aggregated)
                 TASKS_TOTAL.labels(type=task.type, status="completed").inc()
                 TASK_DURATION_SECONDS.labels(type=task.type).observe(
                     time.monotonic() - task_start
                 )
-                tasks_processed += 1
 
             except Exception as e:
                 logger.exception(f"Error processing task {task.id}")
                 await self._store.mark_failed(task.id, error=str(e))
                 TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                 HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
-                tasks_processed += 1
             finally:
                 ACTIVE_TASKS.dec()
 

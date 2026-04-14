@@ -15,8 +15,8 @@ from forge.connectors import ConnectorRegistry
 from forge.connectors.weather import WeatherConnector
 from forge.coordinator import Coordinator
 from forge.db import Database
-from forge.handlers import HandlerRegistry
-from forge.handlers.echo import EchoHandler
+from forge.agents import AgentRegistry
+from forge.agents.echo import EchoAgent
 from forge.store import TaskStore
 
 
@@ -93,21 +93,21 @@ def run():
 
         app.state.connectors = connectors
 
-        registry = HandlerRegistry()
-        registry.register(EchoHandler())
-        from forge.handlers.code import CodeHandler
+        registry = AgentRegistry()
+        registry.register(EchoAgent())
+        from forge.agents.code import CodeAgent
 
         registry.register(
-            CodeHandler(
+            CodeAgent(
                 workspace_dir=settings.workspace_dir,
             )
         )
 
-        # Self-building: plan handler (always registered)
-        from forge.handlers.plan import PlanHandler
+        # Self-building: plan agent (always registered)
+        from forge.agents.plan import PlanAgent
 
         registry.register(
-            PlanHandler(
+            PlanAgent(
                 workspace_dir=settings.workspace_dir,
                 self_repo=settings.self_repo,
                 claude_model=settings.planner_claude_model,
@@ -115,11 +115,11 @@ def run():
         )
 
         if notebook_reader is not None:
+            from forge.agents.research import ResearchAgent
             from forge.claude import ClaudeRunner
-            from forge.handlers.research import ResearchHandler
 
             registry.register(
-                ResearchHandler(
+                ResearchAgent(
                     claude_runner=ClaudeRunner(
                         model="claude-sonnet-4-20250514",
                         timeout=600,
@@ -140,12 +140,12 @@ def run():
                 team_id=settings.linear_team_id,
             )
 
-            from forge.handlers.tickets import TicketsHandler
+            from forge.agents.tickets import TicketsAgent
             from forge.linear.projects import LinearProjectsAPI
 
             tickets_linear = LinearProjectsAPI(linear_client)
             registry.register(
-                TicketsHandler(
+                TicketsAgent(
                     workspace_dir=settings.workspace_dir,
                     linear=tickets_linear,
                     team_id=settings.linear_team_id,
@@ -195,6 +195,8 @@ def run():
         coordinator = Coordinator(
             store=store,
             registry=registry,
+            connectors=connectors,
+            settings=settings,
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
             watchers=watchers,

@@ -1,8 +1,9 @@
-"""Research task handler — runs Claude Code in the Notebook vault."""
+"""Research agent — runs Claude Code in the Notebook vault."""
 
 import logging
 from pathlib import Path
 
+from forge.agents import AgentContext
 from forge.claude import ClaudeRunner
 from forge.models import Task
 
@@ -13,8 +14,11 @@ MAX_RETRIES = 2
 MIN_FILE_BYTES = 200
 
 
-class ResearchHandler:
-    task_type: str = "research"
+class ResearchAgent:
+    name = "research"
+    task_type = "research"
+    stages = ["triage", "execute", "verify", "deliver"]
+    connectors = ["notebook"]
 
     def __init__(
         self,
@@ -24,7 +28,7 @@ class ResearchHandler:
         self._claude = claude_runner
         self._root = notebook_root
 
-    async def triage(self, task: Task) -> bool:
+    async def triage(self, task: Task, ctx: AgentContext) -> bool:
         if not task.title or not task.title.strip():
             logger.warning(f"Task {task.id} has empty title, declining")
             return False
@@ -42,8 +46,8 @@ class ResearchHandler:
                     found.add(str(path.relative_to(self._root)))
         return found
 
-    async def execute(self, task: Task) -> dict:
-        from forge.handlers.research_prompt import build_research_prompt
+    async def execute(self, task: Task, ctx: AgentContext) -> dict:
+        from forge.agents.research_prompt import build_research_prompt
 
         before = self._snapshot()
         retry_context: str | None = None
@@ -71,7 +75,7 @@ class ResearchHandler:
             "new_files": new_files,
         }
 
-    async def verify(self, task: Task) -> bool:
+    async def verify(self, task: Task, ctx: AgentContext) -> bool:
         new_files = task.handler_data.get("new_files", [])
         for rel in new_files:
             if not any(rel.startswith(prefix) for prefix in ALLOWED_WRITE_PREFIXES):
@@ -84,7 +88,7 @@ class ResearchHandler:
             return True
         return False
 
-    async def deliver(self, task: Task) -> dict:
+    async def deliver(self, task: Task, ctx: AgentContext) -> dict:
         new_files = task.handler_data.get("new_files", [])
         summaries: list[dict] = []
         for rel in new_files:

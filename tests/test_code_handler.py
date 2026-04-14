@@ -1,8 +1,13 @@
 import os
 import pytest
 
-from forge.handlers.code import CodeHandler
+from forge.agents.code import CodeAgent
+from forge.agents import AgentContext
 from forge.models import Task, TaskSource, TaskType
+
+
+
+ctx = AgentContext(tools=[], store=None, settings=None)
 
 
 @pytest.fixture
@@ -26,7 +31,7 @@ def temp_repo(tmp_path):
 def handler(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    return CodeHandler(workspace_dir=str(workspace))
+    return CodeAgent(workspace_dir=str(workspace))
 
 
 @pytest.fixture
@@ -45,7 +50,7 @@ def test_code_handler_type(handler):
 
 
 async def test_triage_accepts_code_task(handler, code_task):
-    result = await handler.triage(code_task)
+    result = await handler.triage(code_task, ctx)
     assert result is True
 
 
@@ -56,5 +61,5 @@ async def test_triage_rejects_no_repo(handler):
         title="No repo",
         description="Missing repo field",
     )
-    result = await handler.triage(task)
+    result = await handler.triage(task, ctx)
     assert result is False

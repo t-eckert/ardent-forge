@@ -1,4 +1,4 @@
-from forge.handlers.research_prompt import build_research_prompt
+from forge.agents.research_prompt import build_research_prompt
 
 
 def test_includes_title_and_description():

@@ -2,6 +2,7 @@ import logging
 import re
 from pathlib import Path
 
+from forge.agents import AgentContext
 from forge.claude import ClaudeRunner
 from forge.git import GitOps
 from forge.guardrails import check_handler_allowlist
@@ -36,8 +37,13 @@ Spec content:
 """
 
 
-class PlanHandler:
-    task_type: str = "plan"
+class PlanAgent:
+    """No-triage pipeline: spec-derived → claude writes plan → verify allowlist → PR."""
+
+    name = "plan"
+    task_type = "plan"
+    stages = ["triage", "execute", "verify", "deliver"]
+    connectors = ["github"]
 
     def __init__(
         self,
@@ -52,14 +58,14 @@ class PlanHandler:
         self._specs_dir = specs_dir
         self._self_repo = self_repo
 
-    async def triage(self, task: Task) -> bool:
+    async def triage(self, task: Task, ctx: AgentContext) -> bool:
         spec_path = extract_spec_path(task.description)
         if not spec_path:
             logger.warning(f"Task {task.id} has no spec path in description")
             return False
         return True
 
-    async def execute(self, task: Task) -> dict:
+    async def execute(self, task: Task, ctx: AgentContext) -> dict:
         spec_path = extract_spec_path(task.description)
         if not spec_path:
             raise RuntimeError(f"No spec path in task {task.id}")
@@ -86,7 +92,7 @@ class PlanHandler:
             "claude_output": output[:2000],
         }
 
-    async def verify(self, task: Task) -> bool:
+    async def verify(self, task: Task, ctx: AgentContext) -> bool:
         worktree_path = task.handler_data.get("worktree_path")
         if not worktree_path:
             logger.error(f"No worktree_path in handler_data for task {task.id}")
@@ -105,11 +111,11 @@ class PlanHandler:
             logger.error(f"Verification failed for task {task.id}: {violation}")
             return False
         if not changed:
-            logger.error(f"Plan handler produced no changes for task {task.id}")
+            logger.error(f"Plan agent produced no changes for task {task.id}")
             return False
         return True
 
-    async def deliver(self, task: Task) -> dict:
+    async def deliver(self, task: Task, ctx: AgentContext) -> dict:
         worktree_path = task.handler_data.get("worktree_path")
         repo_path = task.handler_data.get("repo_path")
         branch_name = task.handler_data.get("branch_name", "")
@@ -124,7 +130,7 @@ class PlanHandler:
         body = (
             f"Plan generated from {spec_path}.\n\n"
             "On merge, Ardent Forge will create Linear tickets for each numbered step.\n\n"
-            "---\nAutomated by Ardent Forge (plan handler)"
+            "---\nAutomated by Ardent Forge (plan agent)"
         )
         try:
             pr_url = await self._git.create_pr(
