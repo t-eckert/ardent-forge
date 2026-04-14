@@ -16,5 +16,5 @@ type Story = StoryObj<Args>;
 export const TodayActive: Story = { args: { active: 'today' } };
 export const ThreadsActive: Story = { args: { active: 'threads' } };
 export const LibraryActive: Story = { args: { active: 'library' } };
-export const AgentsActive: Story = { args: { active: 'agents' } };
+export const TasksActive: Story = { args: { active: 'tasks' } };
 export const NoActive: Story = { args: { active: null } };

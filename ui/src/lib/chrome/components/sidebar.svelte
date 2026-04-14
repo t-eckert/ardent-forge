@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SpineItem from './spine-item.svelte';
-	import { Sun, ChatCircle, Books, Robot } from '$lib/icons';
+	import { Sun, ChatCircle, Books, ListChecks } from '$lib/icons';
 	import { Meta, Eyebrow } from '$lib/typography';
 	import { StatusDot, KeycapHint } from '$lib/components';
 	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
@@ -16,8 +16,8 @@
 		threadCount?: number;
 		/** Total library entries */
 		libraryCount?: number;
-		/** Running agent count */
-		agentsRunning?: number;
+		/** Active-task count (running, queued, needs-review) */
+		tasksActive?: number;
 	}
 
 	let {
@@ -25,7 +25,7 @@
 		todayDow = new Date().toLocaleDateString('en-CA', { weekday: 'short' }).toUpperCase(),
 		threadCount = 0,
 		libraryCount = 0,
-		agentsRunning = 0
+		tasksActive = 0
 	}: Props = $props();
 
 	const syncTone = $derived(
@@ -62,12 +62,12 @@
 			<Meta size="xs">{libraryCount ? libraryCount.toLocaleString() : ''}</Meta>
 		{/snippet}
 	</SpineItem>
-	<SpineItem href="/agents" label="Agents" icon={Robot} active={active === 'agents'}>
+	<SpineItem href="/tasks" label="Tasks" icon={ListChecks} active={active === 'tasks'}>
 		{#snippet meta()}
-			{#if agentsRunning > 0}
+			{#if tasksActive > 0}
 				<span class="inline-flex items-center gap-1">
 					<StatusDot tone="moss" />
-					<Meta size="xs">{agentsRunning}</Meta>
+					<Meta size="xs">{tasksActive}</Meta>
 				</span>
 			{/if}
 		{/snippet}

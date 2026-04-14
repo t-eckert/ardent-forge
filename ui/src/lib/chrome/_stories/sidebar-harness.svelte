@@ -6,14 +6,14 @@
 		active: Spine | null;
 		threadCount?: number;
 		libraryCount?: number;
-		agentsRunning?: number;
+		tasksActive?: number;
 	}
 
-	let { active, threadCount = 12, libraryCount = 1412, agentsRunning = 3 }: Props = $props();
+	let { active, threadCount = 12, libraryCount = 1412, tasksActive = 3 }: Props = $props();
 </script>
 
 <div class="flex min-h-screen bg-[var(--color-paper)]">
-	<Sidebar {active} {threadCount} {libraryCount} {agentsRunning} />
+	<Sidebar {active} {threadCount} {libraryCount} {tasksActive} />
 	<main class="flex-1 p-8">
 		<div class="font-mono text-xs tracking-wider text-[var(--color-graphite)]">
 			· content area ·
