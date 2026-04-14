@@ -7,12 +7,20 @@ import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
+// Proxy target for /api and /health during `pnpm dev`.
+//
+// Set VITE_API_PROXY to point at the real box over Tailscale for hybrid dev:
+//   VITE_API_PROXY=https://ardent-forge.<tailnet>.ts.net pnpm dev
+//
+// Defaults to localhost:7030 for developers running Forge locally.
+const apiProxyTarget = process.env.VITE_API_PROXY ?? "http://localhost:7030";
+
 export default defineConfig({
   plugins: [sveltekit()],
   server: {
     proxy: {
-      "/api": "http://localhost:7030",
-      "/health": "http://localhost:7030"
+      "/api": { target: apiProxyTarget, changeOrigin: true, secure: true },
+      "/health": { target: apiProxyTarget, changeOrigin: true, secure: true }
     }
   },
   test: {

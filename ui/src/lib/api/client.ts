@@ -15,8 +15,21 @@ class ApiError extends Error {
   }
 }
 
+/**
+ * Base URL for all API requests.
+ *
+ * - In the deployed build: empty string. The UI is served from the same host
+ *   as Forge, so relative paths (/api/...) just work.
+ * - In local dev: set VITE_API_URL to point at the box over Tailscale,
+ *   e.g. `VITE_API_URL=https://ardent-forge.<tailnet>.ts.net`. All requests
+ *   get prefixed with this URL and hit the real backend.
+ *
+ * See memory/project_dev_process.md § Mode 2 — Hybrid.
+ */
+const API_BASE: string = (import.meta.env?.VITE_API_URL ?? "").replace(/\/$/, "");
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
