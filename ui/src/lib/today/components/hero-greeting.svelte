@@ -8,8 +8,8 @@
 		subtitle?: string;
 		weatherTempC: number;
 		weatherSummary: string;
-		tasksDue: number;
-		tasksDueNote?: string;
+		todosDue: number;
+		todosDueNote?: string;
 		agentsOvernight: number;
 		agentsNote?: string;
 	}
@@ -20,8 +20,8 @@
 		subtitle = 'The bench is lit. Three agents finished work overnight — and a long run wants your legs by 10.',
 		weatherTempC,
 		weatherSummary,
-		tasksDue,
-		tasksDueNote,
+		todosDue,
+		todosDueNote,
 		agentsOvernight,
 		agentsNote
 	}: Props = $props();
@@ -50,9 +50,9 @@
 			<Meta size="xs">{weatherSummary}</Meta>
 		</div>
 		<div class="flex flex-col gap-1 items-start">
-			<Eyebrow>TASKS DUE</Eyebrow>
-			<Stat value={tasksDue} size="lg" />
-			{#if tasksDueNote}<Meta size="xs">{tasksDueNote}</Meta>{/if}
+			<Eyebrow>TODOS DUE</Eyebrow>
+			<Stat value={todosDue} size="lg" />
+			{#if todosDueNote}<Meta size="xs">{todosDueNote}</Meta>{/if}
 		</div>
 		<div class="flex flex-col gap-1 items-start">
 			<Eyebrow>AGENT RUNS</Eyebrow>

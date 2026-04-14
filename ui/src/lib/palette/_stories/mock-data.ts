@@ -23,11 +23,11 @@ export const MOCK_RESULTS: PaletteResult[] = [
 		keywords: ['tempo', 'intervals']
 	},
 	{
-		id: 'task-stretching',
+		id: 'todo-stretching',
 		label: 'Stretching · 15 min',
-		breadcrumb: 'Tasks › Personal',
-		href: '/library/tasks/stretching',
-		class: 'task',
+		breadcrumb: 'Todos › Personal',
+		href: '/library/todos/stretching',
+		class: 'todo',
 		hint: 'due today',
 		recentBoost: 5
 	},

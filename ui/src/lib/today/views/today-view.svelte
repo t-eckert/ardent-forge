@@ -6,9 +6,9 @@
 	import OvernightDigest from '../components/overnight-digest.svelte';
 	import OpenThreads from '../components/open-threads.svelte';
 	import YesterdaySummary from '../components/yesterday-summary.svelte';
-	import { makeTodaysTasks, makeOvernightRuns, makeThreadList } from '$lib/mocks';
+	import { makeTodaysTodos, makeOvernightRuns, makeThreadList } from '$lib/mocks';
 
-	const tasks = makeTodaysTasks();
+	const todos = makeTodaysTodos();
 	const runs = makeOvernightRuns();
 	const threads = makeThreadList();
 
@@ -42,8 +42,8 @@
 	<HeroGreeting
 		weatherTempC={6}
 		weatherSummary="clear → sunny ↑14°"
-		tasksDue={tasks.length}
-		tasksDueNote="2 blocked · 1 review"
+		todosDue={todos.length}
+		todosDueNote="2 blocked · 1 review"
 		agentsOvernight={runs.length}
 		agentsNote="overnight · 1 needs you"
 	/>
@@ -57,7 +57,7 @@
 				pace="5:20 /km"
 				hr="145–158"
 				fuel="1 gel @ 10k"
-				{tasks}
+				{todos}
 			/>
 			<Composer />
 		</div>

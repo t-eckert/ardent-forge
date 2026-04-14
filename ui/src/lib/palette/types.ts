@@ -2,7 +2,7 @@
  * Result classes shown in the palette. Each class has an icon + tone pairing per the
  * chrome spec (artboard 2KX-0, section 03).
  */
-export type ResultClass = 'workout' | 'note' | 'task' | 'thread' | 'action';
+export type ResultClass = 'workout' | 'note' | 'todo' | 'task' | 'thread' | 'action';
 
 export interface PaletteResult {
 	id: string;

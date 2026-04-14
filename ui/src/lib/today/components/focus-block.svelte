@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Display, Eyebrow, Stat, Body, Meta } from '$lib/typography';
 	import { Card } from '$lib/components';
-	import type { Task } from '$lib/schemas/task';
+	import type { Todo } from '$lib/schemas/todo';
 
 	interface Props {
 		/** Today's planned workout */
@@ -10,10 +10,10 @@
 		pace: string;
 		hr: string;
 		fuel: string;
-		tasks: Task[];
+		todos: Todo[];
 	}
 
-	let { workoutTitle, workoutSubtitle, pace, hr, fuel, tasks }: Props = $props();
+	let { workoutTitle, workoutSubtitle, pace, hr, fuel, todos }: Props = $props();
 </script>
 
 <div class="flex gap-4">
@@ -42,21 +42,21 @@
 	<Card surface="paper" class="flex-1">
 		<div class="flex flex-col gap-2.5 p-[18px]">
 			<div class="flex items-baseline justify-between">
-				<Eyebrow>TASKS · DUE TODAY</Eyebrow>
-				<Meta tone="ember">{tasks.length} open</Meta>
+				<Eyebrow>TODOS · DUE TODAY</Eyebrow>
+				<Meta tone="ember">{todos.length} open</Meta>
 			</div>
 			<div class="flex flex-col gap-1.5">
-				{#each tasks as task (task.id)}
+				{#each todos as todo (todo.id)}
 					<div class="flex items-center gap-2.5">
 						<div
 							class="w-3.5 h-3.5 rounded-[3px] flex-shrink-0"
-							style={task.status === 'review'
+							style={todo.status === 'review'
 								? 'border: 1px solid var(--color-ember-deep); background: #FCE6DD;'
 								: 'border: 1px solid var(--color-graphite);'}
 						></div>
-						<span class="flex-1 text-[13px] text-[var(--color-ink)] truncate">{task.title}</span>
-						<Meta size="xs" tone={task.status === 'review' ? 'ember' : 'muted'}
-							>{task.category}</Meta
+						<span class="flex-1 text-[13px] text-[var(--color-ink)] truncate">{todo.title}</span>
+						<Meta size="xs" tone={todo.status === 'review' ? 'ember' : 'muted'}
+							>{todo.category}</Meta
 						>
 					</div>
 				{/each}

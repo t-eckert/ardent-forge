@@ -15,7 +15,8 @@
 	const classConfig = {
 		workout: { icon: Heartbeat, bg: 'var(--color-ember)' },
 		note: { icon: Code, bg: 'var(--color-signal)' },
-		task: { icon: ListChecks, bg: 'var(--color-bench)', fg: 'var(--color-slate)' },
+		todo: { icon: ListChecks, bg: 'var(--color-bench)', fg: 'var(--color-slate)' },
+		task: { icon: ListChecks, bg: 'var(--color-ink)' },
 		thread: { icon: ChatCircle, bg: 'var(--color-graphite)' },
 		action: { icon: ArrowRight, bg: 'var(--color-ink)' }
 	} as const;
