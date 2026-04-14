@@ -2,7 +2,12 @@ import pytest
 import respx
 from httpx import Response
 
-from forge.tools.weather import WEATHER_TOOL_SCHEMA, get_weather
+from forge.connectors.weather import WeatherConnector
+
+_connector = WeatherConnector()
+_weather_tool = _connector.tools[0]
+WEATHER_TOOL_SCHEMA = _weather_tool.to_anthropic_schema()
+get_weather = _weather_tool.execute
 
 
 def test_weather_tool_schema_shape():
