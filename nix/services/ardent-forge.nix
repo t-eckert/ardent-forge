@@ -84,6 +84,9 @@ in {
   environment.etc."ardent-forge/forge.env.example".text = ''
     FORGE_ANTHROPIC_API_KEY=op://Ardent Forge/anthropic-api-key/credential
     FORGE_GITHUB_TOKEN=op://Ardent Forge/github-pat/credential
+    # `gh` CLI reads GH_TOKEN by convention. Same credential, different var name —
+    # lets PlanAgent / CodeAgent / TicketsAgent shell out to `gh pr create` etc.
+    GH_TOKEN=op://Ardent Forge/github-pat/credential
     FORGE_LINEAR_API_KEY=op://Ardent Forge/linear-api-key/credential
     FORGE_LINEAR_TEAM_ID=op://Ardent Forge/linear-team-id/credential
   '';
