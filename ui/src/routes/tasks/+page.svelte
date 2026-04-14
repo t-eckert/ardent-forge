@@ -1,11 +1,14 @@
 <script lang="ts">
-	// Phase J (Tasks surface) will replace this with the real TasksListView.
-	// For now the Agents surface is the best stand-in — it already shows the
-	// agent-run flow which is what the Tasks spine is a superset of.
+	// Phase J (bespoke TaskListView) will replace this with a first-class
+	// tasks UI. For now the AgentsListView is the best stand-in since the
+	// agent-run flow is what the Tasks spine is a superset of.
 	import { AgentsListView } from '$lib/agents';
-	import { makeAgentRunList } from '$lib/mocks';
+	import type { PageData } from './$types';
 
-	const runs = makeAgentRunList();
+	interface Props {
+		data: PageData;
+	}
+	let { data }: Props = $props();
 </script>
 
-<AgentsListView {runs} />
+<AgentsListView runs={data.runs} />
