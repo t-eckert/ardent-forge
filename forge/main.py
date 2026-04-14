@@ -10,12 +10,16 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from forge.api import (
+    agents as agents_api,
     chat,
     connectors as connectors_api,
+    fields as fields_api,
     health,
     memory as memory_api,
+    notebook as notebook_api,
     schedules,
     tasks,
+    threads as threads_api,
 )
 from forge.config import Settings
 from forge.connectors import ConnectorRegistry
@@ -38,6 +42,10 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(schedules.router)
     app.include_router(connectors_api.router)
     app.include_router(memory_api.router)
+    app.include_router(threads_api.router)
+    app.include_router(agents_api.router)
+    app.include_router(fields_api.router)
+    app.include_router(notebook_api.router)
 
     @app.get("/metrics")
     async def metrics():
@@ -89,6 +97,8 @@ def run():
             logging.getLogger(__name__).warning(
                 f"Notebook directory {notebook_path} not found; notebook features disabled"
             )
+        app.state.notebook_reader = notebook_reader
+        app.state.notebook_writer = notebook_writer
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
         connectors.register(WeatherConnector())

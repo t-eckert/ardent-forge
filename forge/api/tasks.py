@@ -1,8 +1,15 @@
-from fastapi import APIRouter, HTTPException
+"""/api/tasks — task CRUD + filters + origin/referencing thread joins.
+
+Extended in Phase F for the UI reframe: adds type filter, origin_thread_id
+to each dict, and a detail payload that includes the referencing thread ids.
+"""
+
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.store import TaskStore
+from forge.thread_store import ThreadStore
 
 router = APIRouter(prefix="/api/tasks")
 
@@ -19,16 +26,31 @@ def get_store() -> TaskStore:
     return _store
 
 
+def _thread_store(request: Request) -> ThreadStore | None:
+    return getattr(request.app.state, "thread_store", None)
+
+
+async def _task_dict(task: Task, thread_store: ThreadStore | None) -> dict:
+    out = task.model_dump(mode="json")
+    if thread_store is not None:
+        out["origin_thread_id"] = await thread_store.origin_thread_for(task.id)
+    return out
+
+
 class CreateTaskRequest(BaseModel):
     type: str
     title: str
     description: str
     repo: str | None = None
     source_id: str | None = None
+    # Optional: link this task to an origin thread at creation time. Used by
+    # Forge's task-dispatch turns so the coordinator knows where to post
+    # the resolution message on completion.
+    origin_thread_id: str | None = None
 
 
 @router.post("", status_code=201)
-async def create_task(req: CreateTaskRequest):
+async def create_task(req: CreateTaskRequest, request: Request):
     store = get_store()
     task = Task.new(
         task_type=(
@@ -43,23 +65,53 @@ async def create_task(req: CreateTaskRequest):
         source_id=req.source_id,
     )
     await store.save(task)
-    return task.model_dump(mode="json")
+
+    ts = _thread_store(request)
+    if ts is not None and req.origin_thread_id:
+        try:
+            await ts.link_task(
+                thread_id=req.origin_thread_id,
+                task_id=task.id,
+                relation="origin",
+            )
+        except ValueError:
+            # Bad relation is impossible here (hardcoded), but sqlite FK failure
+            # could occur if thread_id is bogus — surface loudly.
+            raise HTTPException(
+                status_code=400,
+                detail=f"origin_thread_id does not exist: {req.origin_thread_id}",
+            )
+
+    return await _task_dict(task, ts)
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: str):
+async def get_task(task_id: str, request: Request):
     store = get_store()
     task = await store.get(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task.model_dump(mode="json")
+
+    ts = _thread_store(request)
+    payload = await _task_dict(task, ts)
+    if ts is not None:
+        payload["referenced_by_thread_ids"] = await ts.referencing_threads(task.id)
+    return payload
 
 
 @router.get("")
-async def list_tasks(status: str | None = None):
+async def list_tasks(
+    request: Request,
+    status: str | None = None,
+    type: str | None = None,
+):
     store = get_store()
     if status:
         tasks = await store.list_by_status(TaskStatus(status))
     else:
         tasks = await store.list_all()
-    return [t.model_dump(mode="json") for t in tasks]
+    if type:
+        tasks = [t for t in tasks if t.type == type]
+
+    ts = _thread_store(request)
+    return [await _task_dict(t, ts) for t in tasks]
