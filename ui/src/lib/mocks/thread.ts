@@ -71,16 +71,67 @@ export function makeRenameThread(): ThreadDetailT {
 			{
 				role: 'user',
 				id: 'msg-1',
-				iso: minutesAgoIso(14),
+				iso: minutesAgoIso(28),
 				content: 'Rename tClient to temporalClient across the coordinator package.'
 			},
+			// Turn 1: synchronous widget — Forge shows what it found.
 			{
 				role: 'assistant',
 				id: 'msg-2',
-				iso: minutesAgoIso(12),
+				iso: minutesAgoIso(27),
 				toolProfile: 'CODE+TOOLS',
-				text: 'Found tClient in 4 files — 14 occurrences. Proposed rename below; no callers outside the coordinator package, so this is a clean change.',
+				variant: 'widget',
+				text: 'Found tClient in 4 files — 14 occurrences. No callers outside the coordinator package, so this is a clean change. Dispatching code-agent now.',
 				widgets: [makeCodeDiff()]
+			},
+			// Turn 2: task dispatch — live card tracks progress.
+			{
+				role: 'assistant',
+				id: 'msg-3',
+				iso: minutesAgoIso(26),
+				toolProfile: 'CODE+TOOLS',
+				variant: 'task-dispatched',
+				text: "I've queued the rename with code-agent. I'll surface the PR here when it's done.",
+				dispatchedTask: {
+					id: 'run-20260414-rename',
+					agent: 'code-agent',
+					agentTaskType: 'code',
+					title: 'Rename tClient → temporalClient',
+					stages: ['triage', 'execute', 'verify', 'deliver'],
+					currentStage: 'verify',
+					status: 'running',
+					startedIso: minutesAgoIso(26)
+				}
+			},
+			// Turn 3: task resolved — narration + artifact embed.
+			{
+				role: 'assistant',
+				id: 'msg-4',
+				iso: minutesAgoIso(2),
+				toolProfile: 'CODE+TOOLS',
+				variant: 'task-resolved',
+				text: 'code-agent finished — 4 files, +14/−14, tests green. PR ready for review.',
+				resolvedTask: {
+					id: 'run-20260414-rename',
+					agent: 'code-agent',
+					title: 'Rename tClient → temporalClient',
+					summary: 'PR #247 opened · 4 files changed · 142/142 tests pass',
+					artifact: makeCodeDiff()
+				}
+			},
+			// Turn 4: memory-saved chip — quiet acknowledgement.
+			{
+				role: 'assistant',
+				id: 'msg-5',
+				iso: minutesAgoIso(1),
+				toolProfile: 'CODE+TOOLS',
+				variant: 'memory-saved',
+				text: "I'll remember that you prefer package-scoped renames when the identifier isn't exported.",
+				savedMemory: {
+					name: 'Package-scoped renames',
+					description: "Prefer renames that stay inside the package when the identifier isn't exported",
+					type: 'feedback'
+				}
 			}
 		]
 	});
