@@ -63,9 +63,27 @@ let
     fi
 
     log=$(mktemp)
-    if nixos-rebuild switch --flake ${repoDir}/nix#ardent-forge --impure >"$log" 2>&1; then
+    nixos-rebuild switch --flake ${repoDir}/nix#ardent-forge --impure >"$log" 2>&1
+    rebuild_rc=$?
+
+    # nixos-rebuild exit codes that are safe to proceed from:
+    #   0 — clean
+    #   4 — activation succeeded but some unit(s) failed to (re)start.
+    #       Our code IS live; we just have a misbehaving unrelated service.
+    # Any other non-zero means a real failure (build or activation).
+    if [ $rebuild_rc -eq 0 ] || [ $rebuild_rc -eq 4 ]; then
       systemctl restart ardent-forge || true
-      notify "Ardent Forge deployed $short_remote" "$commit_msg" "default"
+      if [ $rebuild_rc -eq 0 ]; then
+        notify "Ardent Forge deployed $short_remote" "$commit_msg" "default"
+      else
+        tail=$(tail -c 1500 "$log")
+        notify "Ardent Forge deployed $short_remote (unit warnings)" \
+               "$commit_msg
+
+Some non-essential units failed to start; forge was restarted anyway.
+--- rebuild tail ---
+$tail" "default"
+      fi
       rm -f "$log"
       exit 0
     else
