@@ -9,7 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
-from forge.api import chat, connectors as connectors_api, health, schedules, tasks
+from forge.api import (
+    chat,
+    connectors as connectors_api,
+    health,
+    memory as memory_api,
+    schedules,
+    tasks,
+)
 from forge.config import Settings
 from forge.connectors import ConnectorRegistry
 from forge.connectors.weather import WeatherConnector
@@ -17,6 +24,7 @@ from forge.coordinator import Coordinator
 from forge.db import Database
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
+from forge.memory import MemoryStore
 from forge.orchestrator import ForgeOrchestrator
 from forge.store import TaskStore
 from forge.thread_store import ThreadStore
@@ -29,6 +37,7 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(chat.router)
     app.include_router(schedules.router)
     app.include_router(connectors_api.router)
+    app.include_router(memory_api.router)
 
     @app.get("/metrics")
     async def metrics():
@@ -196,11 +205,13 @@ def run():
 
         # Orchestrator — needs both registries fully populated.
         thread_store = ThreadStore(db)
+        memory_store = MemoryStore(settings.memory_dir)
         orchestrator = ForgeOrchestrator(
             connectors=connectors,
             agents=registry,
             store=store,
             thread_store=thread_store,
+            memory=memory_store,
         )
         chat.configure(
             store=store,
@@ -210,6 +221,7 @@ def run():
         )
         app.state.orchestrator = orchestrator
         app.state.thread_store = thread_store
+        app.state.memory_store = memory_store
 
         coordinator = Coordinator(
             store=store,

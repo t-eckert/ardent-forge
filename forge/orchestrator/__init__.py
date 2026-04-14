@@ -24,6 +24,7 @@ from forge.orchestrator.system_prompt import ThreadContext, build_system_prompt
 if TYPE_CHECKING:
     from forge.agents import AgentRegistry
     from forge.connectors import ConnectorRegistry
+    from forge.memory import MemoryStore
     from forge.models import Task
     from forge.store import TaskStore
     from forge.thread_store import ThreadMessage, ThreadStore
@@ -45,16 +46,16 @@ class ForgeOrchestrator:
     agents: "AgentRegistry"
     store: "TaskStore | None" = None
     thread_store: "ThreadStore | None" = None
-    # Supplied by the memory layer in Phase E. Empty until then.
-    memory_index_provider: "callable[[], str] | None" = None
+    memory: "MemoryStore | None" = None
 
     def _memory_index(self) -> str | None:
-        if self.memory_index_provider is None:
+        if self.memory is None:
             return None
         try:
-            return self.memory_index_provider()
+            idx = self.memory.read_index()
+            return idx or None
         except Exception:
-            logger.exception("memory_index_provider raised")
+            logger.exception("memory.read_index raised")
             return None
 
     def system_prompt(self, thread_context: ThreadContext | None = None) -> str:

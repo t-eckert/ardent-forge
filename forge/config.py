@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"
 
+    # Forge memory — markdown store of things Forge learned about the user
+    memory_dir: str = "/data/ardent-forge/memory"
+
     # Self-building loop
     self_repo: str = "t-eckert/ardent-forge"
     self_repo_url: str = "https://github.com/t-eckert/ardent-forge.git"

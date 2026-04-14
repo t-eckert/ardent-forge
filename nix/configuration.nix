@@ -96,6 +96,7 @@
     "d /data 0755 root root -"
     "d /data/ardent-forge 0750 ${locals.username} users -"
     "d /data/ardent-forge/repos 0750 ${locals.username} users -"
+    "d /data/ardent-forge/memory 0750 ${locals.username} users -"
     "d /data/prometheus 0750 prometheus prometheus -"
     "d /data/grafana 0750 grafana grafana -"
     "d /data/loki 0750 loki loki -"
