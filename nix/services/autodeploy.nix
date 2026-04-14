@@ -13,8 +13,10 @@ let
 
   autodeployScript = pkgs.writeShellScript "ardent-forge-autodeploy" ''
     set -uo pipefail
+    # openssh is required because origin uses an SSH remote. Without it
+    # `git fetch` blows up with `cannot run ssh: No such file or directory`.
     export PATH=${lib.makeBinPath (with pkgs; [
-      git nixos-rebuild systemd coreutils curl gnused
+      git openssh nixos-rebuild systemd coreutils curl gnused
     ])}:$PATH
 
     cd ${repoDir}
