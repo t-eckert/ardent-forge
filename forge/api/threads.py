@@ -17,6 +17,20 @@ from forge.thread_store import Relation, ThreadStore, Variant
 router = APIRouter(prefix="/api/threads")
 
 
+# Status → current_stage mapping. An executing task is "inside" the execute
+# stage; completed/failed have no active stage (the UI renders the final
+# status chip instead).
+_STATUS_TO_STAGE: dict[str, str | None] = {
+    "queued": "triage",
+    "triaging": "triage",
+    "executing": "execute",
+    "verifying": "verify",
+    "delivering": "deliver",
+    "completed": None,
+    "failed": None,
+}
+
+
 def _store(request: Request) -> ThreadStore:
     store = getattr(request.app.state, "thread_store", None)
     if store is None:
@@ -35,6 +49,26 @@ def _thread_dict(t) -> dict:
     }
 
 
+def _task_summary_dict(task, agent_stages: list[str] | None) -> dict:
+    """Compact task shape embedded into task-dispatched / task-resolved messages.
+
+    handler_data is intentionally omitted — large and not needed by the UI
+    today. result rides along only for completed tasks so the resolved-
+    message widget has something to render.
+    """
+    status = task.status.value if hasattr(task.status, "value") else str(task.status)
+    return {
+        "id": task.id,
+        "type": str(task.type),
+        "title": task.title,
+        "status": status,
+        "stages": agent_stages or [],
+        "current_stage": _STATUS_TO_STAGE.get(status),
+        "result": task.result if status == "completed" else None,
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+    }
+
+
 def _message_dict(m) -> dict:
     return {
         "id": m.id,
@@ -44,8 +78,54 @@ def _message_dict(m) -> dict:
         "variant": m.variant,
         "widgets": m.widgets,
         "task_id": m.task_id,
+        "tool_use_id": getattr(m, "tool_use_id", None),
         "created_at": m.created_at,
     }
+
+
+async def _enrich_with_tasks(messages: list[dict], request: Request) -> list[dict]:
+    """For every task-variant message, fetch its Task and embed a summary.
+
+    Unknown / deleted task_ids get ``task: None`` so the UI can fall back to
+    the stored narration without exploding.
+    """
+    # TaskStore is held as a module-level singleton on forge.api.tasks rather
+    # than on app.state; reach it through the existing accessor.
+    from forge.api.tasks import _store as task_store_ref
+
+    task_store = task_store_ref
+    orchestrator = getattr(request.app.state, "orchestrator", None)
+    if task_store is None:
+        return messages
+
+    needs_enrichment = [
+        m for m in messages
+        if m["variant"] in ("task-dispatched", "task-resolved") and m["task_id"]
+    ]
+    if not needs_enrichment:
+        return messages
+
+    # One round-trip per unique task_id — threads rarely have more than a
+    # handful of task-variant messages, so a pre-existing TaskStore.get
+    # loop is fine. Revisit with a batch query if a real thread grows deep.
+    unique_ids = {m["task_id"] for m in needs_enrichment}
+    tasks = {}
+    for tid in unique_ids:
+        tasks[tid] = await task_store.get(tid)
+
+    for m in needs_enrichment:
+        task = tasks.get(m["task_id"])
+        if task is None:
+            m["task"] = None
+            continue
+        stages = None
+        if orchestrator is not None and orchestrator.agents is not None:
+            agent = orchestrator.agents.get(str(task.type))
+            if agent is not None:
+                stages = list(agent.stages)
+        m["task"] = _task_summary_dict(task, stages)
+
+    return messages
 
 
 # ─── Thread CRUD ────────────────────────────────────────────────────────────
@@ -77,7 +157,9 @@ async def get_thread(thread_id: str, request: Request):
     if t is None:
         raise HTTPException(status_code=404, detail=f"No thread: {thread_id}")
     msgs = await store.list_messages(thread_id)
-    return {**_thread_dict(t), "messages": [_message_dict(m) for m in msgs]}
+    message_dicts = [_message_dict(m) for m in msgs]
+    await _enrich_with_tasks(message_dicts, request)
+    return {**_thread_dict(t), "messages": message_dicts}
 
 
 # ─── Messages ───────────────────────────────────────────────────────────────
