@@ -2,47 +2,68 @@
 	import { Display, Body, Heading, Eyebrow } from '$lib/typography';
 	import { Card } from '$lib/components';
 
+	interface Counts {
+		log: number;
+		wiki: number;
+		fields: number;
+		people: number;
+		collections: number;
+	}
+
+	interface Props {
+		counts?: Counts | null;
+		agentCount?: number;
+		connectorCount?: number;
+		memoryCount?: number;
+	}
+
+	let {
+		counts = null,
+		agentCount = 0,
+		connectorCount = 0,
+		memoryCount = 0
+	}: Props = $props();
+
+	function fmt(n: number): string {
+		return n.toLocaleString();
+	}
+
 	interface Facet {
 		label: string;
 		href: string;
 		count: string;
-		/** Optional group heading. Facets without a group land under "Content". */
-		group?: 'Content' | 'System';
+		group: 'Content' | 'System';
 		description?: string;
 	}
 
-	const facets: Facet[] = [
-		// Content (user-authored)
-		{ label: 'Fields', href: '/library/fields', count: '7', group: 'Content' },
-		{ label: 'Daily log', href: '/library/log', count: '1,412', group: 'Content' },
-		{ label: 'Todos', href: '/library/todos', count: '24', group: 'Content' },
-		{ label: 'Schedule', href: '/library/schedule', count: '—', group: 'Content' },
-		{ label: 'People', href: '/library/people', count: '204', group: 'Content' },
-		{ label: 'Wiki', href: '/library/wiki', count: '218', group: 'Content' },
-		{ label: 'Collections', href: '/library/collections', count: '7', group: 'Content' },
-		// System (Forge's own machinery)
+	const facets = $derived<Facet[]>([
+		{ label: 'Fields', href: '/library/fields', count: fmt(counts?.fields ?? 0), group: 'Content' },
+		{ label: 'Daily log', href: '/library/log', count: fmt(counts?.log ?? 0), group: 'Content' },
+		{ label: 'Wiki', href: '/library/wiki', count: fmt(counts?.wiki ?? 0), group: 'Content' },
+		{ label: 'People', href: '/library/people', count: fmt(counts?.people ?? 0), group: 'Content' },
+		{ label: 'Collections', href: '/library/collections', count: fmt(counts?.collections ?? 0), group: 'Content' },
 		{
 			label: 'Agents',
 			href: '/library/agents',
-			count: '5',
+			count: String(agentCount),
 			group: 'System',
 			description: 'Specialist processors Forge dispatches work to'
 		},
 		{
 			label: 'Connectors',
 			href: '/library/connectors',
-			count: '4',
+			count: String(connectorCount),
 			group: 'System',
 			description: 'External capabilities — weather, github, linear, notebook'
 		},
 		{
 			label: 'Memory',
 			href: '/library/memory',
-			count: '3',
+			count: String(memoryCount),
 			group: 'System',
 			description: "What Forge has learned about you — user-editable"
 		}
-	];
+	]);
 
 	const content = $derived(facets.filter((f) => f.group !== 'System'));
 	const system = $derived(facets.filter((f) => f.group === 'System'));

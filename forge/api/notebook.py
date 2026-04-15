@@ -63,6 +63,27 @@ async def search(q: str, request: Request, path: str | None = Query(default=None
     ]
 
 
+@router.get("/counts")
+async def counts(request: Request):
+    """Count .md files in each top-level notebook directory."""
+    reader = _reader(request)
+    root = reader._root
+
+    def _count(dirname: str) -> int:
+        d = root / dirname
+        if not d.is_dir():
+            return 0
+        return sum(1 for _ in d.rglob("*.md"))
+
+    return {
+        "log": _count("Log"),
+        "wiki": _count("Wiki"),
+        "fields": _count("Fields"),
+        "people": _count("People"),
+        "collections": _count("Collections"),
+    }
+
+
 @router.get("/resolve")
 async def resolve_wikilink(name: str, request: Request):
     """Find the vault-relative path for an Obsidian wikilink name."""

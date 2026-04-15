@@ -204,6 +204,17 @@ export const api = {
 		current: () => request('/api/weather/current', WeatherCurrent)
 	},
 
+	notebook: {
+		list: (path = '') => request(`/api/notebook/list?path=${encodeURIComponent(path)}`, z.object({ path: z.string(), entries: z.array(z.string()) })),
+		read: (path: string) => request(`/api/notebook/read?path=${encodeURIComponent(path)}`, z.object({ path: z.string(), body: z.string() })),
+		search: (q: string, path?: string) => {
+			const params = new URLSearchParams({ q });
+			if (path) params.set('path', path);
+			return request(`/api/notebook/search?${params}`, z.array(z.object({ path: z.string(), line_number: z.number(), line: z.string() })));
+		},
+		counts: () => request('/api/notebook/counts', z.object({ log: z.number(), wiki: z.number(), fields: z.number(), people: z.number(), collections: z.number() }))
+	},
+
 	todos: {
 		list: (due?: string) => {
 			const q = due ? `?due=${due}` : '';
