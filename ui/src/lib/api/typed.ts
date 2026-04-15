@@ -94,6 +94,19 @@ const BackendThread = z.object({
 	created_at: z.string()
 });
 const BackendThreadList = z.array(BackendThread);
+// Task summary embedded into task-dispatched / task-resolved messages by
+// the backend (see forge/api/threads.py::_enrich_with_tasks).
+const BackendTaskSummary = z.object({
+	id: z.string(),
+	type: z.string(),
+	title: z.string(),
+	status: z.string(),
+	stages: z.array(z.string()),
+	current_stage: z.string().nullable().optional(),
+	result: z.record(z.string(), z.unknown()).nullable().optional(),
+	completed_at: z.string().nullable().optional()
+});
+
 const BackendMessage = z.object({
 	id: z.string(),
 	thread_id: z.string(),
@@ -102,6 +115,8 @@ const BackendMessage = z.object({
 	variant: z.string(),
 	widgets: z.array(z.unknown()),
 	task_id: z.string().nullable().optional(),
+	tool_use_id: z.string().nullable().optional(),
+	task: BackendTaskSummary.nullable().optional(),
 	created_at: z.string()
 });
 const BackendThreadDetail = BackendThread.extend({ messages: z.array(BackendMessage) });
@@ -114,6 +129,7 @@ export type AgentRoster = z.infer<typeof AgentRoster>;
 export type FieldSummary = z.infer<typeof FieldSummary>;
 export type BackendThread = z.infer<typeof BackendThread>;
 export type BackendThreadDetail = z.infer<typeof BackendThreadDetail>;
+export type BackendTaskSummary = z.infer<typeof BackendTaskSummary>;
 
 export const api = {
 	health: () => request('/health', z.object({ status: z.string() })),

@@ -7,8 +7,16 @@
  * see the frontend schema types.
  */
 
-import type { BackendThread, BackendThreadDetail } from './typed';
-import type { Thread, ThreadDetail, Message, AssistantMessage, UserMessage } from '$lib/schemas/thread';
+import type { BackendThread, BackendThreadDetail, BackendTaskSummary } from './typed';
+import type {
+	Thread,
+	ThreadDetail,
+	Message,
+	AssistantMessage,
+	UserMessage,
+	DispatchedTask,
+	ResolvedTask
+} from '$lib/schemas/thread';
 
 const KNOWN_KINDS = ['code+tools', 'health+tools', 'places+tools', 'chat'] as const;
 type Kind = (typeof KNOWN_KINDS)[number];
@@ -29,6 +37,60 @@ export function adaptThread(t: BackendThread, widgetCount = 0, preview = ''): Th
 	};
 }
 
+/** Backend task status → frontend DispatchedTask.status. Bucket intermediate
+ *  stages under 'running' and the delivery/verify stages under 'needs-review'
+ *  so the chip matches what the user cares about. */
+function dispatchedStatus(raw: string): DispatchedTask['status'] {
+	switch (raw) {
+		case 'queued':
+			return 'queued';
+		case 'triaging':
+		case 'executing':
+			return 'running';
+		case 'verifying':
+		case 'delivering':
+			return 'needs-review';
+		case 'completed':
+			return 'done';
+		case 'failed':
+			return 'failed';
+		default:
+			return 'running';
+	}
+}
+
+function adaptDispatched(
+	taskId: string,
+	iso: string,
+	task: BackendTaskSummary
+): DispatchedTask {
+	return {
+		id: taskId,
+		agent: `${task.type}-agent`,
+		agentTaskType: task.type,
+		title: task.title,
+		stages: task.stages,
+		currentStage: task.current_stage ?? undefined,
+		status: dispatchedStatus(task.status),
+		startedIso: iso
+	};
+}
+
+function adaptResolved(
+	taskId: string,
+	task: BackendTaskSummary,
+	narration: string
+): ResolvedTask {
+	return {
+		id: taskId,
+		agent: `${task.type}-agent`,
+		title: task.title,
+		summary: narration
+		// artifact intentionally left undefined — Gap 2 (WidgetPayload coverage)
+		// is a separate phase; today's agent results don't match any discriminant.
+	};
+}
+
 function adaptMessage(m: BackendThreadDetail['messages'][number]): Message {
 	if (m.role === 'user') {
 		const u: UserMessage = { role: 'user', id: m.id, iso: m.created_at, content: m.content };
@@ -40,6 +102,7 @@ function adaptMessage(m: BackendThreadDetail['messages'][number]): Message {
 	)
 		? (m.variant as AssistantMessage['variant'])
 		: 'text';
+
 	const a: AssistantMessage = {
 		role: 'assistant',
 		id: m.id,
@@ -49,6 +112,18 @@ function adaptMessage(m: BackendThreadDetail['messages'][number]): Message {
 		text: m.content,
 		widgets: []
 	};
+
+	// Populate the variant-specific nested objects from the backend's embedded
+	// task summary when present. If the task was deleted (task == null) we
+	// fall back to rendering the stored narration as plain text.
+	if (m.task_id && m.task) {
+		if (variant === 'task-dispatched') {
+			a.dispatchedTask = adaptDispatched(m.task_id, m.created_at, m.task);
+		} else if (variant === 'task-resolved') {
+			a.resolvedTask = adaptResolved(m.task_id, m.task, m.content);
+		}
+	}
+
 	return a;
 }
 

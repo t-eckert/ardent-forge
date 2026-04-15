@@ -1,0 +1,114 @@
+import { describe, it, expect } from 'vitest';
+import { adaptThreadDetail } from './adapters';
+
+const baseThread = {
+	id: 'thread-1',
+	title: 'Research Svelte 5',
+	kind: 'code+tools',
+	last_activity_at: '2026-04-15T00:00:00Z',
+	unread: false,
+	created_at: '2026-04-15T00:00:00Z'
+};
+
+describe('adaptThreadDetail — task variant enrichment', () => {
+	it('maps a task-dispatched backend message into a populated DispatchedTask', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-1',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'dispatched research — Svelte 5',
+					variant: 'task-dispatched',
+					widgets: [],
+					task_id: '01KP00000000000000000000AA',
+					tool_use_id: 'toolu_1',
+					task: {
+						id: '01KP00000000000000000000AA',
+						type: 'research',
+						title: 'Svelte 5 notes',
+						status: 'executing',
+						stages: ['triage', 'execute', 'verify', 'deliver'],
+						current_stage: 'execute',
+						result: null,
+						completed_at: null
+					},
+					created_at: '2026-04-15T00:00:01Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		expect(m.variant).toBe('task-dispatched');
+		expect(m.dispatchedTask).toBeDefined();
+		expect(m.dispatchedTask!.id).toBe('01KP00000000000000000000AA');
+		expect(m.dispatchedTask!.agentTaskType).toBe('research');
+		expect(m.dispatchedTask!.agent).toBe('research-agent');
+		expect(m.dispatchedTask!.stages).toEqual(['triage', 'execute', 'verify', 'deliver']);
+		expect(m.dispatchedTask!.currentStage).toBe('execute');
+		expect(m.dispatchedTask!.status).toBe('running');
+	});
+
+	it('maps a completed task-resolved message into a ResolvedTask', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-2',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'research finished — svelte 5 notes. 1 notes written',
+					variant: 'task-resolved',
+					widgets: [],
+					task_id: '01KP00000000000000000000AA',
+					task: {
+						id: '01KP00000000000000000000AA',
+						type: 'research',
+						title: 'Svelte 5 notes',
+						status: 'completed',
+						stages: ['triage', 'execute', 'verify', 'deliver'],
+						current_stage: null,
+						result: { files: ['a.md'] },
+						completed_at: '2026-04-15T00:05:00Z'
+					},
+					created_at: '2026-04-15T00:05:00Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		expect(m.variant).toBe('task-resolved');
+		expect(m.resolvedTask).toBeDefined();
+		expect(m.resolvedTask!.agent).toBe('research-agent');
+		expect(m.resolvedTask!.title).toBe('Svelte 5 notes');
+		expect(m.resolvedTask!.summary).toContain('1 notes written');
+	});
+
+	it('leaves dispatchedTask undefined when the task is missing (deleted row)', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-3',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'dispatched ghost',
+					variant: 'task-dispatched',
+					widgets: [],
+					task_id: '01KGHOST',
+					task: null,
+					created_at: '2026-04-15T00:00:01Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		expect(m.variant).toBe('task-dispatched');
+		expect(m.dispatchedTask).toBeUndefined();
+		expect(m.text).toBe('dispatched ghost');
+	});
+});
