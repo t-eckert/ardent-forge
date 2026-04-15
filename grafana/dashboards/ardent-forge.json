@@ -198,6 +198,92 @@
           "legendFormat": "ingested"
         }
       ]
+    },
+    {
+      "id": 20,
+      "title": "Chat Turns by Shape",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "targets": [
+        {
+          "expr": "sum by (shape) (rate(forge_chat_turns_total[5m]))",
+          "legendFormat": "{{shape}}"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "Chat Tool Calls by Result",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "targets": [
+        {
+          "expr": "sum by (tool, result) (rate(forge_chat_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}} · {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Chat Turn Duration (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10 } } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(forge_chat_turn_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Resolution Posts by Agent",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 15 } } },
+      "targets": [
+        {
+          "expr": "sum by (agent) (increase(forge_resolution_posts_total[1h]))",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Connector Health",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ]
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "textMode": "value_and_name" },
+      "targets": [
+        { "expr": "forge_connector_health", "legendFormat": "{{connector}}" }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "Memory Activity",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "targets": [
+        { "expr": "rate(forge_memory_reads_total[5m])", "legendFormat": "reads" },
+        { "expr": "rate(forge_memory_writes_total[5m])", "legendFormat": "writes" }
+      ]
     }
   ],
   "schemaVersion": 39,
