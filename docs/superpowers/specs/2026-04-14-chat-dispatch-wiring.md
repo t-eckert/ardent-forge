@@ -170,8 +170,14 @@ Alongside the implementation:
 2. Walk the runbook on the box after (c).
 3. Update `MEMORY.md` project-progress entry to reflect "dispatch loop closed end-to-end."
 
-## Open questions for review
+## Decisions (resolved 2026-04-14)
 
-1. Should the `task-dispatched` message include the tool_use_id from Claude, so we can correlate the eventual tool_result back to it if we ever replay the turn? Low-priority but cheap to include.
-2. Do we want to cap dispatches per turn (e.g. one task per user message) to keep the conversation legible, or allow fan-out? Default to uncapped; add a limit only if it becomes a problem.
-3. Is the synthetic `dispatch_task` tool discoverable enough in the prompt, or should we nudge Forge with a few-shot example in the persona? Tune after observing real usage.
+1. **Include Claude's `tool_use_id` in the `task-dispatched` message.** Store it on
+   the ThreadMessage (new optional column / field). Useful for replaying a turn
+   and for debugging "which tool_use produced which task."
+2. **Fan-out allowed, with a soft cap of 5 dispatches per assistant turn.** Same
+   spirit as the existing 5-iteration tool-use loop cap — it's a runaway guard,
+   not a product limit. If a real workflow needs more, bump it.
+3. **Rely on the tool's `description` field alone at first.** No few-shot in the
+   persona. Tune only if Claude misuses `dispatch_task` in practice — cheaper
+   to add nudges after observing behaviour than to over-specify upfront.
