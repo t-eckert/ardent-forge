@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { FieldsIndex } from '$lib/library';
-	import { makeFields } from '$lib/mocks';
+	import type { PageData } from './$types';
 
-	const fields = makeFields();
+	interface Props {
+		data: PageData;
+	}
+	let { data }: Props = $props();
 </script>
 
-<FieldsIndex {fields} />
+<FieldsIndex fields={data.fields} />

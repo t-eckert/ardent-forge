@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { ThreadsView } from '$lib/threads';
-	import { makeThreadList, makeRenameThread } from '$lib/mocks';
+	import type { PageData } from './$types';
 
-	// Expose the rename thread alongside the default list so it's routable to /threads/thread-rename-t-client
-	const threads = [makeRenameThread(), ...makeThreadList()];
+	interface Props {
+		data: PageData;
+	}
+	let { data }: Props = $props();
 </script>
 
-<ThreadsView {threads} />
+<ThreadsView threads={data.threads} />

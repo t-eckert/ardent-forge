@@ -6,11 +6,19 @@
 	import OvernightDigest from '../components/overnight-digest.svelte';
 	import OpenThreads from '../components/open-threads.svelte';
 	import YesterdaySummary from '../components/yesterday-summary.svelte';
+	import type { Thread } from '$lib/schemas/thread';
 	import { makeTodaysTodos, makeOvernightRuns, makeThreadList } from '$lib/mocks';
+
+	interface Props {
+		threads?: Thread[];
+	}
+
+	let { threads: threadsProp }: Props = $props();
 
 	const todos = makeTodaysTodos();
 	const runs = makeOvernightRuns();
-	const threads = makeThreadList();
+	// Overnight-run and todos endpoints don't exist yet — mocks stay until they do.
+	const threads = $derived(threadsProp ?? makeThreadList());
 
 	const scheduleItems = [
 		{

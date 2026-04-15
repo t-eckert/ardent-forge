@@ -1,19 +1,22 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { ThreadView } from '$lib/threads';
-	import { makeThreadList, makeRenameThread } from '$lib/mocks';
+	import { ThreadView, ThreadsView } from '$lib/threads';
 	import { Display, Body } from '$lib/typography';
+	import type { PageData } from './$types';
 
-	const rename = makeRenameThread();
-	const threads = [rename, ...makeThreadList()];
-	const active = $derived(page.params.id === rename.id ? rename : null);
+	interface Props {
+		data: PageData;
+	}
+	let { data }: Props = $props();
 </script>
 
-{#if active}
-	<ThreadView {threads} {active} />
+{#if data.active}
+	<ThreadView threads={data.threads} active={data.active} />
+{:else if data.threads.length}
+	<ThreadsView threads={data.threads} />
 {:else}
 	<div class="p-12 flex flex-col gap-3">
 		<Display size="md">Thread not found</Display>
-		<Body muted>No mock thread has id <span class="font-mono">{page.params.id}</span>.</Body>
+		<Body muted>No thread with id <span class="font-mono">{page.params.id}</span>.</Body>
 	</div>
 {/if}
