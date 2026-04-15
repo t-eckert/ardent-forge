@@ -18,3 +18,9 @@ ui/build/
 
 *storybook.log
 storybook-static
+
+# Playwright run artifacts (baselines under e2e/*-snapshots are committed)
+ui/test-results/
+ui/playwright-report/
+ui/blob-report/
+ui/playwright/.cache/
