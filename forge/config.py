@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     linear_api_key: str = ""
     linear_team_id: str = ""
 
+    # Web search (Tavily)
+    tavily_api_key: str = ""
+
     # Repos
     workspace_dir: str = "/var/lib/ardent-forge/repos"
 

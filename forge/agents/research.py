@@ -18,7 +18,7 @@ class ResearchAgent:
     name = "research"
     task_type = "research"
     stages = ["triage", "execute", "verify", "deliver"]
-    connectors = ["notebook"]
+    connectors = ["notebook", "web_search"]
 
     def __init__(
         self,

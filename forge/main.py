@@ -107,6 +107,10 @@ def run():
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
         connectors.register(WeatherConnector())
+        if settings.tavily_api_key:
+            from forge.connectors.web_search import WebSearchConnector
+
+            connectors.register(WebSearchConnector(api_key=settings.tavily_api_key))
         if notebook_path.is_dir():
             from forge.connectors.notebook import NotebookConnector
 

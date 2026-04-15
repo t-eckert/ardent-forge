@@ -92,5 +92,6 @@ in {
     GH_TOKEN=op://Ardent Forge/github-pat/credential
     FORGE_LINEAR_API_KEY=op://Ardent Forge/linear-api-key/credential
     FORGE_LINEAR_TEAM_ID=op://Ardent Forge/linear-team-id/credential
+    FORGE_TAVILY_API_KEY=op://Ardent Forge/tavily-api-key/credential
   '';
 }
