@@ -36,13 +36,16 @@ def set_anthropic_client_factory(factory):
     _anthropic_client_factory = factory
 
 
+_NOT_SET = object()
+
+
 def configure(
     store: TaskStore,
     connectors: ConnectorRegistry | None = None,
     orchestrator: ForgeOrchestrator | None = None,
     thread_store: ThreadStore | None = None,
     coordinator=None,
-    anthropic_api_key: str | None = None,
+    anthropic_api_key: str | None | object = _NOT_SET,
     model: str | None = None,
 ):
     global _store, _connectors, _orchestrator, _thread_store, _coordinator
@@ -56,7 +59,8 @@ def configure(
         _thread_store = thread_store
     if coordinator is not None:
         _coordinator = coordinator
-    _anthropic_api_key = anthropic_api_key
+    if anthropic_api_key is not _NOT_SET:
+        _anthropic_api_key = anthropic_api_key  # type: ignore[assignment]
     if model:
         _chat_model = model
 

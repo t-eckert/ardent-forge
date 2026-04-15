@@ -22,7 +22,7 @@ async def client_with_thread_store():
     store = TaskStore(db)
     thread_store = ThreadStore(db)
     app = create_app(db)
-    chat.configure(store=store, thread_store=thread_store)
+    chat.configure(store=store, thread_store=thread_store, anthropic_api_key=None)
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as c:
