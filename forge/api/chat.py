@@ -17,6 +17,7 @@ _store: TaskStore | None = None
 _connectors: ConnectorRegistry | None = None
 _orchestrator: ForgeOrchestrator | None = None
 _thread_store: ThreadStore | None = None
+_coordinator: "object | None" = None  # avoid import cycle; typed as "has .nudge()"
 _anthropic_api_key: str | None = None
 _chat_model: str = "claude-sonnet-4-20250514"
 
@@ -40,10 +41,12 @@ def configure(
     connectors: ConnectorRegistry | None = None,
     orchestrator: ForgeOrchestrator | None = None,
     thread_store: ThreadStore | None = None,
+    coordinator=None,
     anthropic_api_key: str | None = None,
     model: str | None = None,
 ):
-    global _store, _connectors, _orchestrator, _thread_store, _anthropic_api_key, _chat_model
+    global _store, _connectors, _orchestrator, _thread_store, _coordinator
+    global _anthropic_api_key, _chat_model
     _store = store
     if connectors is not None:
         _connectors = connectors
@@ -51,6 +54,8 @@ def configure(
         _orchestrator = orchestrator
     if thread_store is not None:
         _thread_store = thread_store
+    if coordinator is not None:
+        _coordinator = coordinator
     _anthropic_api_key = anthropic_api_key
     if model:
         _chat_model = model
@@ -147,6 +152,10 @@ async def _handle_dispatch(
     await _thread_store.link_task(
         thread_id=thread_id, task_id=task.id, relation="origin"
     )
+    # Nudge the coordinator so the task starts processing within seconds
+    # instead of waiting up to the full poll interval.
+    if _coordinator is not None and hasattr(_coordinator, "nudge"):
+        _coordinator.nudge()
     await _thread_store.append_message(
         thread_id=thread_id,
         role="assistant",

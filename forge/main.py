@@ -249,6 +249,10 @@ def run():
             poller=poller,
             watchers=watchers,
         )
+        # Hand the coordinator to chat so dispatched tasks can nudge the loop
+        # for near-immediate processing instead of waiting a full tick.
+        chat.configure(store=store, coordinator=coordinator)
+        app.state.coordinator = coordinator
 
         await coordinator.startup()
 

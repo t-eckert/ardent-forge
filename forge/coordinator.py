@@ -43,6 +43,22 @@ class Coordinator:
         self._poller = poller
         self._watchers = watchers or []
         self._orchestrator = orchestrator
+        # Wake signal — chat.py sets this after dispatching a task so the
+        # coordinator starts processing within seconds instead of waiting for
+        # the next poll tick. Created lazily on first loop entry so it binds
+        # to the running event loop.
+        self._wake: asyncio.Event | None = None
+
+    def nudge(self) -> None:
+        """Ask the coordinator to run a tick as soon as possible.
+
+        Safe to call from any coroutine, synchronous with respect to the loop
+        via the underlying ``asyncio.Event``. A no-op if ``run_loop`` hasn't
+        started yet (e.g. in unit tests) — ticks will happen on their own
+        schedule when the loop eventually starts.
+        """
+        if self._wake is not None:
+            self._wake.set()
 
     async def startup(self):
         """Called once on application start. Resets stuck tasks."""
@@ -206,7 +222,14 @@ class Coordinator:
         return tasks_processed
 
     async def run_loop(self, poll_interval: float = 300):
-        """Run the coordinator loop indefinitely. Used by the FastAPI lifespan."""
+        """Run the coordinator loop indefinitely. Used by the FastAPI lifespan.
+
+        Each iteration runs one tick, then waits up to ``poll_interval`` seconds
+        before the next — but will wake immediately if ``nudge()`` is called.
+        This keeps external pollers (Linear, watchers) on their slow cadence
+        while making chat-dispatched tasks feel interactive.
+        """
+        self._wake = asyncio.Event()
         logger.info(f"Coordinator loop started (interval={poll_interval}s)")
         while True:
             try:
@@ -215,4 +238,9 @@ class Coordinator:
                     logger.info(f"Processed {processed} tasks")
             except Exception:
                 logger.exception("Error in coordinator loop")
-            await asyncio.sleep(poll_interval)
+            # Wait for either the timeout or a nudge, whichever comes first.
+            try:
+                await asyncio.wait_for(self._wake.wait(), timeout=poll_interval)
+            except asyncio.TimeoutError:
+                pass
+            self._wake.clear()
