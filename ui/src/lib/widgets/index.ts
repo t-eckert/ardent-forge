@@ -5,3 +5,4 @@ export { default as Weather } from './weather/weather.svelte';
 export { default as Purchases } from './purchases/purchases.svelte';
 export { default as Workouts } from './workouts/workouts.svelte';
 export { default as PlacesMap } from './places-map/places-map.svelte';
+export { default as Result } from './result/result.svelte';
