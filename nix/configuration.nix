@@ -64,6 +64,18 @@
   users.users.grafana.extraGroups = [ "users" ];
   programs.zsh.enable = true;
 
+  # ── Sudo ────────────────────────────────────────────────
+  # Let the main user restart Ardent Forge without a password so that
+  # Claude Code (and autodeploy) can bounce the service after changes.
+  security.sudo.extraRules = [{
+    users = [ locals.username ];
+    commands = [
+      { command = "/run/current-system/sw/bin/systemctl restart ardent-forge"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl stop ardent-forge"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl start ardent-forge"; options = [ "NOPASSWD" ]; }
+    ];
+  }];
+
   # ── SSH ─────────────────────────────────────────────────
   services.openssh = {
     enable = true;
