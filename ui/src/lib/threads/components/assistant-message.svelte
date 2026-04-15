@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { AssistantMessage } from '$lib/schemas/thread';
-	import { Meta, Body } from '$lib/typography';
+	import { Meta } from '$lib/typography';
+	import Markdown from '$lib/components/markdown.svelte';
 	import { WidgetHost } from '$lib/widgets';
 	import { formatTime } from '$lib/utils/date';
 	import TaskDispatchedCard from './task-dispatched-card.svelte';
@@ -21,7 +22,7 @@
 	</header>
 
 	{#if message.text}
-		<Body>{message.text}</Body>
+		<Markdown source={message.text} />
 	{/if}
 
 	{#if message.variant === 'widget'}
