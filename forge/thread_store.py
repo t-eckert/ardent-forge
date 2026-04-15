@@ -50,6 +50,7 @@ class ThreadMessage:
     widgets: list[dict[str, Any]]
     task_id: str | None
     created_at: str
+    tool_use_id: str | None = None
 
 
 @dataclass
@@ -110,6 +111,7 @@ class ThreadStore:
         variant: Variant = "text",
         widgets: list[dict[str, Any]] | None = None,
         task_id: str | None = None,
+        tool_use_id: str | None = None,
     ) -> ThreadMessage:
         msg = ThreadMessage(
             id=_gen_id("msg"),
@@ -120,11 +122,12 @@ class ThreadStore:
             widgets=widgets or [],
             task_id=task_id,
             created_at=_now(),
+            tool_use_id=tool_use_id,
         )
         await self._db.execute(
             "INSERT INTO thread_messages "
-            "(id, thread_id, role, content, variant, widgets, task_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(id, thread_id, role, content, variant, widgets, task_id, tool_use_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 msg.id,
                 msg.thread_id,
@@ -133,6 +136,7 @@ class ThreadStore:
                 msg.variant,
                 json.dumps(msg.widgets),
                 msg.task_id,
+                msg.tool_use_id,
                 msg.created_at,
             ),
         )
@@ -209,6 +213,10 @@ def _thread_from_row(row: dict) -> Thread:
 
 
 def _message_from_row(row: dict) -> ThreadMessage:
+    # tool_use_id was added after the initial schema — use .get-style access
+    # via dict() conversion since aiosqlite.Row doesn't support .get().
+    row_keys = row.keys() if hasattr(row, "keys") else []
+    tool_use_id = row["tool_use_id"] if "tool_use_id" in row_keys else None
     return ThreadMessage(
         id=row["id"],
         thread_id=row["thread_id"],
@@ -218,6 +226,7 @@ def _message_from_row(row: dict) -> ThreadMessage:
         widgets=json.loads(row["widgets"] or "[]"),
         task_id=row["task_id"],
         created_at=row["created_at"],
+        tool_use_id=tool_use_id,
     )
 
 

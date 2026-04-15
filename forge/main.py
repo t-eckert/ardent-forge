@@ -227,6 +227,7 @@ def run():
             store=store,
             connectors=connectors,
             orchestrator=orchestrator,
+            thread_store=thread_store,
             anthropic_api_key=settings.anthropic_api_key,
         )
         app.state.orchestrator = orchestrator

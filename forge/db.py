@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS thread_messages (
     variant TEXT NOT NULL DEFAULT 'text',
     widgets TEXT NOT NULL DEFAULT '[]',
     task_id TEXT,
+    tool_use_id TEXT,
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS thread_messages_thread_id ON thread_messages (thread_id, created_at);
@@ -92,6 +93,15 @@ class Database:
         self._conn = await aiosqlite.connect(self._path)
         self._conn.row_factory = aiosqlite.Row
         await self._conn.executescript(SCHEMA)
+        # Idempotent column additions for DBs created before the column existed.
+        # SQLite has no "ADD COLUMN IF NOT EXISTS" — swallow duplicate-column.
+        for alter in (
+            "ALTER TABLE thread_messages ADD COLUMN tool_use_id TEXT",
+        ):
+            try:
+                await self._conn.execute(alter)
+            except Exception:
+                pass
         await self._conn.commit()
 
     async def close(self):

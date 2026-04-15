@@ -1,12 +1,13 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from forge.connectors import ConnectorRegistry
 from forge.orchestrator import ForgeOrchestrator
 from forge.store import TaskStore
+from forge.thread_store import ThreadStore
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/api/chat")
 _store: TaskStore | None = None
 _connectors: ConnectorRegistry | None = None
 _orchestrator: ForgeOrchestrator | None = None
+_thread_store: ThreadStore | None = None
 _anthropic_api_key: str | None = None
 _chat_model: str = "claude-sonnet-4-20250514"
 
@@ -37,15 +39,18 @@ def configure(
     store: TaskStore,
     connectors: ConnectorRegistry | None = None,
     orchestrator: ForgeOrchestrator | None = None,
+    thread_store: ThreadStore | None = None,
     anthropic_api_key: str | None = None,
     model: str | None = None,
 ):
-    global _store, _connectors, _orchestrator, _anthropic_api_key, _chat_model
+    global _store, _connectors, _orchestrator, _thread_store, _anthropic_api_key, _chat_model
     _store = store
     if connectors is not None:
         _connectors = connectors
     if orchestrator is not None:
         _orchestrator = orchestrator
+    if thread_store is not None:
+        _thread_store = thread_store
     _anthropic_api_key = anthropic_api_key
     if model:
         _chat_model = model
@@ -65,6 +70,9 @@ def get_store() -> TaskStore:
 
 class ChatRequest(BaseModel):
     content: str
+    # Optional — when provided, the chat turn is persisted to the thread via
+    # ThreadStore instead of the singleton chat log. Unknown thread_id → 404.
+    thread_id: str | None = None
 
 
 @router.get("/messages")
@@ -90,12 +98,34 @@ async def send_message(req: ChatRequest):
     turn_shape = "synchronous"  # updated inside generate() if tools are used
     store = get_store()
 
-    # Save user message
-    await store.save_chat_message(role="user", content=req.content)
+    # Thread-scoped vs singleton-log persistence. If the request names a
+    # thread_id, we validate it exists and route the whole turn through
+    # ThreadStore. Otherwise we fall back to the singleton chat log so the
+    # Today composer keeps working.
+    thread_id = req.thread_id
+    if thread_id is not None:
+        if _thread_store is None:
+            raise HTTPException(status_code=500, detail="Thread store not configured")
+        if await _thread_store.get(thread_id) is None:
+            raise HTTPException(status_code=404, detail=f"Thread not found: {thread_id}")
+
+    # Save user message to whichever log applies.
+    if thread_id is not None:
+        await _thread_store.append_message(
+            thread_id=thread_id, role="user", content=req.content
+        )
+        await _thread_store.mark_activity(thread_id, unread=False)
+    else:
+        await store.save_chat_message(role="user", content=req.content)
 
     if not _anthropic_api_key:
         fallback = "Chat is not configured. Set FORGE_ANTHROPIC_API_KEY to enable."
-        await store.save_chat_message(role="assistant", content=fallback)
+        if thread_id is not None:
+            await _thread_store.append_message(
+                thread_id=thread_id, role="assistant", content=fallback
+            )
+        else:
+            await store.save_chat_message(role="assistant", content=fallback)
 
         async def fallback_stream():
             yield fallback
@@ -117,12 +147,25 @@ async def send_message(req: ChatRequest):
 
     client = _anthropic_client_factory(_anthropic_api_key)
 
-    history = await store.list_chat_messages(limit=50)
-    messages: list[dict] = [
-        {"role": msg["role"], "content": msg["content"]}
-        for msg in history
-        if msg["role"] in ("user", "assistant")
-    ]
+    # Build history from whichever log applies. For threads, we include the
+    # prose content of every message Claude can reason about (text,
+    # task-dispatched, task-resolved narrations); dispatch/resolve cards are
+    # flattened to their narration for LLM context, variants stay distinct
+    # in the UI via the stored 'variant' column.
+    if thread_id is not None:
+        thread_msgs = await _thread_store.list_messages(thread_id, limit=50)
+        messages: list[dict] = [
+            {"role": m.role, "content": m.content}
+            for m in thread_msgs
+            if m.role in ("user", "assistant") and m.content
+        ]
+    else:
+        history = await store.list_chat_messages(limit=50)
+        messages = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in history
+            if msg["role"] in ("user", "assistant")
+        ]
 
     async def generate():
         nonlocal turn_shape
@@ -203,7 +246,16 @@ async def send_message(req: ChatRequest):
             yield error_msg
             turn_shape = "error"
         finally:
-            await store.save_chat_message(role="assistant", content=full_response)
+            if thread_id is not None:
+                await _thread_store.append_message(
+                    thread_id=thread_id,
+                    role="assistant",
+                    content=full_response,
+                    variant="text",
+                )
+                await _thread_store.mark_activity(thread_id, unread=False)
+            else:
+                await store.save_chat_message(role="assistant", content=full_response)
             try:
                 CHAT_TURNS_TOTAL.labels(shape=turn_shape).inc()
                 CHAT_TURN_DURATION_SECONDS.observe(_time.monotonic() - turn_start)
