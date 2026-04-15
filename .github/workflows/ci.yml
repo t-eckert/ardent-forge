@@ -18,6 +18,13 @@ jobs:
         run: uv python install 3.13
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Configure git identity
+        # Several tests create real git commits; without a global identity
+        # `git commit` fails with "Please tell me who you are".
+        run: |
+          git config --global user.email "ci@ardent-forge.local"
+          git config --global user.name "Ardent Forge CI"
+          git config --global init.defaultBranch main
       - name: Install deps
         run: uv sync --all-extras
       - name: pytest
@@ -42,6 +49,10 @@ jobs:
           cache-dependency-path: ui/pnpm-lock.yaml
       - name: Install deps
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright chromium
+        # @vitest/browser (via the Storybook test addon) needs chromium to
+        # run component stories. Install only chromium to keep the job fast.
+        run: pnpm exec playwright install chromium --with-deps
       - name: Typecheck
         run: pnpm check
       - name: Unit + storybook tests
