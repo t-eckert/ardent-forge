@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { Eyebrow, Meta } from '$lib/typography';
 	import { Chip, KeycapHint } from '$lib/components';
+	import { api } from '$lib/api/typed';
 
 	interface Props {
 		placeholder?: string;
@@ -9,9 +11,34 @@
 	}
 
 	let {
-		placeholder = 'Start a thread from here — e.g. "plan the week around the long run"',
+		placeholder = 'Start a thread — e.g. "plan the week around the long run"',
 		scopeChips = ['@today', '@health', '/tools']
 	}: Props = $props();
+
+	let value = $state('');
+	let sending = $state(false);
+
+	async function submit() {
+		const content = value.trim();
+		if (!content || sending) return;
+		sending = true;
+		try {
+			const title = content.length > 60 ? content.slice(0, 57) + '…' : content;
+			const thread = await api.threads.create(title);
+			// Fire the chat request — the thread view will consume the stream.
+			api.chat.send(content, thread.id);
+			await goto(`/threads/${thread.id}`);
+		} finally {
+			sending = false;
+		}
+	}
+
+	function onkey(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			submit();
+		}
+	}
 </script>
 
 <div
@@ -28,7 +55,15 @@
 	<div
 		class="flex items-center gap-2.5 px-3 py-2.5 bg-[var(--color-paper)] border border-[var(--color-stone)] rounded-md"
 	>
-		<span class="flex-1 text-sm text-[var(--color-graphite)]">{placeholder}</span>
-		<KeycapHint keys={['⌘', '↵']} />
+		<input
+			type="text"
+			bind:value
+			{placeholder}
+			disabled={sending}
+			onkeydown={onkey}
+			class="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-graphite)] outline-none"
+			aria-label="Message"
+		/>
+		<KeycapHint keys={['↵']} />
 	</div>
 </div>

@@ -219,7 +219,12 @@ export const api = {
 
 	threads: {
 		list: () => request('/api/threads', BackendThreadList),
-		get: (id: string) => request(`/api/threads/${id}`, BackendThreadDetail)
+		get: (id: string) => request(`/api/threads/${id}`, BackendThreadDetail),
+		create: (title: string, kind = 'chat') =>
+			request('/api/threads', BackendThread, {
+				method: 'POST',
+				body: JSON.stringify({ title, kind })
+			})
 	},
 
 	tasks: {

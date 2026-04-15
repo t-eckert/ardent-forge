@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { Thread } from '$lib/schemas/thread';
+	import { api } from '$lib/api/typed';
+	import { adaptThread } from '$lib/api/adapters';
 	import ThreadRow from './thread-row.svelte';
 	import { Eyebrow, Heading } from '$lib/typography';
 	import { Chip } from '$lib/components';
@@ -11,6 +14,12 @@
 	}
 
 	let { threads, activeId }: Props = $props();
+
+	async function createThread() {
+		const raw = await api.threads.create('New thread');
+		const thread = adaptThread(raw);
+		await goto(`/threads/${thread.id}`);
+	}
 
 	type Filter = 'all' | 'unread' | 'pinned';
 	let filter = $state<Filter>('all');
@@ -30,7 +39,8 @@
 		</div>
 		<button
 			type="button"
-			class="flex items-center justify-center w-7 h-7 bg-[var(--color-ink)] text-[var(--color-paper)] rounded-md"
+			onclick={createThread}
+			class="flex items-center justify-center w-7 h-7 bg-[var(--color-ink)] text-[var(--color-paper)] rounded-md cursor-pointer"
 			aria-label="New thread"
 		>
 			<Plus size={14} weight="regular" />

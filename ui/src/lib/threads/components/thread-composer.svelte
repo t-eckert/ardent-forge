@@ -20,6 +20,13 @@
 
 	let value = $state('');
 	let sending = $state(false);
+	let textarea: HTMLTextAreaElement | undefined = $state();
+
+	function resize() {
+		if (!textarea) return;
+		textarea.style.height = 'auto';
+		textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+	}
 
 	async function submit() {
 		const content = value.trim();
@@ -28,13 +35,16 @@
 		try {
 			await onsubmit(content);
 			value = '';
+			if (textarea) {
+				textarea.style.height = 'auto';
+			}
 		} finally {
 			sending = false;
 		}
 	}
 
 	function onkey(e: KeyboardEvent) {
-		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			submit();
 		}
@@ -53,17 +63,20 @@
 		<Meta size="sm">{modelLabel}</Meta>
 	</div>
 	<div
-		class="flex items-center gap-2.5 px-3 py-2.5 bg-[var(--color-paper)] border border-[var(--color-stone)] rounded-md"
+		class="flex items-end gap-2.5 px-3 py-2.5 bg-[var(--color-paper)] border border-[var(--color-stone)] rounded-md"
 	>
-		<input
-			type="text"
+		<textarea
+			bind:this={textarea}
 			bind:value
 			{placeholder}
 			disabled={disabled || sending}
 			onkeydown={onkey}
-			class="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-graphite)] outline-none"
+			oninput={resize}
+			rows={1}
+			class="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-graphite)] outline-none resize-none leading-snug"
+			style="height: auto; max-height: 160px;"
 			aria-label="Message"
-		/>
-		<KeycapHint keys={['⌘', '↵']} />
+		></textarea>
+		<KeycapHint keys={['↵']} />
 	</div>
 </div>

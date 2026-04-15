@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import type { Thread, ThreadDetail } from '$lib/schemas/thread';
+	import type { Thread, ThreadDetail, Message, UserMessage, AssistantMessage } from '$lib/schemas/thread';
 	import { api } from '$lib/api/typed';
 	import ThreadList from '../components/thread-list.svelte';
 	import Conversation from '../components/conversation.svelte';
@@ -13,11 +13,29 @@
 
 	let { threads, active }: Props = $props();
 
+	// Local messages includes server-persisted messages + any optimistic additions.
+	let optimistic: Message[] = $state([]);
+	let streamingText = $state('');
+
+	// Merge server messages with optimistic ones. Clear optimistic on server refresh.
+	const allMessages = $derived.by(() => {
+		if (optimistic.length === 0) return active.messages;
+		return [...active.messages, ...optimistic];
+	});
+
+	// Clear optimistic messages when the server data refreshes (after invalidateAll).
+	$effect(() => {
+		// When active.messages changes (new data from server), drop optimistic.
+		active.messages;
+		optimistic = [];
+		streamingText = '';
+	});
+
 	/** True iff any dispatched card on this thread is still waiting on the
 	 *  coordinator. When true, we poll so the stage indicator and resolution
 	 *  message appear without a manual refresh. */
 	const hasPendingTasks = $derived.by(() => {
-		for (const m of active.messages) {
+		for (const m of allMessages) {
 			if (m.role !== 'assistant') continue;
 			if (m.variant !== 'task-dispatched') continue;
 			const status = m.dispatchedTask?.status;
@@ -35,17 +53,44 @@
 	});
 
 	async function onsubmit(content: string) {
-		// Fire-and-consume the streaming response so the assistant message is
-		// fully persisted server-side before we refetch. The loader then
-		// picks up both the user message and the assistant reply.
+		const now = new Date().toISOString();
+
+		// Optimistic user message.
+		const userMsg: UserMessage = {
+			role: 'user',
+			id: `opt-user-${Date.now()}`,
+			iso: now,
+			content
+		};
+
+		// Provisional assistant message that will accumulate streamed text.
+		const assistantMsg: AssistantMessage = {
+			role: 'assistant',
+			id: `opt-assistant-${Date.now()}`,
+			iso: now,
+			toolProfile: 'FORGE',
+			variant: 'text',
+			text: '',
+			widgets: []
+		};
+
+		optimistic = [userMsg, assistantMsg];
+		streamingText = '';
+
 		const res = await api.chat.send(content, active.id);
 		if (res.body) {
-			const reader = res.body.getReader();
+			const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
 			while (true) {
-				const { done } = await reader.read();
+				const { done, value } = await reader.read();
 				if (done) break;
+				streamingText += value;
+				// Update the provisional assistant message text reactively.
+				assistantMsg.text = streamingText;
+				optimistic = [userMsg, assistantMsg];
 			}
 		}
+
+		// Sync with server state — picks up widgets, task-dispatched cards, etc.
 		await invalidateAll();
 	}
 </script>
@@ -53,9 +98,9 @@
 <div class="flex min-h-[calc(100vh-3rem)]">
 	<ThreadList {threads} activeId={active.id} />
 	<div class="flex flex-col flex-1 min-w-0">
-		<Conversation messages={active.messages} />
+		<Conversation messages={allMessages} {streamingText} />
 		<ThreadComposer
-			placeholder={'Continue the thread — e.g. "ship the PR"'}
+			placeholder={'Message Forge…'}
 			{onsubmit}
 		/>
 	</div>

@@ -21,7 +21,7 @@
 		'flex items-center justify-between gap-3 px-2.5 py-2 text-[13px] rounded-md transition-colors',
 		active
 			? 'bg-[var(--color-paper)] border border-[var(--color-border)] text-[var(--color-ink)] font-medium'
-			: 'text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60'
+			: 'border border-transparent text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60'
 	)}
 >
 	<span class="flex items-center gap-2.5 min-w-0">
