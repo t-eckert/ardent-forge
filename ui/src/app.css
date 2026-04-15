@@ -32,8 +32,38 @@
 	--radius-xl: 8px;
 }
 
+/* Dark mode — invert paper/ink, cool down bench, mute stone, keep ember/moss/signal
+   readable. Border stays close to bench so cards don't look stamped. */
+[data-theme='dark'] {
+	--color-paper: #14110e;
+	--color-bench: #1e1a16;
+	--color-graphite: #8a7f72;
+	--color-ink: #f2ecdf;
+	--color-ember: #ff6a35;
+	--color-ember-deep: #e34e18;
+	--color-signal: #6b93c4;
+	--color-moss: #7fb08d;
+	--color-warn: #d9a26a;
+	--color-border: #2a251f;
+	--color-slate: #a89e90;
+	--color-stone: #3a332b;
+}
+
 body {
 	background-color: var(--color-paper);
 	color: var(--color-ink);
 	font-family: var(--font-sans);
+}
+
+/* Keyboard-visible focus rings — ember on paper, visible in both themes. */
+:focus-visible {
+	outline: 2px solid var(--color-ember);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Remove focus ring only when the user clicked (mouse) — :focus-visible handles
+   keyboard users correctly. */
+:focus:not(:focus-visible) {
+	outline: none;
 }
