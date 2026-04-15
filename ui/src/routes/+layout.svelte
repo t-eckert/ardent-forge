@@ -3,16 +3,18 @@
 	import '../app.css';
 	import ThemeProvider from '$lib/theme/theme-provider.svelte';
 	import { AppShell } from '$lib/chrome';
+	import type { LayoutData } from './$types';
 
 	interface Props {
 		children: Snippet;
+		data: LayoutData;
 	}
 
-	let { children }: Props = $props();
+	let { children, data }: Props = $props();
 </script>
 
 <ThemeProvider>
-	<AppShell>
+	<AppShell chrome={data.chrome}>
 		{@render children()}
 	</AppShell>
 </ThemeProvider>

@@ -7,11 +7,18 @@
 	import { PaletteOverlay, mountPaletteKeybinding } from '$lib/palette';
 	import { MOCK_RESULTS } from '$lib/palette/_stories/mock-data';
 
-	interface Props {
-		children: Snippet;
+	interface ChromeCounts {
+		threadCount?: number;
+		tasksActive?: number;
+		libraryCount?: number;
 	}
 
-	let { children }: Props = $props();
+	interface Props {
+		children: Snippet;
+		chrome?: ChromeCounts;
+	}
+
+	let { children, chrome = {} }: Props = $props();
 
 	const path = $derived(page.url?.pathname ?? '/');
 	const activeSpine = $derived(chromeState.spineFor(path));
@@ -24,7 +31,12 @@
 </script>
 
 <div class="flex min-h-screen bg-[var(--color-paper)]">
-	<Sidebar active={activeSpine} />
+	<Sidebar
+		active={activeSpine}
+		threadCount={chrome.threadCount ?? 0}
+		tasksActive={chrome.tasksActive ?? 0}
+		libraryCount={chrome.libraryCount ?? 0}
+	/>
 	<main class="flex-1 flex flex-col min-w-0">
 		<BreadcrumbStrip {trail} />
 		<div class="flex-1">
