@@ -46,6 +46,7 @@
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "server";
+    extraSetFlags = [ "--ssh" ];
   };
 
   # ── Time & Locale ──────────────────────────────────────
