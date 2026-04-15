@@ -103,6 +103,10 @@ def run():
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
         connectors.register(WeatherConnector())
+        if notebook_path.is_dir():
+            from forge.connectors.notebook import NotebookConnector
+
+            connectors.register(NotebookConnector(notebook_path))
         await connectors.setup_all()
 
         tasks.set_store(store)
