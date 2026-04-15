@@ -49,6 +49,21 @@ class Agent(Protocol):
     An agent's ``stages`` list is the authoritative declaration — the coordinator
     will only call stage methods listed there. ``execute`` is required; the
     other three are optional and only used when named in ``stages``.
+
+    Stage contract — two kinds of stages, by design:
+
+      * ``triage`` and ``verify`` are **gates**. They return a bool:
+        ``True`` passes, ``False`` fails the task. Their return value is NOT
+        aggregated into the task result — they exist to decide, not to produce.
+        If a gate needs to leave a trace (e.g. "why we declined"), it should
+        either call ``ctx.store.update_handler_data(...)`` or let the produced
+        artifact carry that context out of ``execute``.
+
+      * ``execute`` and ``deliver`` are **producers**. They return a dict that
+        is merged into the task's aggregated result and handed to
+        ``orchestrator.post_resolution`` as the widget payload for the
+        ``task-resolved`` message. ``execute`` runs first and its dict is the
+        base; ``deliver`` runs last and its dict is merged on top.
     """
 
     name: str
