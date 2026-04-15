@@ -1,5 +1,5 @@
 ---
-status: ready-to-plan
+status: completed
 title: Chat-side dispatch wiring (Phase P₂)
 ---
 

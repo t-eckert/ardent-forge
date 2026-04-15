@@ -87,8 +87,32 @@ class WeatherConnector(Connector):
                 },
                 execute=self._get_weather,
                 connector_name=self.name,
+                to_widget=self._to_widget,
             )
         ]
+
+    @staticmethod
+    def _to_widget(result: dict) -> dict | None:
+        """Transform a get_weather result into a weather.forecast widget payload."""
+        if "error" in result:
+            return None
+        current = result.get("current", {})
+        return {
+            "tool": "weather.forecast",
+            "location": result.get("location", ""),
+            "asOf": current.get("time", ""),
+            "currentC": current.get("temp_c", 0),
+            "summary": current.get("description", ""),
+            "daily": [
+                {
+                    "date": d.get("date", ""),
+                    "minC": d.get("min_c", 0),
+                    "maxC": d.get("max_c", 0),
+                    "description": d.get("description", ""),
+                }
+                for d in result.get("daily", [])
+            ],
+        }
 
     async def _get_weather(self, location: str | None = None) -> dict[str, Any]:
         """Get current weather + 8-day forecast.

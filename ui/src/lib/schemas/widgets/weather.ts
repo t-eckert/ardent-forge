@@ -1,25 +1,27 @@
 import { z } from 'zod';
 
 /**
- * weather.forecast — current conditions + hourly forecast for a location.
- * Emitted whenever the model needs to anchor a response in actual weather.
+ * weather.forecast — current conditions + 8-day daily forecast for a location.
+ * Emitted whenever the model calls the get_weather tool.
  */
 
-export const HourForecast = z.object({
-	/** Hour label, e.g. "15:00" */
-	label: z.string(),
-	tempC: z.number()
+export const DayForecast = z.object({
+	/** ISO date, e.g. "2026-04-15" */
+	date: z.string(),
+	minC: z.number(),
+	maxC: z.number(),
+	description: z.string()
 });
 
 export const WeatherPayload = z.object({
 	tool: z.literal('weather.forecast'),
 	location: z.string(),
-	/** Display timestamp (when the reading was taken) */
+	/** ISO timestamp or short label for when the reading was taken */
 	asOf: z.string(),
 	currentC: z.number(),
 	summary: z.string(),
-	hours: z.array(HourForecast).min(3).max(12)
+	daily: z.array(DayForecast).min(1).max(8)
 });
 
-export type HourForecast = z.infer<typeof HourForecast>;
+export type DayForecast = z.infer<typeof DayForecast>;
 export type WeatherPayload = z.infer<typeof WeatherPayload>;

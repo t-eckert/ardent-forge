@@ -7,6 +7,15 @@
 	}
 
 	let { payload }: Props = $props();
+
+	/** Abbreviate "2026-04-15" → "Tue" */
+	function dayLabel(iso: string): string {
+		try {
+			return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+		} catch {
+			return iso.slice(5);
+		}
+	}
 </script>
 
 <article
@@ -23,18 +32,21 @@
 		<span class="font-mono text-[10px] opacity-85">{payload.asOf}</span>
 	</header>
 	<div class="flex items-end justify-between px-5 py-4">
-		<div class="flex items-baseline gap-1.5">
-			<span class="font-mono text-[44px] leading-none">{payload.currentC}</span>
-			<span class="font-mono text-[16px] opacity-85">°C</span>
+		<div class="flex flex-col gap-1">
+			<div class="flex items-baseline gap-1.5">
+				<span class="font-mono text-[44px] leading-none">{payload.currentC}</span>
+				<span class="font-mono text-[16px] opacity-85">°C</span>
+			</div>
+			<span class="text-[13px] opacity-90">{payload.summary}</span>
 		</div>
-		<div class="flex gap-5 font-mono text-[11px]">
-			{#each payload.hours as h, i (h.label)}
-				<div class="flex flex-col gap-0.5 items-center" class:opacity-85={i !== 2}>
-					<span>{h.label}</span>
-					<span class="text-[14px]">{h.tempC}°</span>
+		<div class="flex gap-4 font-mono text-[11px]">
+			{#each payload.daily.slice(0, 6) as d (d.date)}
+				<div class="flex flex-col gap-0.5 items-center">
+					<span class="opacity-75">{dayLabel(d.date)}</span>
+					<span class="text-[13px]">{d.maxC}°</span>
+					<span class="text-[11px] opacity-65">{d.minC}°</span>
 				</div>
 			{/each}
 		</div>
 	</div>
-	<div class="px-5 pb-4 text-[13px] opacity-90">{payload.summary}</div>
 </article>

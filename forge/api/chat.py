@@ -274,6 +274,7 @@ async def send_message(req: ChatRequest):
         tool_use_happened = False
         dispatch_happened = False
         dispatches_this_turn = 0
+        collected_widgets: list[dict] = []
         try:
             for _ in range(5):  # cap tool-use loops to prevent runaway
                 stream_kwargs: dict = {
@@ -372,6 +373,14 @@ async def send_message(req: ChatRequest):
                         "content": str(result),
                         "is_error": is_error,
                     })
+                    # Collect widget payload if the tool provides a transform.
+                    if not is_error and tool.to_widget is not None:
+                        try:
+                            widget = tool.to_widget(result)
+                            if widget is not None:
+                                collected_widgets.append(widget)
+                        except Exception:
+                            logger.exception("to_widget failed for %s", block.name)
 
                 messages.append({"role": "user", "content": tool_results})
             if dispatch_happened:
@@ -386,11 +395,13 @@ async def send_message(req: ChatRequest):
             turn_shape = "error"
         finally:
             if thread_id is not None:
+                variant = "widget" if collected_widgets else "text"
                 await _thread_store.append_message(
                     thread_id=thread_id,
                     role="assistant",
                     content=full_response,
-                    variant="text",
+                    variant=variant,
+                    widgets=collected_widgets or None,
                 )
                 await _thread_store.mark_activity(thread_id, unread=False)
             else:

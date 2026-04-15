@@ -1,5 +1,5 @@
 ---
-status: ready-to-plan
+status: completed
 title: Connectors and flexible agents
 ---
 

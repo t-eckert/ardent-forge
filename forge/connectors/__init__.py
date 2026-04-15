@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Protocol, runtime_checkable
+from typing import Any, Awaitable, Callable, Optional, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,9 @@ class Tool:
     # When True, the dispatcher should prefer running this as a Task rather
     # than inline in a synchronous chat turn. First-pass heuristic; refined later.
     long_running: bool = False
+    # Optional transform from raw tool result → widget payload dict for the UI.
+    # Return None to skip widget emission (e.g. on error results).
+    to_widget: Optional[Callable[[dict[str, Any]], dict[str, Any] | None]] = None
 
     def to_anthropic_schema(self) -> dict[str, Any]:
         """Emit the JSON shape Claude expects for tool_use declarations."""
