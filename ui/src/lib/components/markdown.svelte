@@ -54,10 +54,15 @@
 		color: var(--color-ink);
 		margin-bottom: 0.6rem;
 	}
-	.notebook-prose :global(ul),
+	.notebook-prose :global(ul) {
+		padding-left: 1.5rem;
+		margin-bottom: 0.6rem;
+		list-style-type: disc;
+	}
 	.notebook-prose :global(ol) {
 		padding-left: 1.5rem;
 		margin-bottom: 0.6rem;
+		list-style-type: decimal;
 	}
 	.notebook-prose :global(li) {
 		font-size: 0.9375rem;
