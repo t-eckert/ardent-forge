@@ -75,10 +75,45 @@ class ForgeOrchestrator:
         )
 
     def tool_schemas(self) -> list[dict]:
-        """Anthropic-shaped tool schemas for every registered connector tool."""
-        if not self.connectors:
-            return []
-        return [t.to_anthropic_schema() for t in self.connectors.all_tools()]
+        """Anthropic-shaped tool schemas for every registered connector tool,
+        plus the synthetic ``dispatch_task`` meta-tool when any agents are
+        registered (so Forge can queue asynchronous work).
+        """
+        schemas: list[dict] = []
+        if self.connectors:
+            schemas.extend(t.to_anthropic_schema() for t in self.connectors.all_tools())
+        if self.agents and self.agents.list():
+            schemas.append(self.dispatch_task_schema())
+        return schemas
+
+    def dispatch_task_schema(self) -> dict:
+        """The synthetic tool Claude calls to queue an async task for an agent.
+
+        Exposes the registered agents' task_types as an enum so Claude can't
+        hallucinate a type we don't handle. The chat endpoint detects calls
+        to this tool by name and routes them through the dispatch branch
+        instead of executing inline.
+        """
+        task_types = sorted({a.task_type for a in self.agents.list()}) if self.agents else []
+        return {
+            "name": "dispatch_task",
+            "description": (
+                "Queue an asynchronous task for an agent. Use this when the work "
+                "is too big, too slow, or too multi-step to do inline — research, "
+                "code changes, planning. Returns a task_id; the task's result "
+                "lands in this thread as a separate message once the agent "
+                "finishes. Do not use for quick lookups — prefer direct tool calls."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "task_type": {"type": "string", "enum": task_types} if task_types else {"type": "string"},
+                    "title": {"type": "string", "description": "Short title for the task card."},
+                    "description": {"type": "string", "description": "Everything the agent needs to do the work."},
+                },
+                "required": ["task_type", "title", "description"],
+            },
+        }
 
     def resolve_tool_call(self, name: str):
         """Look up a tool + decide its turn shape. Returns (tool, turn_shape)."""

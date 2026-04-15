@@ -151,10 +151,13 @@ def test_orchestrator_system_prompt_reflects_registries(wired_orchestrator):
 
 def test_orchestrator_tool_schemas_shape(wired_orchestrator):
     schemas = wired_orchestrator.tool_schemas()
-    assert len(schemas) == 1
-    s = schemas[0]
-    assert s["name"] == "get_weather"
-    assert set(s.keys()) == {"name", "description", "input_schema"}
+    # One connector tool (get_weather) + the synthetic dispatch_task meta-tool.
+    by_name = {s["name"]: s for s in schemas}
+    assert "get_weather" in by_name
+    assert "dispatch_task" in by_name
+    assert set(by_name["get_weather"].keys()) == {"name", "description", "input_schema"}
+    # dispatch_task enumerates known agent task_types.
+    assert by_name["dispatch_task"]["input_schema"]["properties"]["task_type"]["enum"] == ["echo"]
 
 
 def test_orchestrator_resolve_tool_call(wired_orchestrator):

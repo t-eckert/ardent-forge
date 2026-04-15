@@ -75,6 +75,93 @@ class ChatRequest(BaseModel):
     thread_id: str | None = None
 
 
+async def _handle_dispatch(
+    *,
+    block,
+    thread_id: str | None,
+    orchestrator: ForgeOrchestrator | None,
+    store: TaskStore,
+    dispatches_so_far: int,
+    max_dispatches: int,
+) -> tuple[dict, bool, bool]:
+    """Create a Task from a dispatch_task tool_use and link it to the thread.
+
+    Returns (tool_result_payload, is_error, dispatched). ``dispatched`` is True
+    iff a Task row was actually created (used for metrics + turn shape).
+    """
+    # Dispatch only makes sense inside a thread — the resolution post-back
+    # needs somewhere to land. A threadless dispatch is a programming error;
+    # surface it loudly to Claude so it can recover by using a sync tool.
+    if thread_id is None or _thread_store is None:
+        return (
+            {"error": "dispatch_task requires a thread context — no thread_id in this chat turn"},
+            True,
+            False,
+        )
+    if orchestrator is None or orchestrator.agents is None:
+        return ({"error": "No agent registry configured"}, True, False)
+
+    if dispatches_so_far >= max_dispatches:
+        return (
+            {"error": f"Dispatch cap reached ({max_dispatches}/turn). Try the remaining work inline or in a follow-up turn."},
+            True,
+            False,
+        )
+
+    args = block.input or {}
+    task_type = args.get("task_type")
+    title = args.get("title")
+    description = args.get("description")
+    if not task_type or not title or not description:
+        return (
+            {"error": "dispatch_task requires task_type, title, and description"},
+            True,
+            False,
+        )
+
+    agent = orchestrator.agents.get(task_type)
+    if agent is None:
+        known = sorted({a.task_type for a in orchestrator.agents.list()})
+        return (
+            {"error": f"Unknown task_type: {task_type!r}. Known: {known}"},
+            True,
+            False,
+        )
+
+    # Create the Task. Use the backend TaskType enum when the string matches
+    # a known member, otherwise pass the raw string — the backend models
+    # layer accepts both.
+    from forge.models import Task, TaskSource, TaskType
+    try:
+        tt = TaskType(task_type)
+    except ValueError:
+        tt = task_type  # type: ignore[assignment]
+
+    task = Task.new(
+        task_type=tt,  # type: ignore[arg-type]
+        source=TaskSource.CHAT,
+        title=title,
+        description=description,
+    )
+    await store.save(task)
+    await _thread_store.link_task(
+        thread_id=thread_id, task_id=task.id, relation="origin"
+    )
+    await _thread_store.append_message(
+        thread_id=thread_id,
+        role="assistant",
+        content=f"dispatched {task_type} — {title}",
+        variant="task-dispatched",
+        task_id=task.id,
+        tool_use_id=block.id,
+    )
+    return (
+        {"status": "queued", "task_id": task.id, "task_type": task_type},
+        False,
+        True,
+    )
+
+
 @router.get("/messages")
 async def list_messages():
     store = get_store()
@@ -167,10 +254,17 @@ async def send_message(req: ChatRequest):
             if msg["role"] in ("user", "assistant")
         ]
 
+    # Soft cap on how many tasks a single assistant turn can dispatch.
+    # Matches the spirit of the tool-use loop cap below — it's a runaway
+    # guard, not a product limit. See specs/2026-04-14-chat-dispatch-wiring.md.
+    MAX_DISPATCHES_PER_TURN = 5
+
     async def generate():
         nonlocal turn_shape
         full_response = ""
         tool_use_happened = False
+        dispatch_happened = False
+        dispatches_this_turn = 0
         try:
             for _ in range(5):  # cap tool-use loops to prevent runaway
                 stream_kwargs: dict = {
@@ -197,11 +291,45 @@ async def send_message(req: ChatRequest):
                     {"role": "assistant", "content": final_message.content}
                 )
 
-                # Execute each tool_use block via the connector registry.
+                # Execute each tool_use block. Dispatch meta-tool is handled
+                # specially — it creates a Task and returns a queued receipt
+                # rather than executing inline.
                 tool_results = []
                 for block in final_message.content:
                     if block.type != "tool_use":
                         continue
+
+                    # ─── Dispatch branch ───────────────────────────────────
+                    if block.name == "dispatch_task":
+                        result_payload, is_error, dispatched = await _handle_dispatch(
+                            block=block,
+                            thread_id=thread_id,
+                            orchestrator=orchestrator,
+                            store=store,
+                            dispatches_so_far=dispatches_this_turn,
+                            max_dispatches=MAX_DISPATCHES_PER_TURN,
+                        )
+                        if dispatched:
+                            dispatch_happened = True
+                            dispatches_this_turn += 1
+                        try:
+                            from forge.metrics import CHAT_TOOL_CALLS_TOTAL
+                            CHAT_TOOL_CALLS_TOTAL.labels(
+                                tool="dispatch_task",
+                                connector="orchestrator",
+                                result="error" if is_error else "ok",
+                            ).inc()
+                        except Exception:
+                            pass
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(result_payload),
+                            "is_error": is_error,
+                        })
+                        continue
+
+                    # ─── Synchronous connector tool ────────────────────────
                     if orchestrator is not None:
                         tool, _shape = orchestrator.resolve_tool_call(block.name)
                     else:
@@ -237,7 +365,9 @@ async def send_message(req: ChatRequest):
                     })
 
                 messages.append({"role": "user", "content": tool_results})
-            if tool_use_happened:
+            if dispatch_happened:
+                turn_shape = "task_dispatch"
+            elif tool_use_happened:
                 turn_shape = "synchronous_tool"
         except Exception as e:
             logger.exception("Chat streaming error")
