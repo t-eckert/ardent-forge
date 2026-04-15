@@ -6,13 +6,39 @@
 		scopeChips?: string[];
 		modelLabel?: string;
 		placeholder?: string;
+		disabled?: boolean;
+		onsubmit?: (content: string) => void | Promise<void>;
 	}
 
 	let {
 		scopeChips = ['@thread', '@today', '/tools'],
 		modelLabel = 'claude-opus-4-6 · code+tools',
-		placeholder = 'Continue the thread…'
+		placeholder = 'Continue the thread…',
+		disabled = false,
+		onsubmit
 	}: Props = $props();
+
+	let value = $state('');
+	let sending = $state(false);
+
+	async function submit() {
+		const content = value.trim();
+		if (!content || sending || disabled || !onsubmit) return;
+		sending = true;
+		try {
+			await onsubmit(content);
+			value = '';
+		} finally {
+			sending = false;
+		}
+	}
+
+	function onkey(e: KeyboardEvent) {
+		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+			e.preventDefault();
+			submit();
+		}
+	}
 </script>
 
 <div
@@ -29,7 +55,15 @@
 	<div
 		class="flex items-center gap-2.5 px-3 py-2.5 bg-[var(--color-paper)] border border-[var(--color-stone)] rounded-md"
 	>
-		<span class="flex-1 text-sm text-[var(--color-graphite)]">{placeholder}</span>
+		<input
+			type="text"
+			bind:value
+			{placeholder}
+			disabled={disabled || sending}
+			onkeydown={onkey}
+			class="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-graphite)] outline-none"
+			aria-label="Message"
+		/>
 		<KeycapHint keys={['⌘', '↵']} />
 	</div>
 </div>

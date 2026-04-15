@@ -14,15 +14,20 @@ user message in thread
                                      └─ UI /threads/[id] renders ResolvedTask variant
 ```
 
-## Status as of Phase P₁
+## Status as of Phase P₂
 
 - **Back half of loop (coordinator → resolution posted to origin thread):** wired
   and covered by `tests/test_orchestrator_resolution.py` and
   `tests/test_dispatch_loop.py`.
-- **Front half (chat turn → Task row with origin_thread_id):** NOT yet wired.
-  `forge/api/chat.py` currently executes all tool calls synchronously and
-  operates on the singleton chat log rather than thread-scoped conversations.
-  Phase P₂ is the spec+implementation for this.
+- **Front half (chat turn → Task row with origin_thread_id):** wired.
+  `forge/api/chat.py` accepts an optional `thread_id`, persists through
+  `ThreadStore`, and exposes a synthetic `dispatch_task` meta-tool that
+  Claude calls when work should be queued. Covered by
+  `tests/test_chat_thread_scoping.py` and `tests/test_chat_dispatch.py`.
+- **UI composer** sends `thread_id` from `/threads/[id]` and refreshes
+  after the response persists (`ui/src/lib/threads/views/thread-view.svelte`).
+
+The manual walkthrough below is now expected to pass end-to-end on the box.
 
 ## When Phase P₂ lands — manual walkthrough
 

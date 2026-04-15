@@ -118,6 +118,17 @@ export type BackendThreadDetail = z.infer<typeof BackendThreadDetail>;
 export const api = {
 	health: () => request('/health', z.object({ status: z.string() })),
 
+	/** POST /api/chat — streaming response; returns raw Response. Caller decides
+	 *  whether to consume the stream or just persist and refetch. */
+	chat: {
+		send: (content: string, thread_id?: string) =>
+			fetch(`${API_BASE}/api/chat`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ content, thread_id })
+			})
+	},
+
 	connectors: {
 		list: () => request('/api/connectors', ConnectorList),
 		health: () => request('/api/connectors/health', HealthMap)
