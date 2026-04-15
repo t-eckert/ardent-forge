@@ -46,6 +46,12 @@ def _capability_block(
         lines.append("Connectors: none registered")
     if tool_names:
         lines.append("Tools: " + ", ".join(sorted(tool_names)))
+        lines.append(
+            "When a registered tool can answer the question, ALWAYS call it rather than "
+            "answering from training data. For example, call get_weather for any weather "
+            "question; call web_search for current events or recent information. The user "
+            "expects live data, not stale knowledge."
+        )
     if agent_names:
         lines.append("Agents (task types you can dispatch): " + ", ".join(sorted(agent_names)))
     else:
