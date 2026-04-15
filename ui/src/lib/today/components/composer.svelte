@@ -25,9 +25,10 @@
 		try {
 			const title = content.length > 60 ? content.slice(0, 57) + '…' : content;
 			const thread = await api.threads.create(title);
-			// Fire the chat request — the thread view will consume the stream.
-			api.chat.send(content, thread.id);
-			await goto(`/threads/${thread.id}`);
+			// Navigate with the message as a query param so the thread view
+			// can auto-send it and stream the response.
+			const q = new URLSearchParams({ send: content });
+			await goto(`/threads/${thread.id}?${q}`);
 		} finally {
 			sending = false;
 		}

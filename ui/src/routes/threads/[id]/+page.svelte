@@ -8,10 +8,14 @@
 		data: PageData;
 	}
 	let { data }: Props = $props();
+
+	const initialMessage = $derived(
+		new URLSearchParams(window.location.search).get('send') ?? undefined
+	);
 </script>
 
 {#if data.active}
-	<ThreadView threads={data.threads} active={data.active} />
+	<ThreadView threads={data.threads} active={data.active} {initialMessage} />
 {:else if data.threads.length}
 	<ThreadsView threads={data.threads} />
 {:else}

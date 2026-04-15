@@ -9,9 +9,10 @@
 	interface Props {
 		threads: Thread[];
 		active: ThreadDetail;
+		initialMessage?: string;
 	}
 
-	let { threads, active }: Props = $props();
+	let { threads, active, initialMessage }: Props = $props();
 
 	// Local messages includes server-persisted messages + any optimistic additions.
 	let optimistic: Message[] = $state([]);
@@ -50,6 +51,19 @@
 			invalidateAll();
 		}, 10_000);
 		return () => clearInterval(id);
+	});
+
+	// Auto-send a message passed from the Today composer (via ?send= query param).
+	let autoSent = false;
+	$effect(() => {
+		if (initialMessage && !autoSent) {
+			autoSent = true;
+			// Clean the URL so a refresh doesn't re-send.
+			const url = new URL(window.location.href);
+			url.searchParams.delete('send');
+			window.history.replaceState({}, '', url.toString());
+			onsubmit(initialMessage);
+		}
 	});
 
 	async function onsubmit(content: string) {
