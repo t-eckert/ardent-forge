@@ -26,9 +26,15 @@
 		agentsNote
 	}: Props = $props();
 
+	const now = $derived(new Date(nowIso));
 	const dateLine = $derived(formatDateFull(nowIso).toUpperCase());
-	const dayOfYear = $derived(dayOfYearFor(new Date(nowIso)));
-	const year = $derived(new Date(nowIso).getFullYear());
+	const dayOfYear = $derived(dayOfYearFor(now));
+	const year = $derived(now.getFullYear());
+	const hour = $derived(now.getHours());
+
+	const greeting = $derived(
+		hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+	);
 
 	function dayOfYearFor(d: Date): number {
 		const start = new Date(d.getFullYear(), 0, 0);
@@ -40,7 +46,7 @@
 <div class="flex items-end justify-between pb-[14px] border-b border-[var(--color-border)] gap-8">
 	<div class="flex flex-col gap-1.5 min-w-0">
 		<Eyebrow>{dateLine} · DAY {dayOfYear} OF {year}</Eyebrow>
-		<Display size="xl">Good morning, {userName}.</Display>
+		<Display size="xl">{greeting}, {userName}.</Display>
 		<Heading size="sm" italic>{subtitle}</Heading>
 	</div>
 	<div class="flex gap-7 flex-shrink-0">
