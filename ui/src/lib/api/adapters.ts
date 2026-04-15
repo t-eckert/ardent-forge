@@ -81,13 +81,24 @@ function adaptResolved(
 	task: BackendTaskSummary,
 	narration: string
 ): ResolvedTask {
+	// Wrap the agent's result in the generic ResultWidget when non-empty.
+	// Richer per-agent widget shapes (code.diff, places.map, etc.) will be
+	// matched first here once they're specced; for now every agent falls
+	// through to the generic dump.
+	const data = task.result ?? undefined;
+	const hasResult = data && typeof data === 'object' && Object.keys(data).length > 0;
 	return {
 		id: taskId,
 		agent: `${task.type}-agent`,
 		title: task.title,
-		summary: narration
-		// artifact intentionally left undefined — Gap 2 (WidgetPayload coverage)
-		// is a separate phase; today's agent results don't match any discriminant.
+		summary: narration,
+		artifact: hasResult
+			? {
+					tool: 'result',
+					label: `${task.type} output`,
+					data: data as Record<string, unknown>
+				}
+			: undefined
 	};
 }
 

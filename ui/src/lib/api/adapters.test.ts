@@ -87,6 +87,80 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 		expect(m.resolvedTask!.summary).toContain('1 notes written');
 	});
 
+	it('wraps task.result into a generic ResultWidget artifact', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-2b',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'research finished — svelte 5 notes.',
+					variant: 'task-resolved',
+					widgets: [],
+					task_id: '01KP00000000000000000000BB',
+					task: {
+						id: '01KP00000000000000000000BB',
+						type: 'research',
+						title: 'Svelte 5 notes',
+						status: 'completed',
+						stages: ['execute'],
+						current_stage: null,
+						result: {
+							status: 'ok',
+							files: ['a.md'],
+							source_url: 'https://example.com/x'
+						},
+						completed_at: '2026-04-15T00:05:00Z'
+					},
+					created_at: '2026-04-15T00:05:00Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		expect(m.resolvedTask!.artifact).toBeDefined();
+		const artifact = m.resolvedTask!.artifact!;
+		expect(artifact.tool).toBe('result');
+		if (artifact.tool !== 'result') throw new Error('expected result widget');
+		expect(artifact.label).toBe('research output');
+		expect(artifact.data.files).toEqual(['a.md']);
+		expect(artifact.data.source_url).toBe('https://example.com/x');
+	});
+
+	it('omits artifact when task.result is empty or null', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-2c',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'finished',
+					variant: 'task-resolved',
+					widgets: [],
+					task_id: '01KP00000000000000000000CC',
+					task: {
+						id: '01KP00000000000000000000CC',
+						type: 'echo',
+						title: 'Echo task',
+						status: 'completed',
+						stages: ['execute'],
+						current_stage: null,
+						result: null,
+						completed_at: '2026-04-15T00:05:00Z'
+					},
+					created_at: '2026-04-15T00:05:00Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		expect(m.resolvedTask!.artifact).toBeUndefined();
+	});
+
 	it('leaves dispatchedTask undefined when the task is missing (deleted row)', () => {
 		const detail = adaptThreadDetail({
 			...baseThread,
