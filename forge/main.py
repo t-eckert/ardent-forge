@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
@@ -265,6 +266,21 @@ def run():
 
     ui_build_dir = os.path.join(os.path.dirname(__file__), "..", "ui", "build")
     if os.path.isdir(ui_build_dir):
-        app.mount("/", StaticFiles(directory=ui_build_dir, html=True), name="ui")
+        # SPA fallback: the SvelteKit static adapter builds with
+        # `fallback: "index.html"`, producing a single index.html that the
+        # client-side router rehydrates for every route. Plain StaticFiles
+        # 404s on /today, /threads/xyz, etc. — this subclass falls back to
+        # index.html for any request that isn't a real file, so page
+        # reloads on deep routes work.
+        class SPAStaticFiles(StaticFiles):
+            async def get_response(self, path, scope):
+                try:
+                    return await super().get_response(path, scope)
+                except StarletteHTTPException as exc:
+                    if exc.status_code == 404:
+                        return await super().get_response("index.html", scope)
+                    raise
+
+        app.mount("/", SPAStaticFiles(directory=ui_build_dir, html=True), name="ui")
 
     uvicorn.run(app, host=settings.host, port=settings.port)
