@@ -13,6 +13,27 @@
 
 	let { threads, active }: Props = $props();
 
+	/** True iff any dispatched card on this thread is still waiting on the
+	 *  coordinator. When true, we poll so the stage indicator and resolution
+	 *  message appear without a manual refresh. */
+	const hasPendingTasks = $derived.by(() => {
+		for (const m of active.messages) {
+			if (m.role !== 'assistant') continue;
+			if (m.variant !== 'task-dispatched') continue;
+			const status = m.dispatchedTask?.status;
+			if (status && status !== 'done' && status !== 'failed') return true;
+		}
+		return false;
+	});
+
+	$effect(() => {
+		if (!hasPendingTasks) return;
+		const id = setInterval(() => {
+			invalidateAll();
+		}, 10_000);
+		return () => clearInterval(id);
+	});
+
 	async function onsubmit(content: string) {
 		// Fire-and-consume the streaming response so the assistant message is
 		// fully persisted server-side before we refetch. The loader then
