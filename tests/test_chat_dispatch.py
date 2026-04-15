@@ -194,6 +194,45 @@ async def test_dispatch_without_thread_surfaces_as_tool_error(wired):
     assert await thread_store.list() == []
 
 
+async def test_dispatch_cap_enforces_max_per_turn(wired):
+    """Claude emitting more than 5 dispatch_task calls in a single turn should
+    see the 6th and beyond come back as tool_result errors, with only the
+    first 5 producing Task rows."""
+    c, thread_store, task_store, _ = wired
+    thread = await thread_store.create(title="Runaway dispatch")
+
+    # Script a single assistant turn with 7 dispatch_task tool_use blocks,
+    # followed by a closing text turn.
+    dispatch_msg = MagicMock()
+    dispatch_msg.stop_reason = "tool_use"
+    dispatch_msg.content = [
+        make_tool_use_block(
+            f"toolu_d{i}",
+            "dispatch_task",
+            {"task_type": "research", "title": f"task {i}", "description": "…"},
+        )
+        for i in range(7)
+    ]
+    final = MagicMock()
+    final.stop_reason = "end_turn"
+    final.content = [make_text_block("Queued what I could; hit the cap on the rest.")]
+
+    fake = MagicMock()
+    fake.messages = MagicMock()
+    fake.messages.stream = MagicMock(
+        side_effect=[FakeStreamContext([], dispatch_msg), FakeStreamContext([""], final)]
+    )
+    chat.set_anthropic_client_factory(lambda key: fake)
+
+    resp = await c.post(
+        "/api/chat", json={"content": "Fan out seven research tasks", "thread_id": thread.id}
+    )
+    assert resp.status_code == 200
+
+    tasks = await task_store.list_by_status(TaskStatus.QUEUED)
+    assert len(tasks) == 5, f"expected 5 dispatched tasks (the cap), got {len(tasks)}"
+
+
 async def test_dispatch_unknown_task_type_surfaces_error(wired):
     c, thread_store, task_store, _ = wired
     thread = await thread_store.create(title="Bad dispatch")
