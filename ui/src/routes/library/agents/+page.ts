@@ -1,5 +1,6 @@
 import type { PageLoad } from './$types';
 import { api } from '$lib/api/typed';
+import { adaptTaskToAgentRun } from '$lib/api/adapters';
 
 export const ssr = false;
 
@@ -8,10 +9,12 @@ const FALLBACK = [
 ];
 
 export const load: PageLoad = async () => {
-	try {
-		return { agents: await api.agents.list() };
-	} catch (err) {
-		console.warn('/api/agents unavailable — using fallback', err);
-		return { agents: FALLBACK, apiError: String(err) };
-	}
+	const [agents, recentRuns] = await Promise.all([
+		api.agents.list().catch(() => FALLBACK),
+		api.tasks
+			.list()
+			.then((tasks) => tasks.slice(0, 20).map(adaptTaskToAgentRun))
+			.catch(() => [])
+	]);
+	return { agents, recentRuns };
 };

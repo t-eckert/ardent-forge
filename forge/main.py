@@ -21,6 +21,8 @@ from forge.api import (
     schedules,
     tasks,
     threads as threads_api,
+    todos as todos_api,
+    weather as weather_api,
 )
 from forge.config import Settings
 from forge.connectors import ConnectorRegistry
@@ -47,6 +49,8 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(agents_api.router)
     app.include_router(fields_api.router)
     app.include_router(notebook_api.router)
+    app.include_router(weather_api.router)
+    app.include_router(todos_api.router)
 
     @app.get("/metrics")
     async def metrics():

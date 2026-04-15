@@ -1,14 +1,8 @@
 import { z } from 'zod';
 import { Id, IsoDate } from './primitives';
 
-export const AgentKind = z.enum([
-	'code-agent',
-	'triage-agent',
-	'notebook-sync',
-	'strava-pull',
-	'ci-watcher',
-	'backup-agent'
-]);
+/** Agent kind — accepts any string so new agent types work without UI changes. */
+export const AgentKind = z.string();
 export type AgentKind = z.infer<typeof AgentKind>;
 
 export const RunStatus = z.enum(['running', 'needs-review', 'done', 'failed', 'cron', 'watching']);

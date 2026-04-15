@@ -105,9 +105,12 @@ async def list_tasks(
     status: str | None = None,
     type: str | None = None,
     origin_thread_id: str | None = None,
+    completed_since: str | None = None,
 ):
     store = get_store()
-    if status:
+    if completed_since:
+        tasks = await store.list_completed_since(completed_since)
+    elif status:
         tasks = await store.list_by_status(TaskStatus(status))
     else:
         tasks = await store.list_all()

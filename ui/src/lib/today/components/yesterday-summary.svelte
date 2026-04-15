@@ -7,17 +7,10 @@
 	}
 
 	interface Props {
-		rows?: Row[];
+		rows: Row[];
 	}
 
-	let {
-		rows = [
-			{ label: 'Done', value: '8 tasks' },
-			{ label: 'Carry-over', value: '2' },
-			{ label: 'Run', value: '10.2 km · tempo' },
-			{ label: 'Sleep', value: '7h 22m' }
-		]
-	}: Props = $props();
+	let { rows }: Props = $props();
 </script>
 
 <section class="flex flex-col gap-2.5">

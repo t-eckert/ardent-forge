@@ -8,4 +8,10 @@
 	let { data }: Props = $props();
 </script>
 
-<TodayView threads={data.threads} />
+<TodayView
+	threads={data.threads}
+	weather={data.weather}
+	runs={data.runs}
+	todos={data.todos}
+	yesterdayRows={data.yesterdayRows}
+/>

@@ -52,6 +52,14 @@ class TaskStore:
         )
         return [Task.from_row(row) for row in rows]
 
+    async def list_completed_since(self, since: str, limit: int = 100) -> list[Task]:
+        rows = await self._db.fetch_all(
+            "SELECT * FROM tasks WHERE status = ? AND completed_at >= ? "
+            "ORDER BY completed_at DESC LIMIT ?",
+            (TaskStatus.COMPLETED.value, since, limit),
+        )
+        return [Task.from_row(row) for row in rows]
+
     async def mark_completed(self, task_id: str, result: dict):
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute(

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { AgentsRoster } from '$lib/library';
-	import { makeAgentRunList } from '$lib/mocks';
 	import type { PageData } from './$types';
 
 	interface Props {
@@ -9,4 +8,4 @@
 	let { data }: Props = $props();
 </script>
 
-<AgentsRoster agents={data.agents} recentRuns={makeAgentRunList()} />
+<AgentsRoster agents={data.agents} recentRuns={data.recentRuns} />

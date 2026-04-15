@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS schedules (
     next_run TEXT NOT NULL
 );
 
+-- Todos — lightweight personal items (distinct from agent Tasks).
+CREATE TABLE IF NOT EXISTS todos (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    category TEXT NOT NULL DEFAULT 'work',
+    context TEXT,
+    due_iso TEXT,
+    created_at TEXT NOT NULL
+);
+
 -- Threads — named conversations. One Forge voice; many threads per user.
 CREATE TABLE IF NOT EXISTS threads (
     id TEXT PRIMARY KEY,

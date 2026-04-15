@@ -7,64 +7,75 @@
 	import OpenThreads from '../components/open-threads.svelte';
 	import YesterdaySummary from '../components/yesterday-summary.svelte';
 	import type { Thread } from '$lib/schemas/thread';
-	import { makeTodaysTodos, makeOvernightRuns, makeThreadList } from '$lib/mocks';
+	import type { AgentRun } from '$lib/schemas/agent';
+	import type { Todo } from '$lib/schemas/todo';
+	import type { WeatherCurrent } from '$lib/api/typed';
+
+	interface YesterdayRow {
+		label: string;
+		value: string;
+	}
 
 	interface Props {
 		threads?: Thread[];
+		weather?: WeatherCurrent | null;
+		runs?: AgentRun[];
+		todos?: Todo[];
+		yesterdayRows?: YesterdayRow[];
 	}
 
-	let { threads: threadsProp }: Props = $props();
+	let {
+		threads: threadsProp = [],
+		weather = null,
+		runs: runsProp = [],
+		todos: todosProp = [],
+		yesterdayRows: yesterdayRowsProp = []
+	}: Props = $props();
 
-	const todos = makeTodaysTodos();
-	const runs = makeOvernightRuns();
-	// Overnight-run and todos endpoints don't exist yet — mocks stay until they do.
-	const threads = $derived(threadsProp ?? makeThreadList());
+	const threads = $derived(threadsProp ?? []);
+	const runs = $derived(runsProp ?? []);
+	const todos = $derived(todosProp ?? []);
 
-	const scheduleItems = [
-		{
-			time: '08:00',
-			title: 'Morning walk with Winona',
-			note: 'PERSONAL · 30 min'
-		},
-		{
-			time: '10:00',
-			title: 'Long run · 18 km · Canal → Gatineau',
-			note: 'PLAN · 5:20 /km · ~1:36',
-			tag: { label: 'training', tone: 'ember' as const },
-			highlight: true
-		},
-		{
-			time: '14:00',
-			title: 'Painting session · Chaos submission',
-			note: 'ART · watercolour · 2h'
-		},
-		{
-			time: '17:30',
-			title: 'Tomorrow prep · notebook log',
-			note: 'RITUAL · 15 min'
-		}
-	];
+	// Schedule — will be wired when a Calendar connector ships.
+	const scheduleItems: { time: string; title: string; note: string; tag?: { label: string; tone?: 'ember' | 'neutral' | 'moss' }; highlight?: boolean }[] = [];
+
+	// Derive hero notes from real data.
+	const todosDueNote = $derived(() => {
+		const blocked = todos.filter((t) => t.status === 'blocked').length;
+		const review = todos.filter((t) => t.status === 'review').length;
+		const parts: string[] = [];
+		if (blocked) parts.push(`${blocked} blocked`);
+		if (review) parts.push(`${review} review`);
+		return parts.join(' · ') || undefined;
+	});
+
+	const needsReview = $derived(runs.filter((r) => r.status === 'needs-review').length);
+	const agentsNote = $derived(
+		needsReview > 0 ? `${needsReview} need${needsReview === 1 ? 's' : ''} review` : 'all clear'
+	);
 </script>
 
 <div class="flex flex-col gap-7 px-14 pt-9 pb-6 max-w-[1440px] mx-auto">
 	<HeroGreeting
-		weatherTempC={6}
-		weatherSummary="clear → sunny ↑14°"
-		todosDue={todos.length}
-		todosDueNote="2 blocked · 1 review"
+		weatherTempC={weather?.currentC ?? 0}
+		weatherSummary={weather?.summary ?? '—'}
+		todosDue={todos.filter((t) => t.status !== 'done').length}
+		todosDueNote={todosDueNote()}
 		agentsOvernight={runs.length}
-		agentsNote="overnight · 1 needs you"
+		{agentsNote}
 	/>
 
 	<div class="flex gap-9">
 		<div class="flex flex-col flex-1 gap-8 min-w-0">
-			<TodayShape items={scheduleItems} />
+			{#if scheduleItems.length > 0}
+				<TodayShape items={scheduleItems} />
+			{/if}
 			<FocusBlock
-				workoutTitle="Long run · 18 km"
-				workoutSubtitle="Build block, wk 08. Stay Z2 for first 14, float to threshold last 4."
-				pace="5:20 /km"
-				hr="145–158"
-				fuel="1 gel @ 10k"
+				workoutTitle="—"
+				workoutSubtitle="No workout connector configured."
+				pace="—"
+				hr="—"
+				fuel="—"
 				{todos}
 			/>
 			<Composer />
@@ -73,7 +84,7 @@
 		<div class="flex flex-col w-[400px] gap-7 flex-shrink-0">
 			<OvernightDigest {runs} />
 			<OpenThreads {threads} />
-			<YesterdaySummary />
+			<YesterdaySummary rows={yesterdayRowsProp} />
 		</div>
 	</div>
 </div>
