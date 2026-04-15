@@ -104,6 +104,7 @@ async def list_tasks(
     request: Request,
     status: str | None = None,
     type: str | None = None,
+    origin_thread_id: str | None = None,
 ):
     store = get_store()
     if status:
@@ -114,4 +115,15 @@ async def list_tasks(
         tasks = [t for t in tasks if t.type == type]
 
     ts = _thread_store(request)
+    # Thread-scoped filter: drop tasks whose origin thread isn't the requested
+    # one. Runs after the in-memory list is built — small enough not to matter,
+    # and avoids growing the store surface for a rarely-used query.
+    if origin_thread_id and ts is not None:
+        filtered: list = []
+        for t in tasks:
+            origin = await ts.origin_thread_for(t.id)
+            if origin == origin_thread_id:
+                filtered.append(t)
+        tasks = filtered
+
     return [await _task_dict(t, ts) for t in tasks]

@@ -95,3 +95,36 @@ async def test_list_tasks_filter_by_status(client):
     resp = await client.get("/api/tasks?status=completed")
     assert resp.status_code == 200
     assert len(resp.json()) == 0
+
+
+async def test_list_tasks_filter_by_origin_thread(client, db):
+    from forge.thread_store import ThreadStore
+
+    # Link a task to a thread as its origin — the API filter should scope.
+    thread_store = ThreadStore(db)
+    thread = await thread_store.create(title="Origin thread")
+    app = client._transport.app
+    app.state.thread_store = thread_store
+
+    a = (
+        await client.post(
+            "/api/tasks",
+            json={
+                "type": "code",
+                "title": "Origin task",
+                "description": "linked",
+                "origin_thread_id": thread.id,
+            },
+        )
+    ).json()
+    # A second task NOT linked to any thread.
+    await client.post(
+        "/api/tasks",
+        json={"type": "code", "title": "Unlinked", "description": "no origin"},
+    )
+
+    resp = await client.get(f"/api/tasks?origin_thread_id={thread.id}")
+    assert resp.status_code == 200
+    filtered = resp.json()
+    assert len(filtered) == 1
+    assert filtered[0]["id"] == a["id"]
