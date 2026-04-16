@@ -130,6 +130,28 @@ def run():
                     strava_token_path=Path(settings.strava_token_path),
                 )
             )
+        # Studio — art-study connector anchored to the syllabus.
+        if notebook_path.is_dir():
+            from datetime import date as _date
+
+            from forge.connectors.studio import StudioConnector
+
+            try:
+                phase_1_start = _date.fromisoformat(settings.art_phase_1_start)
+            except ValueError:
+                phase_1_start = _date(2026, 4, 13)
+                logging.getLogger(__name__).warning(
+                    "Invalid FORGE_ART_PHASE_1_START=%r; falling back to %s",
+                    settings.art_phase_1_start,
+                    phase_1_start,
+                )
+            connectors.register(
+                StudioConnector(
+                    notebook_root=notebook_path,
+                    phase_1_start=phase_1_start,
+                    syllabus_path=settings.art_syllabus_path,
+                )
+            )
         await connectors.setup_all()
 
         tasks.set_store(store)
@@ -174,6 +196,27 @@ def run():
                         timeout=600,
                     ),
                     notebook_root=Path(settings.notebook_dir),
+                )
+            )
+
+            # Studio agent — art-mentor, anchored to the Course of Study.
+            from datetime import date as _date
+
+            from forge.agents.studio import StudioAgent
+
+            try:
+                studio_phase_1_start = _date.fromisoformat(settings.art_phase_1_start)
+            except ValueError:
+                studio_phase_1_start = _date(2026, 4, 13)
+            registry.register(
+                StudioAgent(
+                    claude_runner=ClaudeRunner(
+                        model="claude-sonnet-4-20250514",
+                        timeout=600,
+                    ),
+                    notebook_root=Path(settings.notebook_dir),
+                    phase_1_start=studio_phase_1_start,
+                    syllabus_path=settings.art_syllabus_path,
                 )
             )
 

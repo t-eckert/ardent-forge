@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"
 
+    # Art study — syllabus-anchored agent. Phase 1 start is the Monday of
+    # week 1; phases 2 and 3 derive from it via default_phase_schedule.
+    art_syllabus_path: str = "Artistic Course of Study.md"
+    art_phase_1_start: str = "2026-04-13"
+
     # Forge memory — markdown store of things Forge learned about the user
     memory_dir: str = "/data/ardent-forge/memory"
 
