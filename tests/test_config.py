@@ -1,7 +1,8 @@
 from forge.config import Settings
 
 
-def test_default_settings():
+def test_default_settings(monkeypatch):
+    monkeypatch.delenv("FORGE_DB_PATH", raising=False)
     settings = Settings(anthropic_api_key="test-key", github_token="test-token")
     assert settings.db_path == "forge.db"
     assert settings.poll_interval_seconds == 300
