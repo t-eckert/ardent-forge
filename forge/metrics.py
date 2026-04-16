@@ -1,4 +1,12 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from prometheus_client import Counter, Gauge, Histogram
+
+if TYPE_CHECKING:
+    from forge.agents import AgentRegistry
+    from forge.connectors import ConnectorRegistry
 
 # -- Task pipeline --
 
@@ -69,7 +77,7 @@ HANDLER_ERRORS_TOTAL = Counter(
 CHAT_TURNS_TOTAL = Counter(
     "forge_chat_turns_total",
     "Chat turns handled by the orchestrator, labelled by turn shape",
-    ["shape"],  # synchronous | task_dispatch | task_resolution | error
+    ["shape"],  # synchronous | synchronous_tool | task_dispatch | error
 )
 
 CHAT_TOOL_CALLS_TOTAL = Counter(
@@ -110,3 +118,68 @@ MEMORY_WRITES_TOTAL = Counter(
     "Memory file writes — cumulative across types",
     ["type"],
 )
+
+
+# -- Startup priming --
+#
+# Prometheus counters/histograms only produce series after their first
+# observation. That means dashboards show "No data" on a freshly-booted
+# forge even though everything is wired correctly. To give panels something
+# to render against, we touch every known label combination at startup —
+# `.labels(...)` creates a zero-valued child which is exported immediately.
+
+_TERMINAL_STATUSES = ("completed", "failed")
+_PIPELINE_STAGES = ("triage", "execute", "verify", "deliver")
+_CHAT_TURN_SHAPES = ("synchronous", "synchronous_tool", "task_dispatch", "error")
+_LINEAR_POLL_RESULTS = ("success", "error")
+_MEMORY_TYPES = ("user", "feedback", "project", "reference")
+_TOOL_CALL_RESULTS = ("ok", "error")
+
+
+def prime_metrics(
+    agents: "AgentRegistry",
+    connectors: "ConnectorRegistry",
+) -> None:
+    """Pre-register series for every known label combination.
+
+    Called once on startup after both registries are populated. Keeps Grafana
+    panels from reading "No data" on a freshly-booted forge — after priming,
+    every metric has at least one zero-valued series in ``/metrics``.
+    """
+    for stage in _PIPELINE_STAGES:
+        TASK_STAGE_DURATION_SECONDS.labels(stage=stage)
+
+    for agent in agents.list():
+        task_type = agent.task_type
+        TASK_DURATION_SECONDS.labels(type=task_type)
+        HANDLER_ERRORS_TOTAL.labels(type=task_type)
+        for status in _TERMINAL_STATUSES:
+            TASKS_TOTAL.labels(type=task_type, status=status)
+        agent_label = getattr(agent, "name", task_type)
+        RESOLUTION_POSTS_TOTAL.labels(agent=agent_label)
+
+    for result in _LINEAR_POLL_RESULTS:
+        LINEAR_POLLS_TOTAL.labels(result=result)
+
+    for shape in _CHAT_TURN_SHAPES:
+        CHAT_TURNS_TOTAL.labels(shape=shape)
+
+    # Every real tool from every connector, plus the synthetic dispatch_task.
+    for connector in connectors.all():
+        CONNECTOR_HEALTH.labels(connector=connector.name).set(0)
+        for tool in connector.tools:
+            for result in _TOOL_CALL_RESULTS:
+                CHAT_TOOL_CALLS_TOTAL.labels(
+                    tool=tool.name,
+                    connector=connector.name,
+                    result=result,
+                )
+    for result in _TOOL_CALL_RESULTS:
+        CHAT_TOOL_CALLS_TOTAL.labels(
+            tool="dispatch_task",
+            connector="orchestrator",
+            result=result,
+        )
+
+    for mem_type in _MEMORY_TYPES:
+        MEMORY_WRITES_TOTAL.labels(type=mem_type)

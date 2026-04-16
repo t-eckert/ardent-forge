@@ -16,6 +16,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
+          "noValue": "0",
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ]
@@ -31,7 +32,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 10 } ] } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 10 } ] } } },
       "targets": [
         { "expr": "forge_queue_depth", "legendFormat": "" }
       ]
@@ -42,6 +43,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "noValue": "0" } },
       "targets": [
         { "expr": "forge_active_tasks", "legendFormat": "" }
       ]
@@ -52,7 +54,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "color": { "mode": "fixed", "fixedColor": "green" } } },
       "targets": [
         { "expr": "sum(forge_tasks_total{status=\"completed\"})", "legendFormat": "" }
       ]
@@ -63,7 +65,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "color": { "mode": "fixed", "fixedColor": "red" } } },
       "targets": [
         { "expr": "sum(forge_tasks_total{status=\"failed\"})", "legendFormat": "" }
       ]
@@ -74,6 +76,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "noValue": "0" } },
       "targets": [
         { "expr": "forge_ticks_total", "legendFormat": "" }
       ]
@@ -86,6 +89,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
+          "noValue": "0",
           "unit": "ops",
           "custom": { "fillOpacity": 15 }
         }
@@ -103,7 +107,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s" } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "s" } },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum by (type, le) (rate(forge_task_duration_seconds_bucket[15m])))",
@@ -117,7 +121,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s" } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "s" } },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum by (stage, le) (rate(forge_task_stage_duration_seconds_bucket[15m])))",
@@ -131,6 +135,7 @@
       "type": "piechart",
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "noValue": "0" } },
       "targets": [
         {
           "expr": "sum by (type) (forge_tasks_total)",
@@ -146,6 +151,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
+          "noValue": "0",
           "unit": "ops",
           "custom": { "fillOpacity": 15 }
         }
@@ -163,7 +169,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s" } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "s" } },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum by (le) (rate(forge_tick_duration_seconds_bucket[15m])))",
@@ -177,7 +183,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "ops", "custom": { "fillOpacity": 15 } } },
       "targets": [
         {
           "expr": "sum by (result) (rate(forge_linear_polls_total[5m]))",
@@ -191,7 +197,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "short", "custom": { "fillOpacity": 15 } } },
       "targets": [
         {
           "expr": "rate(forge_linear_tasks_ingested_total[5m])",
@@ -205,7 +211,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "ops", "custom": { "fillOpacity": 15 } } },
       "targets": [
         {
           "expr": "sum by (shape) (rate(forge_chat_turns_total[5m]))",
@@ -219,7 +225,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "ops", "custom": { "fillOpacity": 15 } } },
       "targets": [
         {
           "expr": "sum by (tool, result) (rate(forge_chat_tool_calls_total[5m]))",
@@ -233,7 +239,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "s", "custom": { "fillOpacity": 10 } } },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum by (le) (rate(forge_chat_turn_duration_seconds_bucket[5m])))",
@@ -247,7 +253,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "short", "custom": { "fillOpacity": 15 } } },
       "targets": [
         {
           "expr": "sum by (agent) (increase(forge_resolution_posts_total[1h]))",
@@ -263,6 +269,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
+          "noValue": "0",
           "mappings": [
             { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
           ]
@@ -279,7 +286,7 @@
       "type": "timeseries",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 36 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "unit": "ops", "custom": { "fillOpacity": 15 } } },
       "targets": [
         { "expr": "rate(forge_memory_reads_total[5m])", "legendFormat": "reads" },
         { "expr": "rate(forge_memory_writes_total[5m])", "legendFormat": "writes" }
@@ -287,5 +294,5 @@
     }
   ],
   "schemaVersion": 39,
-  "version": 1
+  "version": 2
 }

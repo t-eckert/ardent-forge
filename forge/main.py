@@ -247,6 +247,12 @@ def run():
         app.state.thread_store = thread_store
         app.state.memory_store = memory_store
 
+        # Pre-register Prometheus series for every known label combination so
+        # Grafana panels show 0 instead of "No data" on a freshly-booted forge.
+        from forge.metrics import prime_metrics
+
+        prime_metrics(registry, connectors)
+
         coordinator = Coordinator(
             store=store,
             registry=registry,

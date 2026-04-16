@@ -6,6 +6,7 @@ from forge.agents import AgentContext, AgentRegistry
 from forge.connectors import ConnectorRegistry
 from forge.metrics import (
     ACTIVE_TASKS,
+    CONNECTOR_HEALTH,
     HANDLER_ERRORS_TOTAL,
     LINEAR_POLLS_TOTAL,
     LINEAR_TASKS_INGESTED,
@@ -70,6 +71,14 @@ class Coordinator:
         """Run one cycle: poll Linear if configured, dequeue pending tasks, process them."""
         tick_start = time.monotonic()
         TICKS_TOTAL.inc()
+
+        if self._connectors is not None:
+            try:
+                health = await self._connectors.health_check()
+                for name, ok in health.items():
+                    CONNECTOR_HEALTH.labels(connector=name).set(1 if ok else 0)
+            except Exception:
+                logger.exception("Connector health check failed")
 
         if self._poller:
             try:
