@@ -115,6 +115,21 @@ def run():
             from forge.connectors.notebook import NotebookConnector
 
             connectors.register(NotebookConnector(notebook_path))
+        # Workouts — wraps the notebook logs and Strava. Registers even when
+        # Strava creds are missing (notebook-only mode), as long as the
+        # vault is available.
+        if notebook_path.is_dir():
+            from forge.connectors.workout import WorkoutConnector
+
+            connectors.register(
+                WorkoutConnector(
+                    notebook_root=notebook_path,
+                    strava_client_id=settings.strava_client_id,
+                    strava_client_secret=settings.strava_client_secret,
+                    strava_refresh_token=settings.strava_refresh_token,
+                    strava_token_path=Path(settings.strava_token_path),
+                )
+            )
         await connectors.setup_all()
 
         tasks.set_store(store)

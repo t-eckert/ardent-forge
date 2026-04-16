@@ -93,5 +93,10 @@ in {
     FORGE_LINEAR_API_KEY=op://Ardent Forge/linear-api-key/credential
     FORGE_LINEAR_TEAM_ID=op://Ardent Forge/linear-team-id/credential
     FORGE_TAVILY_API_KEY=op://Ardent Forge/tavily-api-key/credential
+    FORGE_STRAVA_CLIENT_ID=op://Ardent Forge/strava/client-id
+    FORGE_STRAVA_CLIENT_SECRET=op://Ardent Forge/strava/client-secret
+    # Seed only — the connector persists the rotating refresh token at
+    # FORGE_STRAVA_TOKEN_PATH (default /data/ardent-forge/strava/tokens.json).
+    FORGE_STRAVA_REFRESH_TOKEN=op://Ardent Forge/strava/refresh-token
   '';
 }

@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # Web search (Tavily)
     tavily_api_key: str = ""
 
+    # Strava — OAuth creds + rotating refresh token state.
+    # REFRESH_TOKEN is seed-only: the connector persists the latest token
+    # to TOKEN_PATH and uses that as the source of truth afterward.
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_refresh_token: str = ""
+    strava_token_path: str = "/data/ardent-forge/strava/tokens.json"
+
     # Repos
     workspace_dir: str = "/var/lib/ardent-forge/repos"
 
