@@ -8,6 +8,7 @@ for the sync reader/writer primitives.
 """
 
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,8 @@ async def test_connector_exposes_expected_tools(connector: NotebookConnector):
         "notebook_resolve_wikilink",
         "notebook_recent",
         "notebook_log",
+        "notebook_draft_log",
+        "notebook_summarize_log",
         "notebook_write",
         "notebook_append",
     }
@@ -174,3 +177,100 @@ async def test_write_projects_accepted(connector: NotebookConnector, notebook: P
     result = await connector._write(path="Projects/Ship.md", content="# Ship")
     assert result["status"] == "ok"
     assert (notebook / "Projects" / "Ship.md").read_text() == "# Ship"
+
+
+# ─── Draft log tests ─────────────────────────────────────────────────
+
+
+async def test_draft_log_creates_from_template(connector: NotebookConnector, notebook: Path):
+    """Draft log uses the template when available."""
+    (notebook / "+Templates").mkdir(exist_ok=True)
+    (notebook / "+Templates" / "Daily Note.md").write_text(
+        "---\naliases:\n  - \"{{date:D MMMM YYYY}}\"\n---\n"
+        "# {{date:ddd D MMMM YYYY}}\n\n## Work\n\n## Personal\n"
+    )
+    result = await connector._draft_log(date="2026-04-20")
+    assert result["status"] == "drafted"
+    assert result["path"] == "Log/2026-04-20.md"
+    content = (notebook / "Log" / "2026-04-20.md").read_text()
+    assert "20 April 2026" in content
+    assert "## Work" in content
+
+
+async def test_draft_log_without_template(connector: NotebookConnector, notebook: Path):
+    """Draft log generates a basic structure when no template exists."""
+    result = await connector._draft_log(date="2026-04-21")
+    assert result["status"] == "drafted"
+    content = (notebook / "Log" / "2026-04-21.md").read_text()
+    assert "## Work" in content
+    assert "## Personal" in content
+
+
+async def test_draft_log_refuses_if_exists(connector: NotebookConnector, notebook: Path):
+    """Draft log won't overwrite an existing log."""
+    (notebook / "Log" / "2026-04-22.md").write_text("# Already here")
+    result = await connector._draft_log(date="2026-04-22")
+    assert "error" in result
+    # Original content preserved.
+    assert (notebook / "Log" / "2026-04-22.md").read_text() == "# Already here"
+
+
+async def test_draft_log_carries_forward_deferred(connector: NotebookConnector, notebook: Path):
+    """Deferred tasks [>] from yesterday are carried into the new log."""
+    (notebook / "Log" / "2026-04-19.md").write_text(
+        "# Sat 19 April 2026\n"
+        "- [x] Done task\n"
+        "- [>] Finish the report\n"
+        "- [>] Call the dentist\n"
+        "- [ ] Open task\n"
+    )
+    result = await connector._draft_log(date="2026-04-20")
+    assert result["deferred_count"] == 2
+    content = (notebook / "Log" / "2026-04-20.md").read_text()
+    assert "Finish the report" in content
+    assert "Call the dentist" in content
+    # Completed and open tasks should NOT be carried.
+    assert "Done task" not in content
+
+
+async def test_draft_log_defaults_to_today(connector: NotebookConnector, notebook: Path):
+    """Omitting date defaults to today."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    result = await connector._draft_log()
+    assert result["date"] == today
+    assert result["status"] == "drafted"
+
+
+# ─── Summarize log tests ─────────────────────────────────────────────
+
+
+async def test_summarize_log_categorizes_tasks(connector: NotebookConnector, notebook: Path):
+    (notebook / "Log" / "2026-04-20.md").write_text(
+        "# Sun 20 April 2026\n"
+        "- [x] Wrote notebook context\n"
+        "- [x] Fixed tests\n"
+        "- [>] Review PR\n"
+        "- [ ] Deploy\n"
+        "- [~] Refactor half done\n"
+        "- [!] Skipped meeting\n"
+    )
+    result = await connector._summarize_log(date="2026-04-20")
+    assert result["completed"] == ["Wrote notebook context", "Fixed tests"]
+    assert result["deferred"] == ["Review PR"]
+    assert result["open"] == ["Deploy"]
+    assert result["partial"] == ["Refactor half done"]
+    assert result["dropped"] == ["Skipped meeting"]
+    assert result["total_tasks"] == 6
+    assert result["completion_rate"] == "2/6"
+
+
+async def test_summarize_log_missing_date(connector: NotebookConnector):
+    result = await connector._summarize_log(date="1999-01-01")
+    assert "error" in result
+
+
+async def test_summarize_log_empty_log(connector: NotebookConnector, notebook: Path):
+    (notebook / "Log" / "2026-04-23.md").write_text("# Notes\n\nJust some thoughts.\n")
+    result = await connector._summarize_log(date="2026-04-23")
+    assert result["total_tasks"] == 0
+    assert result["completion_rate"] == "no tasks"
