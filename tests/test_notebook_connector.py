@@ -8,7 +8,7 @@ for the sync reader/writer primitives.
 """
 
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -53,6 +53,8 @@ async def test_connector_exposes_expected_tools(connector: NotebookConnector):
         "notebook_recent",
         "notebook_log",
         "notebook_draft_log",
+        "notebook_week_review",
+        "notebook_stalled_work",
         "notebook_summarize_log",
         "notebook_write",
         "notebook_append",
@@ -274,3 +276,71 @@ async def test_summarize_log_empty_log(connector: NotebookConnector, notebook: P
     result = await connector._summarize_log(date="2026-04-23")
     assert result["total_tasks"] == 0
     assert result["completion_rate"] == "no tasks"
+
+
+# ─── Week review tests ───────────────────────────────────────────────
+
+
+async def test_week_review_aggregates_tasks(connector: NotebookConnector, notebook: Path):
+    """Week review reads multiple logs and aggregates task stats."""
+    for day_offset, content in [
+        (0, "- [x] Task A\n- [>] Task B\n"),
+        (1, "- [x] Task C\n- [x] Task D\n- [ ] Task E\n"),
+        (2, "- [>] Task B\n- [x] Task F\n"),
+    ]:
+        day = datetime(2026, 4, 20) - timedelta(days=day_offset)
+        (notebook / "Log" / f"{day.strftime('%Y-%m-%d')}.md").write_text(content)
+
+    result = await connector._week_review(end_date="2026-04-20", days=3)
+    assert result["logs_found"] == 3
+    assert result["tasks"]["completed"] == 4
+    assert result["tasks"]["deferred"] == 2
+
+
+async def test_week_review_extracts_mentions(connector: NotebookConnector, notebook: Path):
+    (notebook / "Log" / "2026-04-25.md").write_text(
+        "Met with [[Alice]] and [[Bob]]. Also talked to [[Alice]].\n"
+    )
+    result = await connector._week_review(end_date="2026-04-25", days=1)
+    mentions = {m["name"]: m["count"] for m in result["mentions"]}
+    assert mentions["Alice"] == 2
+    assert mentions["Bob"] == 1
+
+
+async def test_week_review_handles_missing_logs(connector: NotebookConnector):
+    result = await connector._week_review(end_date="1999-01-07", days=7)
+    assert result["logs_found"] == 0
+    assert result["logs_missing"] == 7
+
+
+# ─── Stalled work tests ──────────────────────────────────────────────
+
+
+async def test_stalled_work_detects_rolling_deferrals(connector: NotebookConnector, notebook: Path):
+    """Tasks deferred 3+ times should be flagged."""
+    today = datetime.now()
+    for i in range(5):
+        day = today - timedelta(days=i)
+        (notebook / "Log" / f"{day.strftime('%Y-%m-%d')}.md").write_text(
+            "- [>] Call the dentist\n- [x] Something else\n"
+        )
+    result = await connector._stalled_work(lookback_days=5)
+    assert len(result["rolling_deferrals"]) >= 1
+    assert result["rolling_deferrals"][0]["task"] == "Call the dentist"
+    assert result["rolling_deferrals"][0]["times_deferred"] == 5
+
+
+async def test_stalled_work_detects_unmentioned_projects(connector: NotebookConnector, notebook: Path):
+    """Projects not mentioned in any recent log should be flagged."""
+    today = datetime.now()
+    (notebook / "Projects").mkdir(exist_ok=True)
+    (notebook / "Projects" / "Ship Feature.md").write_text("# Ship Feature\n")
+    (notebook / "Projects" / "Learn Rust.md").write_text("# Learn Rust\n")
+    # Only mention one project in today's log.
+    (notebook / "Log" / f"{today.strftime('%Y-%m-%d')}.md").write_text(
+        "Worked on Ship Feature today.\n"
+    )
+
+    result = await connector._stalled_work(lookback_days=1)
+    assert "Learn Rust" in result["stalled_projects"]
+    assert "Ship Feature" not in result["stalled_projects"]

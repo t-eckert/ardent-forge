@@ -202,6 +202,50 @@ class NotebookConnector(Connector):
                 connector_name=self.name,
             ),
             Tool(
+                name="notebook_week_review",
+                description=(
+                    "Gather data for a weekly review: read all daily logs in a "
+                    "date range (defaults to last 7 days), aggregate task stats, "
+                    "people mentioned, and sections active. Returns structured "
+                    "data for Forge to narrate — does not write anything."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "end_date": {
+                            "type": "string",
+                            "description": "End date (YYYY-MM-DD). Defaults to today.",
+                        },
+                        "days": {
+                            "type": "integer",
+                            "description": "Number of days to cover (default 7).",
+                        },
+                    },
+                },
+                execute=self._week_review,
+                connector_name=self.name,
+            ),
+            Tool(
+                name="notebook_stalled_work",
+                description=(
+                    "Detect stalled projects and rolling deferrals. Scans recent "
+                    "daily logs for tasks that keep getting deferred, and checks "
+                    "which projects haven't been referenced in logs recently. "
+                    "Returns structured findings for Forge to present gently."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "lookback_days": {
+                            "type": "integer",
+                            "description": "How many days of logs to scan (default 14).",
+                        },
+                    },
+                },
+                execute=self._stalled_work,
+                connector_name=self.name,
+            ),
+            Tool(
                 name="notebook_summarize_log",
                 description=(
                     "Summarize a day's log: what was planned vs. what happened. "
@@ -466,6 +510,127 @@ class NotebookConnector(Connector):
                 if task_text:
                     deferred.append(task_text)
         return deferred
+
+    async def _week_review(self, end_date: str | None = None, days: int = 7) -> dict[str, Any]:
+        r = self._require_reader()
+        if isinstance(r, dict):
+            return r
+
+        end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
+        days = max(1, min(days, 90))
+
+        all_completed: list[str] = []
+        all_deferred: list[str] = []
+        all_open: list[str] = []
+        people_mentioned: dict[str, int] = {}
+        logs_found: list[str] = []
+        logs_missing: list[str] = []
+
+        for i in range(days):
+            day = end - timedelta(days=i)
+            day_str = day.strftime("%Y-%m-%d")
+            log_path = f"Log/{day_str}.md"
+            try:
+                content = await asyncio.to_thread(r.read, log_path)
+            except (FileNotFoundError, ValueError):
+                logs_missing.append(day_str)
+                continue
+            logs_found.append(day_str)
+
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("- [x]"):
+                    all_completed.append(stripped[5:].strip())
+                elif stripped.startswith("- [>]"):
+                    all_deferred.append(stripped[5:].strip())
+                elif stripped.startswith("- [ ]"):
+                    all_open.append(stripped[5:].strip())
+
+                # Extract [[wikilink]] mentions — likely people or projects.
+                for match in re.finditer(r"\[\[([^\]]+)\]\]", line):
+                    name = match.group(1)
+                    people_mentioned[name] = people_mentioned.get(name, 0) + 1
+
+        # Sort people by mention count.
+        top_mentions = sorted(people_mentioned.items(), key=lambda x: -x[1])[:20]
+
+        return {
+            "period": {
+                "start": (end - timedelta(days=days - 1)).strftime("%Y-%m-%d"),
+                "end": end.strftime("%Y-%m-%d"),
+                "days": days,
+            },
+            "logs_found": len(logs_found),
+            "logs_missing": len(logs_missing),
+            "tasks": {
+                "completed": len(all_completed),
+                "deferred": len(all_deferred),
+                "still_open": len(all_open),
+                "completed_list": all_completed[:30],
+                "deferred_list": all_deferred[:20],
+            },
+            "mentions": [{"name": n, "count": c} for n, c in top_mentions],
+        }
+
+    async def _stalled_work(self, lookback_days: int = 14) -> dict[str, Any]:
+        r = self._require_reader()
+        if isinstance(r, dict):
+            return r
+
+        lookback_days = max(1, min(lookback_days, 90))
+        today = datetime.now()
+
+        # 1. Find rolling deferrals — tasks that appear as [>] in multiple logs.
+        deferral_counts: dict[str, int] = {}
+        for i in range(lookback_days):
+            day = today - timedelta(days=i)
+            log_path = f"Log/{day.strftime('%Y-%m-%d')}.md"
+            deferred = await self._extract_deferred_tasks(r, log_path)
+            for task in deferred:
+                # Normalize whitespace for dedup.
+                key = " ".join(task.split())
+                deferral_counts[key] = deferral_counts.get(key, 0) + 1
+
+        rolling_deferrals = [
+            {"task": task, "times_deferred": count}
+            for task, count in sorted(deferral_counts.items(), key=lambda x: -x[1])
+            if count >= 3
+        ]
+
+        # 2. Find stalled projects — projects not mentioned in recent logs.
+        projects_dir = "Projects"
+        active_projects: list[str] = []
+        try:
+            entries = await asyncio.to_thread(r.list_dir, projects_dir)
+            for entry in entries:
+                # Skip special subdirs.
+                if entry.startswith("+"):
+                    continue
+                active_projects.append(entry.removesuffix(".md"))
+        except (NotADirectoryError, ValueError):
+            pass
+
+        # Scan logs for project mentions.
+        mentioned_projects: set[str] = set()
+        for i in range(lookback_days):
+            day = today - timedelta(days=i)
+            log_path = f"Log/{day.strftime('%Y-%m-%d')}.md"
+            try:
+                content = await asyncio.to_thread(r.read, log_path)
+            except (FileNotFoundError, ValueError):
+                continue
+            for proj in active_projects:
+                if proj in content:
+                    mentioned_projects.add(proj)
+
+        stalled_projects = [p for p in active_projects if p not in mentioned_projects]
+
+        return {
+            "lookback_days": lookback_days,
+            "rolling_deferrals": rolling_deferrals,
+            "stalled_projects": stalled_projects,
+            "active_project_count": len(active_projects),
+        }
 
     async def _summarize_log(self, date: str | None = None) -> dict[str, Any]:
         r = self._require_reader()
