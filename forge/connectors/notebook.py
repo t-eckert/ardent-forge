@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -139,6 +140,48 @@ class NotebookConnector(Connector):
                 connector_name=self.name,
             ),
             Tool(
+                name="notebook_recent",
+                description=(
+                    "List the most recently modified notes, optionally scoped "
+                    "to a section (e.g. 'Log', 'Fields/Health', 'Projects'). "
+                    "Useful for understanding what's been active lately."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "section": {
+                            "type": "string",
+                            "description": "Subdirectory to scope to, e.g. 'Log' or 'Fields'. Omit for whole vault.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results (default 20, max 50).",
+                        },
+                    },
+                },
+                execute=self._recent,
+                connector_name=self.name,
+            ),
+            Tool(
+                name="notebook_log",
+                description=(
+                    "Read a daily log entry by date. Convenience wrapper: "
+                    "pass a date like '2026-04-16' and get the Log file content. "
+                    "Omit date for today's log."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "date": {
+                            "type": "string",
+                            "description": "ISO date (YYYY-MM-DD). Omit for today.",
+                        },
+                    },
+                },
+                execute=self._log,
+                connector_name=self.name,
+            ),
+            Tool(
                 name="notebook_write",
                 description=(
                     "Write (overwrite) a note in the Notebook vault. Paths must start "
@@ -245,6 +288,41 @@ class NotebookConnector(Connector):
             return r
         match = await asyncio.to_thread(r.resolve_wikilink, name)
         return {"name": name, "path": str(match) if match else None}
+
+    async def _recent(self, section: str | None = None, limit: int = 20) -> dict[str, Any]:
+        r = self._require_reader()
+        if isinstance(r, dict):
+            return r
+        limit = min(max(limit, 1), 50)
+        try:
+            entries = await asyncio.to_thread(r.recent, section or "", limit)
+        except (NotADirectoryError, ValueError) as exc:
+            return {"error": str(exc)}
+        return {
+            "section": section or "(all)",
+            "entries": [
+                {
+                    "path": path,
+                    "modified": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
+                }
+                for path, mtime in entries
+            ],
+        }
+
+    async def _log(self, date: str | None = None) -> dict[str, Any]:
+        r = self._require_reader()
+        if isinstance(r, dict):
+            return r
+        if date is None:
+            date = datetime.now().strftime("%Y-%m-%d")
+        log_path = f"Log/{date}.md"
+        try:
+            content = await asyncio.to_thread(r.read, log_path)
+        except FileNotFoundError:
+            return {"error": f"No log entry for {date}", "path": log_path}
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {"date": date, "path": log_path, "content": content}
 
     async def _write(self, path: str, content: str) -> dict[str, Any]:
         w = self._require_writer()

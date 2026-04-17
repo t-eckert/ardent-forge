@@ -7,7 +7,7 @@ from forge.notebook.errors import NotebookWriteError
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_WRITE_PREFIXES = ("Wiki/", "Fields/", "Log/")
+ALLOWED_WRITE_PREFIXES = ("Wiki/", "Fields/", "Log/", "People/", "Projects/")
 
 
 class NotebookWriter:

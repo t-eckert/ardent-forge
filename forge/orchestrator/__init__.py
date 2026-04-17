@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, AsyncIterator
 
 from forge.orchestrator.dispatch import TurnShape, decide_turn_shape
 from forge.orchestrator.narration import narrate_resolution
+from forge.orchestrator.notebook_context import build_notebook_context
 from forge.orchestrator.persona import PERSONA
 from forge.orchestrator.system_prompt import ThreadContext, build_system_prompt
 
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from forge.connectors import ConnectorRegistry
     from forge.memory import MemoryStore
     from forge.models import Task
+    from forge.notebook.reader import NotebookReader
     from forge.store import TaskStore
     from forge.thread_store import ThreadMessage, ThreadStore
 
@@ -47,6 +49,7 @@ class ForgeOrchestrator:
     store: "TaskStore | None" = None
     thread_store: "ThreadStore | None" = None
     memory: "MemoryStore | None" = None
+    notebook_reader: "NotebookReader | None" = None
 
     def _memory_index(self) -> str | None:
         if self.memory is None:
@@ -63,11 +66,21 @@ class ForgeOrchestrator:
             pass
         return idx or None
 
+    def _notebook_context(self) -> str | None:
+        if self.notebook_reader is None:
+            return None
+        try:
+            return build_notebook_context(self.notebook_reader)
+        except Exception:
+            logger.exception("build_notebook_context raised")
+            return None
+
     def system_prompt(self, thread_context: ThreadContext | None = None) -> str:
         """Build the system prompt for a turn in the given context."""
         tools = self.connectors.all_tools() if self.connectors else []
         return build_system_prompt(
             memory_index=self._memory_index(),
+            notebook_context=self._notebook_context(),
             connectors=[c.name for c in self.connectors.all()] if self.connectors else [],
             agents=[a.task_type for a in self.agents.list()] if self.agents else [],
             tools=[t.name for t in tools],
@@ -100,9 +113,13 @@ class ForgeOrchestrator:
             "description": (
                 "Queue an asynchronous task for an agent. Use this when the work "
                 "is too big, too slow, or too multi-step to do inline — research, "
-                "code changes, planning. Returns a task_id; the task's result "
-                "lands in this thread as a separate message once the agent "
-                "finishes. Do not use for quick lookups — prefer direct tool calls."
+                "code changes against a repository, planning. Returns a task_id; "
+                "the task's result lands in this thread as a separate message once "
+                "the agent finishes.\n\n"
+                "IMPORTANT: task_type='code' is for changes to a specific GitHub "
+                "repo — do NOT dispatch it for standalone code generation (writing "
+                "a snippet, explaining an algorithm, drafting a function). Answer "
+                "those inline with a fenced code block instead."
             ),
             "input_schema": {
                 "type": "object",

@@ -74,13 +74,17 @@ def _context_block(ctx: ThreadContext | None) -> str:
 
 def build_system_prompt(
     memory_index: str | None = None,
+    notebook_context: str | None = None,
     connectors: list[str] | None = None,
     agents: list[str] | None = None,
     tools: list[str] | None = None,
     thread_context: ThreadContext | None = None,
 ) -> str:
     """Assemble the full system prompt. Blocks with no content are omitted cleanly."""
-    blocks: list[str] = [PERSONA.strip(), _memory_block(memory_index), _capability_block(connectors or [], agents or [], tools or [])]
+    blocks: list[str] = [PERSONA.strip(), _memory_block(memory_index)]
+    if notebook_context:
+        blocks.append(notebook_context)
+    blocks.append(_capability_block(connectors or [], agents or [], tools or []))
     ctx = _context_block(thread_context)
     if ctx:
         blocks.append(ctx)

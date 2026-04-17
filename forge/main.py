@@ -152,6 +152,13 @@ def run():
                     syllabus_path=settings.art_syllabus_path,
                 )
             )
+        # Speed test — periodic bandwidth measurement.
+        from forge.connectors.speedtest import SpeedtestConnector
+
+        speedtest_connector = SpeedtestConnector(
+            db=db, interval_minutes=settings.speedtest_interval_minutes
+        )
+        connectors.register(speedtest_connector)
         await connectors.setup_all()
 
         tasks.set_store(store)
@@ -250,7 +257,7 @@ def run():
         from forge.watchers.spec_watcher import SpecWatcher
         from forge.watchers.plan_merge_watcher import PlanMergeWatcher
 
-        watchers: list = []
+        watchers: list = [speedtest_connector]
         try:
             af_repo_path = await GitOps(settings.workspace_dir).ensure_repo(
                 settings.self_repo_url, settings.self_repo
@@ -293,6 +300,7 @@ def run():
             store=store,
             thread_store=thread_store,
             memory=memory_store,
+            notebook_reader=notebook_reader,
         )
         chat.configure(
             store=store,

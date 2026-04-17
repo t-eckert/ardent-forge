@@ -31,10 +31,10 @@ def test_write_log_accepted(vault: Path):
     assert (vault / "Log" / "2026-04-12.md").read_text() == "daily"
 
 
-def test_write_people_rejected(vault: Path):
+def test_write_people_accepted(vault: Path):
     writer = NotebookWriter(vault)
-    with pytest.raises(NotebookWriteError):
-        writer.write("People/Alice.md", "no")
+    writer.write("People/Alice.md", "# Alice")
+    assert (vault / "People" / "Alice.md").read_text() == "# Alice"
 
 
 def test_write_templates_rejected(vault: Path):
@@ -71,6 +71,8 @@ def test_allowed_prefixes_exposed():
     assert "Wiki/" in ALLOWED_WRITE_PREFIXES
     assert "Fields/" in ALLOWED_WRITE_PREFIXES
     assert "Log/" in ALLOWED_WRITE_PREFIXES
+    assert "People/" in ALLOWED_WRITE_PREFIXES
+    assert "Projects/" in ALLOWED_WRITE_PREFIXES
 
 
 def test_append_creates_file_if_missing(vault: Path):
@@ -89,4 +91,4 @@ def test_append_extends_existing_file(vault: Path):
 def test_append_enforces_allowlist(vault: Path):
     writer = NotebookWriter(vault)
     with pytest.raises(NotebookWriteError):
-        writer.append("People/Alice.md", "no")
+        writer.append("+Templates/Daily.md", "no")

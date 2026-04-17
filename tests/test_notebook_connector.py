@@ -49,6 +49,8 @@ async def test_connector_exposes_expected_tools(connector: NotebookConnector):
         "notebook_read",
         "notebook_list",
         "notebook_resolve_wikilink",
+        "notebook_recent",
+        "notebook_log",
         "notebook_write",
         "notebook_append",
     }
@@ -127,3 +129,48 @@ async def test_append_accumulates(connector: NotebookConnector, notebook: Path):
     await connector._append(path=path, content="line 1\n")
     await connector._append(path=path, content="line 2\n")
     assert (notebook / path).read_text() == "line 1\nline 2\n"
+
+
+async def test_recent_returns_recently_modified(connector: NotebookConnector):
+    result = await connector._recent()
+    assert "entries" in result
+    assert len(result["entries"]) >= 2
+    # Entries should have path and modified fields.
+    entry = result["entries"][0]
+    assert "path" in entry
+    assert "modified" in entry
+
+
+async def test_recent_scoped_to_section(connector: NotebookConnector):
+    result = await connector._recent(section="Wiki")
+    assert all("Wiki/" in e["path"] for e in result["entries"])
+
+
+async def test_recent_limits_results(connector: NotebookConnector):
+    result = await connector._recent(limit=1)
+    assert len(result["entries"]) == 1
+
+
+async def test_log_reads_by_date(connector: NotebookConnector, notebook: Path):
+    (notebook / "Log" / "2026-04-16.md").write_text("# Wednesday\n- [x] Ship it")
+    result = await connector._log(date="2026-04-16")
+    assert result["date"] == "2026-04-16"
+    assert "Ship it" in result["content"]
+
+
+async def test_log_missing_date_returns_error(connector: NotebookConnector):
+    result = await connector._log(date="1999-01-01")
+    assert "error" in result
+
+
+async def test_write_people_accepted(connector: NotebookConnector, notebook: Path):
+    (notebook / "People").mkdir(exist_ok=True)
+    result = await connector._write(path="People/Alice.md", content="# Alice")
+    assert result["status"] == "ok"
+    assert (notebook / "People" / "Alice.md").read_text() == "# Alice"
+
+
+async def test_write_projects_accepted(connector: NotebookConnector, notebook: Path):
+    result = await connector._write(path="Projects/Ship.md", content="# Ship")
+    assert result["status"] == "ok"
+    assert (notebook / "Projects" / "Ship.md").read_text() == "# Ship"

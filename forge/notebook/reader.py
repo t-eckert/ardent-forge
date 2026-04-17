@@ -70,6 +70,21 @@ class NotebookReader:
             hits.append(SearchHit(path=rel, line_number=int(lineno), line=content))
         return hits
 
+    def recent(self, section: str = "", limit: int = 20) -> list[tuple[str, float]]:
+        """Return the *limit* most-recently-modified files under *section*,
+        sorted newest-first.  Each entry is ``(relative_path, mtime)``."""
+        target = self._resolve(section) if section else self._root
+        if not target.is_dir():
+            raise NotADirectoryError(f"Not a directory: {section}")
+        files: list[tuple[str, float]] = []
+        for p in target.rglob("*.md"):
+            if p.name.startswith("."):
+                continue
+            rel = str(p.relative_to(self._root))
+            files.append((rel, p.stat().st_mtime))
+        files.sort(key=lambda t: t[1], reverse=True)
+        return files[:limit]
+
     def resolve_wikilink(self, name: str) -> Path | None:
         filename = f"{name}.md"
         matches = list(self._root.rglob(filename))
