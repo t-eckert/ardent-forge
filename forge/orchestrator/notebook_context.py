@@ -91,6 +91,10 @@ def build_notebook_context(reader: "NotebookReader") -> str:
         "- Use `notebook_read` or `notebook_log` to read specific notes.",
         "- Use `notebook_recent` to see what's been active lately.",
         "- Use `notebook_resolve_wikilink` to find where a `[[Name]]` lives.",
+        "- **ALWAYS use `notebook_summarize_log` when asked about task completion or daily progress.** Never count tasks manually from log text — you will get it wrong. The tool parses task notation accurately.",
+        "- Use `notebook_week_review` for multi-day task and activity summaries.",
+        "- Use `notebook_stalled_work` to find rolling deferrals and stalled projects.",
+        "- Use `notebook_draft_log` to create a new daily log from the template.",
         "- When Thomas mentions a person, project, or topic, check the notebook — you'll often find relevant context.",
         "- When writing notes, follow the section semantics: Fields for ongoing areas, Projects for completable work, Wiki for transferable knowledge.",
     ]
