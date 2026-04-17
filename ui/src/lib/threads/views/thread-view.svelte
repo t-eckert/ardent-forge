@@ -109,7 +109,7 @@
 	}
 </script>
 
-<div class="flex min-h-[calc(100vh-3rem)]">
+<div class="flex h-[calc(100vh-3rem)]">
 	<ThreadList {threads} activeId={active.id} />
 	<div class="flex flex-col flex-1 min-w-0">
 		<Conversation messages={allMessages} {streamingText} />
