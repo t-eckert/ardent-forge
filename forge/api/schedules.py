@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from forge.store import TaskStore
 
@@ -20,9 +20,9 @@ def get_store() -> TaskStore:
 
 
 class CreateScheduleRequest(BaseModel):
-    name: str
-    cron_expr: str
-    task_type: str
+    name: str = Field(max_length=200)
+    cron_expr: str = Field(max_length=100)
+    task_type: str = Field(max_length=64)
     task_template: dict | None = None
 
 

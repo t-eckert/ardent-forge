@@ -54,7 +54,7 @@ async def list_directory(request: Request, path: str = ""):
 
 
 @router.get("/search")
-async def search(q: str, request: Request, path: str | None = Query(default=None)):
+async def search(request: Request, q: str = Query(max_length=1000), path: str | None = Query(default=None, max_length=500)):
     reader = _reader(request)
     hits = reader.search(q, path_prefix=path)
     return [

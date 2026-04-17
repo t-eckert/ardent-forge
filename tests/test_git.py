@@ -94,9 +94,9 @@ async def test_commit_all_stages_and_commits(tmp_path):
     await git.commit_all("/tmp/wt", "plan: add feature")
     assert git._run.call_count == 3
     calls = git._run.call_args_list
-    assert "git add -A" in calls[0][0][0]
-    assert "git status --porcelain" in calls[1][0][0]
-    assert 'git commit -m "plan: add feature"' in calls[2][0][0]
+    assert calls[0][0][0] == ["git", "add", "-A"]
+    assert calls[1][0][0] == ["git", "status", "--porcelain"]
+    assert calls[2][0][0] == ["git", "commit", "-m", "plan: add feature"]
 
 
 async def test_commit_all_raises_when_nothing_staged(tmp_path):
@@ -137,4 +137,4 @@ async def test_get_working_tree_changes_uses_git_status_porcelain(tmp_path):
     git = GitOps(str(tmp_path))
     git._run = AsyncMock(return_value="")
     await git.get_working_tree_changes("/tmp/wt")
-    git._run.assert_awaited_once_with("git status --porcelain", cwd="/tmp/wt")
+    git._run.assert_awaited_once_with(["git", "status", "--porcelain"], cwd="/tmp/wt")

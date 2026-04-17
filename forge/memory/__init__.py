@@ -178,7 +178,7 @@ class MemoryStore:
             filename += ".md"
         # Refuse traversal outside the store.
         path = (self._root / filename).resolve()
-        if self._root.resolve() not in path.parents:
+        if not path.is_relative_to(self._root.resolve()):
             raise ValueError(f"Invalid memory filename: {filename!r}")
         return path
 

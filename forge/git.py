@@ -14,9 +14,9 @@ class GitOps:
         safe_name = repo_name.replace("/", "--")
         repo_path = os.path.join(self._workspace_dir, safe_name)
         if os.path.exists(repo_path):
-            await self._run("git fetch --all", cwd=repo_path)
+            await self._run(["git", "fetch", "--all"], cwd=repo_path)
             return repo_path
-        await self._run(f"git clone {source} {repo_path}")
+        await self._run(["git", "clone", source, repo_path])
         return repo_path
 
     async def create_worktree(self, repo_path: str, branch_name: str) -> str:
@@ -25,19 +25,19 @@ class GitOps:
         worktree_path = os.path.join(worktree_dir, branch_name)
         default_branch = await self._get_default_branch(repo_path)
         await self._run(
-            f"git worktree add {worktree_path} -b {branch_name} {default_branch}",
+            ["git", "worktree", "add", worktree_path, "-b", branch_name, default_branch],
             cwd=repo_path,
         )
         return worktree_path
 
     async def cleanup_worktree(self, repo_path: str, worktree_path: str):
-        await self._run(f"git worktree remove {worktree_path} --force", cwd=repo_path)
+        await self._run(["git", "worktree", "remove", worktree_path, "--force"], cwd=repo_path)
 
     async def get_diff(self, worktree_path: str, base_branch: str) -> str:
-        return await self._run(f"git diff {base_branch}...HEAD", cwd=worktree_path)
+        return await self._run(["git", "diff", f"{base_branch}...HEAD"], cwd=worktree_path)
 
     async def get_working_tree_changes(self, path: str) -> list[str]:
-        output = await self._run("git status --porcelain", cwd=path)
+        output = await self._run(["git", "status", "--porcelain"], cwd=path)
         files: list[str] = []
         for line in output.splitlines():
             if not line.strip():
@@ -52,18 +52,17 @@ class GitOps:
 
     async def get_changed_files(self, worktree_path: str, base_branch: str = "main") -> list[str]:
         output = await self._run(
-            f"git diff --name-only {base_branch}...HEAD",
+            ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
             cwd=worktree_path,
         )
         return [line.strip() for line in output.splitlines() if line.strip()]
 
     async def commit_all(self, worktree_path: str, message: str) -> None:
-        await self._run("git add -A", cwd=worktree_path)
-        status = await self._run("git status --porcelain", cwd=worktree_path)
+        await self._run(["git", "add", "-A"], cwd=worktree_path)
+        status = await self._run(["git", "status", "--porcelain"], cwd=worktree_path)
         if not status.strip():
             raise RuntimeError("commit_all called but nothing staged")
-        safe_msg = message.replace('"', '\\"')
-        await self._run(f'git commit -m "{safe_msg}"', cwd=worktree_path)
+        await self._run(["git", "commit", "-m", message], cwd=worktree_path)
 
     async def create_pr(
         self,
@@ -73,12 +72,12 @@ class GitOps:
         base_branch: str | None = None,
     ) -> str:
         branch = (
-            await self._run("git rev-parse --abbrev-ref HEAD", cwd=worktree_path)
+            await self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree_path)
         ).strip()
-        await self._run(f"git push -u origin {branch}", cwd=worktree_path)
+        await self._run(["git", "push", "-u", "origin", branch], cwd=worktree_path)
         base = base_branch or await self._get_default_branch(worktree_path)
         result = await self._run(
-            f'gh pr create --base {base} --head {branch} --title "{title}" --body "{body}"',
+            ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title, "--body", body],
             cwd=worktree_path,
         )
         return result.strip()
@@ -87,7 +86,7 @@ class GitOps:
         # Try origin/HEAD first (works for cloned repos with a remote)
         try:
             result = await self._run(
-                "git symbolic-ref refs/remotes/origin/HEAD",
+                ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
                 cwd=repo_path,
             )
             return result.strip().split("/")[-1]
@@ -97,7 +96,7 @@ class GitOps:
         # Fall back to detecting the current local branch (handles local-only repos)
         try:
             result = await self._run(
-                "git rev-parse --abbrev-ref HEAD",
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 cwd=repo_path,
             )
             branch = result.strip()
@@ -109,9 +108,9 @@ class GitOps:
         # Last resort default
         return "main"
 
-    async def _run(self, cmd: str, cwd: str | None = None) -> str:
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
+    async def _run(self, cmd: list[str], cwd: str | None = None) -> str:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
@@ -119,6 +118,7 @@ class GitOps:
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
             error_msg = stderr.decode().strip()
-            logger.error(f"Git command failed: {cmd}\n{error_msg}")
-            raise RuntimeError(f"Git command failed: {cmd}\n{error_msg}")
+            cmd_str = " ".join(cmd[:3]) + " ..."  # truncate to avoid leaking secrets
+            logger.error("Git command failed: %s\n%s", cmd_str, error_msg)
+            raise RuntimeError(f"Git command failed (rc={proc.returncode}): {error_msg}")
         return stdout.decode()

@@ -5,7 +5,7 @@ to each dict, and a detail payload that includes the referencing thread ids.
 """
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.store import TaskStore
@@ -38,11 +38,11 @@ async def _task_dict(task: Task, thread_store: ThreadStore | None) -> dict:
 
 
 class CreateTaskRequest(BaseModel):
-    type: str
-    title: str
-    description: str
-    repo: str | None = None
-    source_id: str | None = None
+    type: str = Field(max_length=64)
+    title: str = Field(max_length=500)
+    description: str = Field(max_length=50_000)
+    repo: str | None = Field(default=None, max_length=500)
+    source_id: str | None = Field(default=None, max_length=200)
     # Optional: link this task to an origin thread at creation time. Used by
     # Forge's task-dispatch turns so the coordinator knows where to post
     # the resolution message on completion.

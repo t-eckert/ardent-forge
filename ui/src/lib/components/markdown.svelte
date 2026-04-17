@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
 
 	interface Props {
@@ -8,16 +9,22 @@
 
 	let { source, class: klass = '' }: Props = $props();
 
+	function escapeHtml(s: string): string {
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
 	// Convert Obsidian wikilinks [[Name]] and [[Name|Display]] to HTML links.
 	function convertWikilinks(text: string): string {
 		return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (_match, target, display) => {
-			const label = display || target;
+			const label = escapeHtml(display || target);
 			const href = `/library/wiki/${encodeURIComponent(target)}`;
 			return `<a href="${href}" class="wikilink">${label}</a>`;
 		});
 	}
 
-	const html = $derived(marked.parse(convertWikilinks(source), { async: false }) as string);
+	const html = $derived(
+		DOMPurify.sanitize(marked.parse(convertWikilinks(source), { async: false }) as string)
+	);
 </script>
 
 <div class="notebook-prose {klass}">
