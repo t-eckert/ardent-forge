@@ -25,11 +25,7 @@
   # ── Networking ──────────────────────────────────────────
   networking = {
     hostName = "ardent-forge";
-    interfaces.enp1s0.ipv4.addresses = [{
-      address = "10.0.0.67";
-      prefixLength = 24;
-    }];
-    defaultGateway = "10.0.0.1";
+    interfaces.enp1s0.useDHCP = true;
     nameservers = [ "1.1.1.1" "8.8.8.8" ];
 
     firewall = {
