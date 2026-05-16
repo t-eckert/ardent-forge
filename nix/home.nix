@@ -1,123 +1,62 @@
 # nix/home.nix
 #
-# Imports dotfiles modules for shell, git, neovim, and starship config.
-# Packages are managed here (not via dotfiles packages.nix) to avoid
-# the dotfiles `self` dependency for custom Go tools.
+# Pulls in the full dotfiles dev environment and adds forge-specific extras.
 { config, pkgs, lib, dotfiles, locals, ... }:
 
 {
   imports = [
-    # Dotfiles modules — shell/git/starship config
-    # neovim.nix skipped — its extraPackages references removed nodePackages
-    "${dotfiles}/nix/home/shell.nix"
-    "${dotfiles}/nix/home/git.nix"
-    "${dotfiles}/nix/home/programs/starship.nix"
+    # Full dotfiles home environment: packages, shell, git, ssh, neovim, starship
+    "${dotfiles}/nix/home"
   ];
-
-  # Neovim — configured here since dotfiles neovim.nix has nixpkgs compat issues
-  programs.neovim = {
-    enable = true;
-    defaultEditor = true;
-    viAlias = true;
-    vimAlias = true;
-    vimdiffAlias = true;
-  };
 
   home = {
     username = locals.username;
     homeDirectory = "/home/${locals.username}";
-    stateVersion = "24.05";
+    # stateVersion comes from dotfiles home module ("24.05")
   };
 
-  programs.home-manager.enable = true;
-
-  # XDG directories
-  xdg = {
-    enable = true;
-    configHome = "${config.home.homeDirectory}/.config";
-    dataHome = "${config.home.homeDirectory}/.local/share";
-    cacheHome = "${config.home.homeDirectory}/.cache";
-  };
-
-  home.sessionVariables = {
-    EDITOR = "nvim";
-    VISUAL = "nvim";
-    BAT_THEME = "base16";
-    FORGE_DB_PATH = "/data/ardent-forge/forge.db";
-    FORGE_WORKSPACE_DIR = "/data/ardent-forge/repos";
-  };
-
-  home.packages = with pkgs; [
-    # Core tools
-    git
-    gh
-    ripgrep
-    fzf
-    bat
-    jq
-    yq
-    tree
-    curl
-    wget
-    htop
-
-    # Languages
-    go
-    gopls
-    nodejs_22
-    python313
-    uv
-    deno
-    rustup
-
-    # Language servers (for Neovim)
-    lua-language-server
-    typescript-language-server
-    nil
-    pyright
-    stylua
-    nixpkgs-fmt
-    prettier
-    shellcheck
-    fd
-    tree-sitter
-
-    # Cloud & Infra
-    kubectl
-    kubernetes-helm
-    k9s
-    flyctl
-    terraform
-
-    # Containers
-    podman
-
-    # Terminal
-    zellij
-    atuin
-    lazygit
-
-    # Networking
-    caddy
-    nmap
-  ];
-
-  # Link Neovim config from dotfiles
-  xdg.configFile."nvim" = {
+  # dotfiles uses mkOutOfStoreSymlink pointing to ~/Repos/... which doesn't exist
+  # here — override to use the store path from the dotfiles flake input instead.
+  xdg.configFile."nvim" = lib.mkForce {
     source = "${dotfiles}/config/nvim";
     recursive = true;
   };
 
-  # Link Zellij config from dotfiles
-  xdg.configFile."zellij" = {
-    source = "${dotfiles}/config/zellij";
-    recursive = true;
+  # Forge-specific packages not covered by dotfiles
+  home.packages = with pkgs; [
+    uv              # Python package manager
+    openssl
+    pkg-config
+    podman-compose
+  ];
+
+  # Forge-specific environment variables
+  home.sessionVariables = {
+    FORGE_DB_PATH = "/data/ardent-forge/forge.db";
+    FORGE_WORKSPACE_DIR = "/data/ardent-forge/repos";
   };
 
-  # Link Atuin config from dotfiles
-  xdg.configFile."atuin" = {
-    source = "${dotfiles}/config/atuin";
-    recursive = true;
+  # Rebuild script — updates flake inputs then switches the system
+  home.file.".local/bin/af-rebuild" = {
+    executable = true;
+    text = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      FLAKE_DIR="/data/ardent-forge/repo/nix"
+
+      echo "Updating flake inputs..."
+      nix flake update --flake "$FLAKE_DIR"
+
+      echo "Rebuilding system..."
+      if sudo nixos-rebuild switch --flake "$FLAKE_DIR#ardent-forge" --impure; then
+        echo "Switch complete."
+      else
+        echo "Live switch failed (likely critical system changes). Staging for next boot..."
+        sudo nixos-rebuild boot --flake "$FLAKE_DIR#ardent-forge" --impure
+        echo "Done. Reboot when ready: sudo reboot"
+      fi
+    '';
   };
 
   # First-boot setup script
