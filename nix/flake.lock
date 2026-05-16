@@ -31,11 +31,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1775966664,
-        "narHash": "sha256-D2vwRb8GeyCLDldDNzDCR5IAXiEyLL04X44qnbXac0M=",
+        "lastModified": 1778900094,
+        "narHash": "sha256-WxHCLeLzmtpY7Zvs0jRCr+MJYM+cHxaGfkHqzut/p6w=",
         "owner": "t-eckert",
         "repo": "dotfiles",
-        "rev": "d6a60d004fce1032e5960e23a7d5035dc17963fe",
+        "rev": "9d0dcf0a7cf09cd81095e31cf3e69404312ee8b0",
         "type": "github"
       },
       "original": {
