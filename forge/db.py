@@ -92,6 +92,17 @@ CREATE TABLE IF NOT EXISTS thread_tasks (
     PRIMARY KEY (thread_id, task_id, relation)
 );
 CREATE INDEX IF NOT EXISTS thread_tasks_task_id ON thread_tasks (task_id);
+
+-- Speed-test results — periodic download/upload measurements.
+CREATE TABLE IF NOT EXISTS speedtest_results (
+    id TEXT PRIMARY KEY,
+    download_mbps REAL NOT NULL,
+    upload_mbps REAL NOT NULL,
+    ping_ms REAL NOT NULL,
+    server_name TEXT,
+    server_location TEXT,
+    tested_at TEXT NOT NULL
+);
 """
 
 

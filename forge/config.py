@@ -51,5 +51,9 @@ class Settings(BaseSettings):
     self_repo_url: str = "https://github.com/t-eckert/ardent-forge.git"
     planner_claude_model: str = "claude-opus-4-20250514"
 
+    # Speed test — periodic internet bandwidth measurement.
+    # Set to 0 to disable. Value is in minutes between tests.
+    speedtest_interval_minutes: int = 0
+
     # Observability
     log_level: str = "INFO"
