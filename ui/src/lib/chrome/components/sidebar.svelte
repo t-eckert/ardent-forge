@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SpineItem from './spine-item.svelte';
-	import { Sun, ChatCircle, Books, ListChecks } from '$lib/icons';
+	import { Sun, ChatCircle, Books, ListChecks, Gear } from '$lib/icons';
 	import { Meta, Eyebrow } from '$lib/typography';
 	import { StatusDot, KeycapHint } from '$lib/components';
 	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
@@ -89,8 +89,15 @@
 		{/each}
 	{/if}
 
-	<!-- Footer: ⌘K + sync -->
+	<!-- Footer: settings + ⌘K + sync -->
 	<div class="mt-auto pt-2.5 border-t border-[var(--color-border)]">
+		<a
+			href="/settings"
+			class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60 rounded"
+		>
+			<Gear size={14} weight="regular" />
+			<span>Settings</span>
+		</a>
 		<div class="flex items-center justify-between px-2.5 py-1">
 			<Meta size="xs">Quick find</Meta>
 			<KeycapHint keys={['⌘', 'K']} />

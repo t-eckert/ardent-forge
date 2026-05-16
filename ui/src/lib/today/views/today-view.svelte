@@ -53,10 +53,44 @@
 	const agentsNote = $derived(
 		needsReview > 0 ? `${needsReview} need${needsReview === 1 ? 's' : ''} review` : 'all clear'
 	);
+
+	const subtitle = $derived(() => {
+		const parts: string[] = [];
+
+		// Agent overnight summary
+		if (runs.length > 0) {
+			const s = runs.length === 1 ? '' : 's';
+			if (needsReview > 0) {
+				parts.push(`${runs.length} agent run${s} overnight — ${needsReview} need${needsReview === 1 ? 's' : ''} your review`);
+			} else {
+				parts.push(`${runs.length} agent run${s} finished overnight, all clear`);
+			}
+		}
+
+		// Todos summary
+		const pendingTodos = todos.filter((t) => t.status !== 'done').length;
+		if (pendingTodos > 0) {
+			const s = pendingTodos === 1 ? '' : 's';
+			parts.push(`${pendingTodos} todo${s} on your plate`);
+		}
+
+		// Weather note
+		if (weather) {
+			parts.push(`${Math.round(weather.currentC)}°C and ${weather.summary.toLowerCase()} outside`);
+		}
+
+		if (parts.length === 0) return 'A quiet day ahead.';
+
+		// Join with " — " for the first break, then ", " for the rest
+		// Capitalize the first letter
+		const sentence = parts.join(' — ');
+		return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
+	});
 </script>
 
 <div class="flex flex-col gap-7 px-14 pt-9 pb-6 max-w-[1440px] mx-auto">
 	<HeroGreeting
+		subtitle={subtitle()}
 		weatherTempC={weather?.currentC ?? 0}
 		weatherSummary={weather?.summary ?? '—'}
 		todosDue={todos.filter((t) => t.status !== 'done').length}

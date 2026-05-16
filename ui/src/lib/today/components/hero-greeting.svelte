@@ -17,7 +17,7 @@
 	let {
 		nowIso = new Date().toISOString(),
 		userName = 'Thomas',
-		subtitle = 'The bench is lit. Three agents finished work overnight — and a long run wants your legs by 10.',
+		subtitle = 'A quiet day ahead.',
 		weatherTempC,
 		weatherSummary,
 		todosDue,
