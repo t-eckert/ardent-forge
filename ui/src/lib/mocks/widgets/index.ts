@@ -4,3 +4,4 @@ export * from './purchases';
 export * from './workouts';
 export * from './places-map';
 export * from './result';
+export * from './code-result';

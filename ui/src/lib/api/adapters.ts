@@ -83,10 +83,6 @@ function adaptResolved(
 	task: BackendTaskSummary,
 	narration: string
 ): ResolvedTask {
-	// Wrap the agent's result in the generic ResultWidget when non-empty.
-	// Richer per-agent widget shapes (code.diff, places.map, etc.) will be
-	// matched first here once they're specced; for now every agent falls
-	// through to the generic dump.
 	const data = task.result ?? undefined;
 	const hasResult = data && typeof data === 'object' && Object.keys(data).length > 0;
 	return {
@@ -94,13 +90,30 @@ function adaptResolved(
 		agent: `${task.type}-agent`,
 		title: task.title,
 		summary: narration,
-		artifact: hasResult
-			? {
-					tool: 'result',
-					label: `${task.type} output`,
-					data: data as Record<string, unknown>
-				}
-			: undefined
+		artifact: hasResult ? pickArtifact(task.type, data as Record<string, unknown>) : undefined
+	};
+}
+
+/** Route an agent's result dict to the best-matching widget shape.
+ *  Adding a new per-agent widget means adding a branch here. Anything
+ *  unrecognised falls through to the generic ResultWidget. */
+function pickArtifact(
+	taskType: string,
+	data: Record<string, unknown>
+): NonNullable<ResolvedTask['artifact']> {
+	if (taskType === 'code' && ('pr_url' in data || 'branch' in data)) {
+		return {
+			tool: 'code.result',
+			prUrl: typeof data.pr_url === 'string' ? data.pr_url : undefined,
+			branch: typeof data.branch === 'string' ? data.branch : undefined,
+			summary: typeof data.summary === 'string' ? data.summary : undefined,
+			claudeOutput: typeof data.claude_output === 'string' ? data.claude_output : undefined
+		};
+	}
+	return {
+		tool: 'result',
+		label: `${taskType} output`,
+		data
 	};
 }
 

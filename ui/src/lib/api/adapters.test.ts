@@ -129,6 +129,47 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 		expect(artifact.data.source_url).toBe('https://example.com/x');
 	});
 
+	it('routes a code-agent result to the code.result widget shape', () => {
+		const detail = adaptThreadDetail({
+			...baseThread,
+			messages: [
+				{
+					id: 'msg-code',
+					thread_id: baseThread.id,
+					role: 'assistant',
+					content: 'code finished — rename tclient.',
+					variant: 'task-resolved',
+					widgets: [],
+					task_id: '01KP00000000000000000000CD',
+					task: {
+						id: '01KP00000000000000000000CD',
+						type: 'code',
+						title: 'Rename tClient',
+						status: 'completed',
+						stages: ['triage', 'execute', 'verify', 'deliver'],
+						current_stage: null,
+						result: {
+							pr_url: 'https://github.com/foo/bar/pull/42',
+							branch: 'forge/01KP000000',
+							claude_output: 'swapped identifier across 12 files.'
+						},
+						completed_at: '2026-04-15T00:05:00Z'
+					},
+					created_at: '2026-04-15T00:05:00Z'
+				}
+			]
+		});
+
+		const m = detail.messages[0];
+		if (m.role !== 'assistant') throw new Error('expected assistant message');
+		const artifact = m.resolvedTask!.artifact!;
+		expect(artifact.tool).toBe('code.result');
+		if (artifact.tool !== 'code.result') throw new Error('expected code.result');
+		expect(artifact.prUrl).toBe('https://github.com/foo/bar/pull/42');
+		expect(artifact.branch).toBe('forge/01KP000000');
+		expect(artifact.claudeOutput).toContain('12 files');
+	});
+
 	it('omits artifact when task.result is empty or null', () => {
 		const detail = adaptThreadDetail({
 			...baseThread,

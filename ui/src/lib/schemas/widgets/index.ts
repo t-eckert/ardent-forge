@@ -5,6 +5,7 @@ import { PurchasesPayload } from './purchases';
 import { WorkoutsPayload } from './workouts';
 import { PlacesMapPayload } from './places-map';
 import { ResultPayload } from './result';
+import { CodeResultPayload } from './code-result';
 
 export * from './code-diff';
 export * from './weather';
@@ -12,6 +13,7 @@ export * from './purchases';
 export * from './workouts';
 export * from './places-map';
 export * from './result';
+export * from './code-result';
 
 /**
  * Discriminated union of every widget payload the assistant can emit.
@@ -23,6 +25,7 @@ export const WidgetPayload = z.discriminatedUnion('tool', [
 	PurchasesPayload,
 	WorkoutsPayload,
 	PlacesMapPayload,
-	ResultPayload
+	ResultPayload,
+	CodeResultPayload
 ]);
 export type WidgetPayload = z.infer<typeof WidgetPayload>;

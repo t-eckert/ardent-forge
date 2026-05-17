@@ -6,6 +6,7 @@
 	import Workouts from '../workouts/workouts.svelte';
 	import PlacesMap from '../places-map/places-map.svelte';
 	import Result from '../result/result.svelte';
+	import CodeResult from '../code-result/code-result.svelte';
 
 	/**
 	 * Renders any tool payload by discriminating on `tool`. Widget-host is the single
@@ -35,6 +36,8 @@
 	<PlacesMap {payload} />
 {:else if payload.tool === 'result'}
 	<Result {payload} />
+{:else if payload.tool === 'code.result'}
+	<CodeResult {payload} />
 {:else}
 	<div class="font-mono text-[11px] text-[var(--color-warn)]">
 		unknown tool: {(payload as { tool: string }).tool}
