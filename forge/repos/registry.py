@@ -28,8 +28,23 @@ class RepoRegistry:
                 self._repos[repo.name] = repo
             except Exception:
                 logger.warning("Failed to load repo at %s", entry, exc_info=True)
+        self._check_port_conflicts(repos)
         logger.info("Repo registry: %d repos found in %s", len(repos), self._workspace_dir)
         return repos
+
+    def _check_port_conflicts(self, repos: list[Repo]) -> None:
+        seen: dict[int, str] = {}
+        for repo in repos:
+            if repo.dev_port is None:
+                continue
+            if repo.dev_port in seen:
+                logger.error(
+                    "Port conflict: repos %r and %r both declare dev_port=%d — "
+                    "update repo.yaml to resolve",
+                    seen[repo.dev_port], repo.name, repo.dev_port,
+                )
+            else:
+                seen[repo.dev_port] = repo.name
 
     def list(self) -> list[Repo]:
         return list(self._repos.values())

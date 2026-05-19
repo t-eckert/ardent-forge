@@ -26,10 +26,18 @@ class ZellijRunner:
     def available() -> bool:
         return shutil.which("zellij") is not None
 
-    async def run(self, prompt: str, work_dir: str, session_name: str | None = None) -> str:
+    async def run(
+        self,
+        prompt: str,
+        work_dir: str,
+        session_name: str | None = None,
+        extra_env: dict[str, str] | None = None,
+    ) -> str:
         env = {**os.environ, "CLAUDE_NO_TELEMETRY": "1"}
         if "ANTHROPIC_API_KEY" not in env and "FORGE_ANTHROPIC_API_KEY" in env:
             env["ANTHROPIC_API_KEY"] = env["FORGE_ANTHROPIC_API_KEY"]
+        if extra_env:
+            env.update(extra_env)
 
         if session_name and self.available():
             logger.info("Running Claude in Zellij session %s (cwd=%s)", session_name, work_dir)

@@ -36,6 +36,7 @@ from forge.memory import MemoryStore
 from forge.orchestrator import ForgeOrchestrator
 from forge.repos import RepoRegistry
 from forge.store import TaskStore
+from forge.tailscale import TailscaleServe
 from forge.thread_store import ThreadStore
 
 
@@ -85,9 +86,13 @@ def run():
         from pathlib import Path
 
         repo_registry = RepoRegistry(settings.workspace_dir)
-        await repo_registry.scan()
+        scanned_repos = await repo_registry.scan()
         repos_api.set_registry(repo_registry)
         app.state.repo_registry = repo_registry
+
+        ts_serve = TailscaleServe()
+        await ts_serve.sync(scanned_repos)
+
 
 
         from forge.notebook import NotebookReader, NotebookWriter
@@ -115,6 +120,8 @@ def run():
         app.state.notebook_writer = notebook_writer
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
+        from forge.connectors.onepassword import OPConnector
+        connectors.register(OPConnector())
         connectors.register(WeatherConnector())
         if settings.tavily_api_key:
             from forge.connectors.web_search import WebSearchConnector
