@@ -5,40 +5,23 @@ import { adaptThread, adaptTaskToAgentRun } from '$lib/api/adapters';
 export const ssr = false;
 
 export const load: PageLoad = async () => {
-	const [threads, weather, runs, todos] = await Promise.all([
+	const [threads, tasks, repos] = await Promise.all([
 		api.threads
 			.list()
 			.then((raw) => raw.map((t) => adaptThread(t)))
 			.catch(() => []),
-		api.weather.current().catch(() => null),
-		api.tasks
-			.list()
-			.then((tasks) => tasks.slice(0, 20).map(adaptTaskToAgentRun))
-			.catch(() => []),
-		api.todos
-			.list('today')
-			.catch(() => [])
+		api.tasks.list().catch(() => []),
+		api.repos.list().catch(() => [])
 	]);
 
-	// Yesterday summary: count tasks completed since yesterday midnight.
-	const yesterday = new Date();
-	yesterday.setDate(yesterday.getDate() - 1);
-	yesterday.setHours(0, 0, 0, 0);
-	const yesterdayTasks = await api.tasks
-		.list({ status: 'completed' })
-		.then((tasks) =>
-			tasks.filter((t) => t.completed_at && new Date(t.completed_at) >= yesterday)
-		)
-		.catch(() => []);
-	const carryOver = await api.tasks
-		.list({ status: 'queued' })
-		.then((tasks) => tasks.length)
-		.catch(() => 0);
+	const activeTasks = tasks.filter((t) =>
+		['executing', 'triaging', 'verifying', 'delivering'].includes(t.status)
+	);
+	const queuedTasks = tasks.filter((t) => t.status === 'queued');
+	const recentTasks = tasks
+		.filter((t) => t.status === 'completed')
+		.slice(0, 10)
+		.map(adaptTaskToAgentRun);
 
-	const yesterdayRows = [
-		{ label: 'Done', value: `${yesterdayTasks.length} task${yesterdayTasks.length !== 1 ? 's' : ''}` },
-		{ label: 'Carry-over', value: String(carryOver) }
-	];
-
-	return { threads, weather, runs, todos, yesterdayRows };
+	return { threads, activeTasks, queuedTasks, recentTasks, repos };
 };

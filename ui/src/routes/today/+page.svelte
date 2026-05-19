@@ -10,8 +10,8 @@
 
 <TodayView
 	threads={data.threads}
-	weather={data.weather}
-	runs={data.runs}
-	todos={data.todos}
-	yesterdayRows={data.yesterdayRows}
+	activeTasks={data.activeTasks}
+	queuedTasks={data.queuedTasks}
+	recentTasks={data.recentTasks}
+	repos={data.repos}
 />

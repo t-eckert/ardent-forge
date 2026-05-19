@@ -5,7 +5,6 @@ import pytest
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.connectors import ConnectorRegistry, Tool
-from forge.connectors.weather import WeatherConnector
 from forge.orchestrator import (
     ForgeOrchestrator,
     PERSONA,
@@ -133,10 +132,29 @@ def test_narration_notes_error():
 # ─── Orchestrator façade ────────────────────────────────────────────────────
 
 
+async def _fake_search(**kwargs):
+    return {"results": []}
+
+
 @pytest.fixture
 def wired_orchestrator():
     connectors = ConnectorRegistry()
-    connectors.register(WeatherConnector())
+    fake_tool = Tool(
+        name="web_search",
+        description="Search the web for information.",
+        input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+        execute=_fake_search,
+        connector_name="search",
+    )
+
+    class FakeSearchConnector:
+        name = "search"
+        async def setup(self): pass
+        async def health(self): return True
+        @property
+        def tools(self): return [fake_tool]
+
+    connectors.register(FakeSearchConnector())
     agents = AgentRegistry()
     agents.register(EchoAgent())
     return ForgeOrchestrator(connectors=connectors, agents=agents)
@@ -144,24 +162,24 @@ def wired_orchestrator():
 
 def test_orchestrator_system_prompt_reflects_registries(wired_orchestrator):
     prompt = wired_orchestrator.system_prompt()
-    assert "weather" in prompt
+    assert "search" in prompt
     assert "echo" in prompt
-    assert "get_weather" in prompt
+    assert "web_search" in prompt
 
 
 def test_orchestrator_tool_schemas_shape(wired_orchestrator):
     schemas = wired_orchestrator.tool_schemas()
-    # One connector tool (get_weather) + the synthetic dispatch_task meta-tool.
+    # One connector tool (web_search) + the synthetic dispatch_task meta-tool.
     by_name = {s["name"]: s for s in schemas}
-    assert "get_weather" in by_name
+    assert "web_search" in by_name
     assert "dispatch_task" in by_name
-    assert set(by_name["get_weather"].keys()) == {"name", "description", "input_schema"}
+    assert set(by_name["web_search"].keys()) == {"name", "description", "input_schema"}
     # dispatch_task enumerates known agent task_types.
     assert by_name["dispatch_task"]["input_schema"]["properties"]["task_type"]["enum"] == ["echo"]
 
 
 def test_orchestrator_resolve_tool_call(wired_orchestrator):
-    tool, shape = wired_orchestrator.resolve_tool_call("get_weather")
+    tool, shape = wired_orchestrator.resolve_tool_call("web_search")
     assert tool is not None
     assert shape is TurnShape.SYNCHRONOUS
 

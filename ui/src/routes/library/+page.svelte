@@ -9,8 +9,9 @@
 </script>
 
 <LibraryIndex
-	counts={data.counts}
 	agentCount={data.agentCount}
 	connectorCount={data.connectorCount}
 	memoryCount={data.memoryCount}
+	repoCount={data.repoCount}
+	scheduleCount={data.scheduleCount}
 />

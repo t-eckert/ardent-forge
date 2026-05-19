@@ -30,6 +30,8 @@
 				return { label: '▸', tone: 'ink' };
 			case 'backup-agent':
 				return { label: '!', tone: 'warn' };
+			default:
+				return { label: '·', tone: 'ink' };
 		}
 	}
 

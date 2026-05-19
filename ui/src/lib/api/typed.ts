@@ -116,6 +116,27 @@ const TodoList = z.array(Todo.extend({
 	created_at: z.string().optional()
 }).passthrough());
 
+const Repo = z.object({
+	name: z.string(),
+	path: z.string(),
+	default_branch: z.string(),
+	dev_port: z.number().nullable().optional()
+});
+const RepoList = z.array(Repo);
+export type Repo = z.infer<typeof Repo>;
+
+const Schedule = z.object({
+	id: z.string(),
+	name: z.string(),
+	cron_expr: z.string(),
+	task_type: z.string(),
+	enabled: z.boolean(),
+	next_run: z.string().nullable().optional(),
+	last_run: z.string().nullable().optional()
+});
+const ScheduleList = z.array(Schedule);
+export type Schedule = z.infer<typeof Schedule>;
+
 // Threads respond with snake_case from the backend; view code renames at consumption time.
 const BackendThread = z.object({
 	id: z.string(),
@@ -247,6 +268,15 @@ export const api = {
 			return request(`/api/tasks${suffix}`, z.array(Task));
 		},
 		get: (id: string) => request(`/api/tasks/${id}`, Task)
+	},
+
+	repos: {
+		list: () => request('/api/repos', RepoList),
+		get: (name: string) => request(`/api/repos/${name}`, Repo)
+	},
+
+	schedules: {
+		list: () => request('/api/schedules', ScheduleList)
 	}
 };
 

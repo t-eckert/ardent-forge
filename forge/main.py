@@ -14,7 +14,6 @@ from forge.api import (
     agents as agents_api,
     chat,
     connectors as connectors_api,
-    fields as fields_api,
     health,
     memory as memory_api,
     notebook as notebook_api,
@@ -22,12 +21,9 @@ from forge.api import (
     schedules,
     tasks,
     threads as threads_api,
-    todos as todos_api,
-    weather as weather_api,
 )
 from forge.config import Settings
 from forge.connectors import ConnectorRegistry
-from forge.connectors.weather import WeatherConnector
 from forge.coordinator import Coordinator
 from forge.db import Database
 from forge.agents import AgentRegistry
@@ -50,11 +46,8 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(memory_api.router)
     app.include_router(threads_api.router)
     app.include_router(agents_api.router)
-    app.include_router(fields_api.router)
     app.include_router(notebook_api.router)
     app.include_router(repos_api.router)
-    app.include_router(weather_api.router)
-    app.include_router(todos_api.router)
 
     @app.get("/metrics")
     async def metrics():
@@ -122,7 +115,6 @@ def run():
         connectors = ConnectorRegistry()
         from forge.connectors.onepassword import OPConnector
         connectors.register(OPConnector())
-        connectors.register(WeatherConnector())
         if settings.tavily_api_key:
             from forge.connectors.web_search import WebSearchConnector
 
@@ -131,43 +123,6 @@ def run():
             from forge.connectors.notebook import NotebookConnector
 
             connectors.register(NotebookConnector(notebook_path))
-        # Workouts — wraps the notebook logs and Strava. Registers even when
-        # Strava creds are missing (notebook-only mode), as long as the
-        # vault is available.
-        if notebook_path.is_dir():
-            from forge.connectors.workout import WorkoutConnector
-
-            connectors.register(
-                WorkoutConnector(
-                    notebook_root=notebook_path,
-                    strava_client_id=settings.strava_client_id,
-                    strava_client_secret=settings.strava_client_secret,
-                    strava_refresh_token=settings.strava_refresh_token,
-                    strava_token_path=Path(settings.strava_token_path),
-                )
-            )
-        # Studio — art-study connector anchored to the syllabus.
-        if notebook_path.is_dir():
-            from datetime import date as _date
-
-            from forge.connectors.studio import StudioConnector
-
-            try:
-                phase_1_start = _date.fromisoformat(settings.art_phase_1_start)
-            except ValueError:
-                phase_1_start = _date(2026, 4, 13)
-                logging.getLogger(__name__).warning(
-                    "Invalid FORGE_ART_PHASE_1_START=%r; falling back to %s",
-                    settings.art_phase_1_start,
-                    phase_1_start,
-                )
-            connectors.register(
-                StudioConnector(
-                    notebook_root=notebook_path,
-                    phase_1_start=phase_1_start,
-                    syllabus_path=settings.art_syllabus_path,
-                )
-            )
         # Speed test — periodic bandwidth measurement.
         from forge.connectors.speedtest import SpeedtestConnector
 
@@ -208,41 +163,6 @@ def run():
             )
         )
 
-        if notebook_reader is not None:
-            from forge.agents.research import ResearchAgent
-            from forge.claude import ClaudeRunner
-
-            registry.register(
-                ResearchAgent(
-                    claude_runner=ClaudeRunner(
-                        model="claude-sonnet-4-20250514",
-                        timeout=600,
-                    ),
-                    notebook_root=Path(settings.notebook_dir),
-                )
-            )
-
-            # Studio agent — art-mentor, anchored to the Course of Study.
-            from datetime import date as _date
-
-            from forge.agents.studio import StudioAgent
-
-            try:
-                studio_phase_1_start = _date.fromisoformat(settings.art_phase_1_start)
-            except ValueError:
-                studio_phase_1_start = _date(2026, 4, 13)
-            registry.register(
-                StudioAgent(
-                    claude_runner=ClaudeRunner(
-                        model="claude-sonnet-4-20250514",
-                        timeout=600,
-                    ),
-                    notebook_root=Path(settings.notebook_dir),
-                    phase_1_start=studio_phase_1_start,
-                    syllabus_path=settings.art_syllabus_path,
-                )
-            )
-
         poller = None
         if settings.linear_api_key and settings.linear_team_id:
             from forge.linear.client import LinearClient
@@ -271,7 +191,6 @@ def run():
         # Self-building watchers
         from forge.git import GitOps
         from forge.watchers.spec_watcher import SpecWatcher
-        from forge.watchers.plan_merge_watcher import PlanMergeWatcher
 
         watchers: list = [speedtest_connector]
         try:
@@ -287,14 +206,6 @@ def run():
 
             watchers.append(
                 SpecWatcher(
-                    store=store,
-                    repo_path=af_repo_path,
-                    fetch_fn=_fetch_main,
-                    self_repo=settings.self_repo,
-                )
-            )
-            watchers.append(
-                PlanMergeWatcher(
                     store=store,
                     repo_path=af_repo_path,
                     fetch_fn=_fetch_main,

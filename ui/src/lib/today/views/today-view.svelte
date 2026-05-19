@@ -1,124 +1,179 @@
 <script lang="ts">
-	import HeroGreeting from '../components/hero-greeting.svelte';
-	import TodayShape from '../components/today-shape.svelte';
-	import FocusBlock from '../components/focus-block.svelte';
-	import Composer from '../components/composer.svelte';
-	import OvernightDigest from '../components/overnight-digest.svelte';
-	import OpenThreads from '../components/open-threads.svelte';
-	import YesterdaySummary from '../components/yesterday-summary.svelte';
+	import { Heading, Eyebrow, Body, Meta } from '$lib/typography';
+	import { Card, StatusDot, Chip } from '$lib/components';
+	import { OpenThreads } from '$lib/today';
 	import type { Thread } from '$lib/schemas/thread';
 	import type { AgentRun } from '$lib/schemas/agent';
-	import type { Todo } from '$lib/schemas/todo';
-	import type { WeatherCurrent } from '$lib/api/typed';
-
-	interface YesterdayRow {
-		label: string;
-		value: string;
-	}
+	import type { Task } from '$lib/schemas/task';
+	import type { Repo } from '$lib/api/typed';
+	import { formatRelative } from '$lib/utils/date';
 
 	interface Props {
 		threads?: Thread[];
-		weather?: WeatherCurrent | null;
-		runs?: AgentRun[];
-		todos?: Todo[];
-		yesterdayRows?: YesterdayRow[];
+		activeTasks?: Task[];
+		queuedTasks?: Task[];
+		recentTasks?: AgentRun[];
+		repos?: Repo[];
 	}
 
 	let {
-		threads: threadsProp = [],
-		weather = null,
-		runs: runsProp = [],
-		todos: todosProp = [],
-		yesterdayRows: yesterdayRowsProp = []
+		threads = [],
+		activeTasks = [],
+		queuedTasks = [],
+		recentTasks = [],
+		repos = []
 	}: Props = $props();
 
-	const threads = $derived(threadsProp ?? []);
-	const runs = $derived(runsProp ?? []);
-	const todos = $derived(todosProp ?? []);
+	function statusTone(status: Task['status']): 'ember' | 'moss' | 'stone' {
+		if (status === 'failed') return 'ember';
+		if (['verifying', 'delivering'].includes(status)) return 'moss';
+		return 'moss';
+	}
 
-	// Schedule — will be wired when a Calendar connector ships.
-	const scheduleItems: { time: string; title: string; note: string; tag?: { label: string; tone?: 'ember' | 'neutral' | 'moss' }; highlight?: boolean }[] = [];
+	function statusLabel(status: Task['status']): string {
+		const map: Record<string, string> = {
+			triaging: 'triaging',
+			executing: 'executing',
+			verifying: 'verifying',
+			delivering: 'delivering'
+		};
+		return map[status] ?? status;
+	}
 
-	// Derive hero notes from real data.
-	const todosDueNote = $derived(() => {
-		const blocked = todos.filter((t) => t.status === 'blocked').length;
-		const review = todos.filter((t) => t.status === 'review').length;
-		const parts: string[] = [];
-		if (blocked) parts.push(`${blocked} blocked`);
-		if (review) parts.push(`${review} review`);
-		return parts.join(' · ') || undefined;
-	});
-
-	const needsReview = $derived(runs.filter((r) => r.status === 'needs-review').length);
-	const agentsNote = $derived(
-		needsReview > 0 ? `${needsReview} need${needsReview === 1 ? 's' : ''} review` : 'all clear'
-	);
-
-	const subtitle = $derived(() => {
-		const parts: string[] = [];
-
-		// Agent overnight summary
-		if (runs.length > 0) {
-			const s = runs.length === 1 ? '' : 's';
-			if (needsReview > 0) {
-				parts.push(`${runs.length} agent run${s} overnight — ${needsReview} need${needsReview === 1 ? 's' : ''} your review`);
-			} else {
-				parts.push(`${runs.length} agent run${s} finished overnight, all clear`);
-			}
-		}
-
-		// Todos summary
-		const pendingTodos = todos.filter((t) => t.status !== 'done').length;
-		if (pendingTodos > 0) {
-			const s = pendingTodos === 1 ? '' : 's';
-			parts.push(`${pendingTodos} todo${s} on your plate`);
-		}
-
-		// Weather note
-		if (weather) {
-			parts.push(`${Math.round(weather.currentC)}°C and ${weather.summary.toLowerCase()} outside`);
-		}
-
-		if (parts.length === 0) return 'A quiet day ahead.';
-
-		// Join with " — " for the first break, then ", " for the rest
-		// Capitalize the first letter
-		const sentence = parts.join(' — ');
-		return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
+	const today = new Date().toLocaleDateString('en-US', {
+		weekday: 'long',
+		month: 'long',
+		day: 'numeric'
 	});
 </script>
 
 <div class="flex flex-col gap-7 px-14 pt-9 pb-6 max-w-[1440px] mx-auto">
-	<HeroGreeting
-		subtitle={subtitle()}
-		weatherTempC={weather?.currentC ?? 0}
-		weatherSummary={weather?.summary ?? '—'}
-		todosDue={todos.filter((t) => t.status !== 'done').length}
-		todosDueNote={todosDueNote()}
-		agentsOvernight={runs.length}
-		{agentsNote}
-	/>
+	<div class="flex flex-col gap-1">
+		<Eyebrow>DASHBOARD</Eyebrow>
+		<Heading size="lg">{today}</Heading>
+	</div>
 
 	<div class="flex gap-9">
+		<!-- Left column: tasks -->
 		<div class="flex flex-col flex-1 gap-8 min-w-0">
-			{#if scheduleItems.length > 0}
-				<TodayShape items={scheduleItems} />
+
+			<!-- Active tasks -->
+			<section class="flex flex-col gap-2.5">
+				<header class="flex items-end justify-between pb-1.5 border-b border-[var(--color-border)]">
+					<div class="flex items-baseline gap-2.5">
+						<Heading size="md">Active</Heading>
+						{#if activeTasks.length > 0}
+							<Meta size="sm">{activeTasks.length} RUNNING</Meta>
+						{/if}
+					</div>
+					<a href="/tasks" class="font-mono text-[11px] text-[var(--color-ember-deep)]">tasks →</a>
+				</header>
+				{#if activeTasks.length === 0}
+					<Body size="sm" muted>No active tasks.</Body>
+				{:else}
+					<div class="flex flex-col gap-2">
+						{#each activeTasks as task (task.id)}
+							<a
+								href="/tasks/{task.id}"
+								class="flex items-center gap-3 p-3 bg-[var(--color-paper)] border border-[var(--color-border)] rounded-md hover:border-[var(--color-stone)] transition-colors"
+							>
+								<StatusDot tone={statusTone(task.status)} />
+								<div class="flex flex-col gap-0.5 flex-1 min-w-0">
+									<span class="text-[13px] font-medium text-[var(--color-ink)] truncate">{task.title}</span>
+									{#if task.repo}
+										<Meta size="xs">{task.repo}</Meta>
+									{/if}
+								</div>
+								<Chip tone="moss">{statusLabel(task.status)}</Chip>
+							</a>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			<!-- Queue -->
+			{#if queuedTasks.length > 0}
+				<section class="flex flex-col gap-2.5">
+					<header class="flex items-end justify-between pb-1.5 border-b border-[var(--color-border)]">
+						<div class="flex items-baseline gap-2.5">
+							<Heading size="md">Queued</Heading>
+							<Meta size="sm">{queuedTasks.length} WAITING</Meta>
+						</div>
+					</header>
+					<div class="flex flex-col gap-1.5">
+						{#each queuedTasks as task (task.id)}
+							<a
+								href="/tasks/{task.id}"
+								class="flex items-center gap-3 py-2"
+							>
+								<StatusDot tone="stone" />
+								<span class="text-[13px] text-[var(--color-ink)] truncate flex-1">{task.title}</span>
+								{#if task.repo}
+									<Meta size="xs">{task.repo}</Meta>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				</section>
 			{/if}
-			<FocusBlock
-				workoutTitle="—"
-				workoutSubtitle="No workout connector configured."
-				pace="—"
-				hr="—"
-				fuel="—"
-				{todos}
-			/>
-			<Composer />
+
+			<!-- Recent -->
+			{#if recentTasks.length > 0}
+				<section class="flex flex-col gap-2.5">
+					<header class="pb-1.5 border-b border-[var(--color-border)]">
+						<Heading size="md">Recent</Heading>
+					</header>
+					<div class="flex flex-col gap-1.5">
+						{#each recentTasks as run (run.id)}
+							<a
+								href={run.href ?? '/tasks'}
+								class="flex items-center gap-3 py-2 border-b border-[var(--color-border)] last:border-0"
+							>
+								<StatusDot tone={run.status === 'failed' ? 'ember' : 'stone'} />
+								<span class="text-[13px] text-[var(--color-ink)] truncate flex-1">{run.summary}</span>
+								<Meta size="xs">{run.durationLabel}</Meta>
+							</a>
+						{/each}
+					</div>
+				</section>
+			{/if}
 		</div>
 
-		<div class="flex flex-col w-[400px] gap-7 flex-shrink-0">
-			<OvernightDigest {runs} />
+		<!-- Right column: repos + threads -->
+		<div class="flex flex-col w-[360px] gap-7 flex-shrink-0">
+
+			<!-- Repos -->
+			<section class="flex flex-col gap-2.5">
+				<header class="flex items-end justify-between pb-1.5 border-b border-[var(--color-border)]">
+					<div class="flex items-baseline gap-2.5">
+						<Heading size="md">Repos</Heading>
+						<Meta size="sm">{repos.length} SCANNED</Meta>
+					</div>
+					<a href="/library/repos" class="font-mono text-[11px] text-[var(--color-ember-deep)]">all →</a>
+				</header>
+				{#if repos.length === 0}
+					<Body size="sm" muted>No repos found in workspace.</Body>
+				{:else}
+					<div class="flex flex-col gap-1.5">
+						{#each repos as repo (repo.name)}
+							<Card surface="paper" class="p-3">
+								<div class="flex items-center justify-between gap-2">
+									<div class="flex flex-col gap-0.5 min-w-0">
+										<span class="text-[13px] font-medium text-[var(--color-ink)] truncate">{repo.name}</span>
+										<Meta size="xs">{repo.default_branch}</Meta>
+									</div>
+									{#if repo.dev_port}
+										<Chip tone="moss">:{repo.dev_port}</Chip>
+									{/if}
+								</div>
+							</Card>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			<!-- Open threads -->
 			<OpenThreads {threads} />
-			<YesterdaySummary rows={yesterdayRowsProp} />
 		</div>
 	</div>
 </div>

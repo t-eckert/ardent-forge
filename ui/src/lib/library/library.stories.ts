@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/sveltekit';
 import type { ComponentProps } from 'svelte';
-import FieldsIndexHarness from './_stories/fields-index-harness.svelte';
+import LibraryIndex from './views/library-index.svelte';
 
-type Args = ComponentProps<typeof FieldsIndexHarness>;
+type Args = ComponentProps<typeof LibraryIndex>;
 
 const meta = {
-	title: 'Library/Fields index',
-	component: FieldsIndexHarness,
+	title: 'Library/Index',
+	component: LibraryIndex,
 	parameters: { layout: 'fullscreen' }
 } satisfies Meta<Args>;
 
@@ -14,3 +14,13 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const Default: Story = {};
+
+export const WithCounts: Story = {
+	args: {
+		agentCount: 4,
+		connectorCount: 5,
+		memoryCount: 12,
+		repoCount: 6,
+		scheduleCount: 3
+	}
+};
