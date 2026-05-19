@@ -149,9 +149,11 @@ class TaskStore:
         task_template: dict | None = None,
     ) -> str:
         import ulid as _ulid
+        from croniter import croniter
 
         schedule_id = str(_ulid.new())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        next_run = croniter(cron_expr, now).get_next(datetime).isoformat()
         await self._db.execute(
             "INSERT INTO schedules (id, name, cron_expr, task_type, task_template, enabled, next_run) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
@@ -161,7 +163,7 @@ class TaskStore:
                 task_type,
                 json.dumps(task_template or {}),
                 1,
-                now,
+                next_run,
             ),
         )
         return schedule_id
@@ -185,4 +187,19 @@ class TaskStore:
         await self._db.execute(
             "UPDATE schedules SET enabled = ? WHERE id = ?",
             (1 if enabled else 0, schedule_id),
+        )
+
+    async def list_due_schedules(self, now: str) -> list[dict]:
+        """Return enabled schedules whose next_run has arrived."""
+        return await self._db.fetch_all(
+            "SELECT * FROM schedules WHERE enabled = 1 AND next_run <= ?",
+            (now,),
+        )
+
+    async def update_schedule_after_run(
+        self, schedule_id: str, last_run: str, next_run: str
+    ) -> None:
+        await self._db.execute(
+            "UPDATE schedules SET last_run = ?, next_run = ? WHERE id = ?",
+            (last_run, next_run, schedule_id),
         )

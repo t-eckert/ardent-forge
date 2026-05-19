@@ -17,7 +17,7 @@ from forge.metrics import (
     TICK_DURATION_SECONDS,
     TICKS_TOTAL,
 )
-from forge.models import TaskStatus
+from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.state import transition
 from forge.store import TaskStore
 
@@ -99,9 +99,46 @@ class Coordinator:
             except Exception:
                 logger.exception(f"Error in watcher {watcher.__class__.__name__}")
 
+        try:
+            fired = await self._fire_due_schedules()
+            if fired > 0:
+                logger.info("Fired %d scheduled tasks", fired)
+        except Exception:
+            logger.exception("Error firing schedules")
+
         result = await self.process_pending()
         TICK_DURATION_SECONDS.observe(time.monotonic() - tick_start)
         return result
+
+    async def _fire_due_schedules(self) -> int:
+        """Create tasks for any enabled schedules whose next_run has passed."""
+        import json as _json
+        from datetime import datetime, timezone
+        from croniter import croniter
+
+        now = datetime.now(timezone.utc)
+        due = await self._store.list_due_schedules(now.isoformat())
+        fired = 0
+        for sched in due:
+            template = _json.loads(sched.get("task_template") or "{}")
+            try:
+                task_type = TaskType(sched["task_type"])
+            except ValueError:
+                logger.warning("Unknown task_type in schedule %r: %r", sched["id"], sched["task_type"])
+                continue
+            task = Task.new(
+                task_type=task_type,
+                source=TaskSource.SCHEDULE,
+                title=template.get("title") or sched["name"],
+                description=template.get("description") or sched["name"],
+                repo=template.get("repo"),
+            )
+            await self._store.save(task)
+            next_run = croniter(sched["cron_expr"], now).get_next(datetime).isoformat()
+            await self._store.update_schedule_after_run(sched["id"], now.isoformat(), next_run)
+            logger.info("Schedule %r fired task %s (next: %s)", sched["name"], task.id, next_run)
+            fired += 1
+        return fired
 
     def _build_context(self, agent) -> AgentContext:
         tools = []
@@ -208,16 +245,24 @@ class Coordinator:
                 # Post-back resolution to the origin thread, if any. Thread-born
                 # tasks get narrated by Forge in the same thread; cron/watcher
                 # tasks stay silent and reveal themselves via state.
-                if self._orchestrator is not None:
+                reloaded = await self._store.get(task.id)
+                if self._orchestrator is not None and reloaded is not None:
                     try:
-                        reloaded = await self._store.get(task.id)
-                        if reloaded is not None:
-                            await self._orchestrator.post_resolution(
-                                task=reloaded, result=aggregated
-                            )
+                        await self._orchestrator.post_resolution(
+                            task=reloaded, result=aggregated
+                        )
                     except Exception:
                         logger.exception(
                             "Failed to post resolution for task %s", task.id
+                        )
+
+                # Post PR link back to Linear for LINEAR-sourced tasks.
+                if self._poller is not None and reloaded is not None:
+                    try:
+                        await self._poller.post_result(reloaded)
+                    except Exception:
+                        logger.exception(
+                            "Failed to post Linear result for task %s", task.id
                         )
 
             except Exception as e:

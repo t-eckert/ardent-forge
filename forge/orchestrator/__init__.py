@@ -127,6 +127,7 @@ class ForgeOrchestrator:
                     "task_type": {"type": "string", "enum": task_types} if task_types else {"type": "string"},
                     "title": {"type": "string", "description": "Short title for the task card."},
                     "description": {"type": "string", "description": "Everything the agent needs to do the work."},
+                    "repo": {"type": "string", "description": "GitHub repo (owner/name) required for task_type='code'. Omit for other task types."},
                 },
                 "required": ["task_type", "title", "description"],
             },

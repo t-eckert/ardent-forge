@@ -16,6 +16,7 @@ dependencies = [
     "prometheus-client>=0.21",
     "speedtest-cli>=2.1",
     "pyyaml>=6.0",
+    "croniter>=1.4",
 ]
 
 [project.scripts]

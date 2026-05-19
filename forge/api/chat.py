@@ -121,6 +121,7 @@ async def _handle_dispatch(
     task_type = args.get("task_type")
     title = args.get("title")
     description = args.get("description")
+    repo = args.get("repo")
     if not task_type or not title or not description:
         return (
             {"error": "dispatch_task requires task_type, title, and description"},
@@ -151,6 +152,7 @@ async def _handle_dispatch(
         source=TaskSource.CHAT,
         title=title,
         description=description,
+        repo=repo or None,
     )
     await store.save(task)
     await _thread_store.link_task(
