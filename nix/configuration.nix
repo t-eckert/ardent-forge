@@ -11,6 +11,7 @@
     ./services/the-weather.nix
     ./services/autodeploy.nix
     ./services/notebook-sync.nix
+    ./services/tailscale-portforward.nix
   ];
 
   # ── System ──────────────────────────────────────────────
@@ -23,6 +24,8 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   # ── Networking ──────────────────────────────────────────
+  networking.nftables.enable = true;
+
   networking = {
     hostName = "ardent-forge";
     interfaces.enp1s0.useDHCP = true;
@@ -87,6 +90,18 @@
     autoPrune.enable = true;
     defaultNetwork.settings.dns_enabled = true;
   };
+
+  # ── nix-ld (run generic Linux binaries, e.g. workerd) ──
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    stdenv.cc.cc.lib
+    zlib
+    openssl
+    glibc
+  ];
+
+  # Workerd (bundled with wrangler) needs this to find CA certs on NixOS
+  environment.variables.SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
 
   # ── System packages ────────────────────────────────────
   environment.systemPackages = with pkgs; [
