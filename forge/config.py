@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     strava_refresh_token: str = ""
     strava_token_path: str = "/data/ardent-forge/strava/tokens.json"
 
-    # Repos
-    workspace_dir: str = "/var/lib/ardent-forge/repos"
+    # Repos — shared with manual checkouts; agent worktrees are sub-dirs
+    workspace_dir: str = "/home/thomaseckert/Repos"
 
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"

@@ -33,7 +33,7 @@
   # Forge-specific environment variables
   home.sessionVariables = {
     FORGE_DB_PATH = "/data/ardent-forge/forge.db";
-    FORGE_WORKSPACE_DIR = "/data/ardent-forge/repos";
+    FORGE_WORKSPACE_DIR = "/home/${locals.username}/Repos";
   };
 
   # Rebuild script — updates flake inputs then switches the system

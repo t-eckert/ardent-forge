@@ -11,7 +11,9 @@ class GitOps:
         os.makedirs(workspace_dir, exist_ok=True)
 
     async def ensure_repo(self, source: str, repo_name: str) -> str:
-        safe_name = repo_name.replace("/", "--")
+        # Use just the repo name (last segment of "owner/repo") so agent
+        # worktrees land in ~/Repos/<name> alongside manual checkouts.
+        safe_name = repo_name.split("/")[-1]
         repo_path = os.path.join(self._workspace_dir, safe_name)
         if os.path.exists(repo_path):
             await self._run(["git", "fetch", "--all"], cwd=repo_path)

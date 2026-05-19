@@ -28,7 +28,7 @@ in {
 
     environment = {
       FORGE_DB_PATH = "${forgeDir}/forge.db";
-      FORGE_WORKSPACE_DIR = "${forgeDir}/repos";
+      FORGE_WORKSPACE_DIR = "/home/${locals.username}/Repos";
       FORGE_HOST = "127.0.0.1";
       FORGE_PORT = "7030";
       HOME = "/home/${locals.username}";

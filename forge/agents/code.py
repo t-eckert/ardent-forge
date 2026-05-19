@@ -1,10 +1,11 @@
 import logging
 
 from forge.agents import AgentContext
-from forge.claude import ClaudeRunner, build_prompt
+from forge.claude import build_prompt
 from forge.git import GitOps
 from forge.models import Task
 from forge.verify import run_verification
+from forge.zellij import ZellijRunner
 
 logger = logging.getLogger(__name__)
 
@@ -12,31 +13,32 @@ MAX_RETRIES = 2
 
 
 class CodeAgent:
-    """Full-pipeline agent: clones repo, runs Claude, verifies, opens PR."""
+    """Full-pipeline agent: clones repo, runs Claude in Zellij, verifies, opens PR."""
 
     name = "code"
     task_type = "code"
     stages = ["triage", "execute", "verify", "deliver"]
-    connectors = ["github"]  # declared for future; tools list may be empty until registered
+    connectors = ["github"]
 
     def __init__(
         self,
-        workspace_dir: str = "/var/lib/ardent-forge/repos",
+        workspace_dir: str = "/home/thomaseckert/Repos",
         claude_model: str = "claude-sonnet-4-20250514",
         claude_timeout: int = 300,
     ):
         self._git = GitOps(workspace_dir)
-        self._claude = ClaudeRunner(model=claude_model, timeout=claude_timeout)
+        self._zellij = ZellijRunner(model=claude_model, timeout=claude_timeout)
 
     async def triage(self, task: Task, ctx: AgentContext) -> bool:
         if not task.repo:
-            logger.warning(f"Task {task.id} has no repo, cannot handle")
+            logger.warning("Task %s has no repo, cannot handle", task.id)
             return False
         return True
 
     async def execute(self, task: Task, ctx: AgentContext) -> dict:
         repo_url = f"https://github.com/{task.repo}.git"
         branch_name = f"forge/{task.id[:12]}"
+        session_name = f"agent-{task.id}"
 
         repo_path = await self._git.ensure_repo(repo_url, task.repo)
         worktree_path = await self._git.create_worktree(repo_path, branch_name)
@@ -52,7 +54,7 @@ class CodeAgent:
 
         for attempt in range(MAX_RETRIES + 1):
             if attempt > 0:
-                logger.info(f"Retry {attempt}/{MAX_RETRIES} for task {task.id}")
+                logger.info("Retry %d/%d for task %s", attempt, MAX_RETRIES, task.id)
                 prompt = build_prompt(
                     title=task.title,
                     description=task.description,
@@ -61,7 +63,7 @@ class CodeAgent:
                 )
 
             try:
-                output = await self._claude.run(prompt, worktree_path)
+                output = await self._zellij.run(prompt, worktree_path, session_name=session_name)
             except (TimeoutError, RuntimeError) as e:
                 retry_context = f"Attempt {attempt + 1} failed: {e}"
                 if attempt == MAX_RETRIES:
@@ -75,12 +77,14 @@ class CodeAgent:
             "repo_path": repo_path,
             "branch_name": branch_name,
             "claude_output": output[:2000],
+            "zellij_session": session_name,
+            "attach_cmd": f"ssh box -t zellij attach {session_name}",
         }
 
     async def verify(self, task: Task, ctx: AgentContext) -> bool:
         worktree_path = task.handler_data.get("worktree_path")
         if not worktree_path:
-            logger.error(f"No worktree_path in handler_data for task {task.id}")
+            logger.error("No worktree_path in handler_data for task %s", task.id)
             return False
         result = await run_verification(worktree_path)
         return result.success
@@ -89,6 +93,7 @@ class CodeAgent:
         worktree_path = task.handler_data.get("worktree_path")
         repo_path = task.handler_data.get("repo_path")
         branch_name = task.handler_data.get("branch_name", "")
+        session_name = task.handler_data.get("zellij_session", "")
 
         if not worktree_path or not repo_path:
             return {"status": "delivered", "error": "Missing worktree or repo path"}
@@ -111,16 +116,19 @@ class CodeAgent:
         try:
             pr_url = await self._git.create_pr(worktree_path, title, body)
         except RuntimeError as e:
-            logger.error(f"PR creation failed: {e}")
+            logger.error("PR creation failed: %s", e)
             pr_url = f"PR creation failed: {e}"
 
         try:
             await self._git.cleanup_worktree(repo_path, worktree_path)
         except RuntimeError:
-            logger.warning(f"Failed to cleanup worktree {worktree_path}")
+            logger.warning("Failed to cleanup worktree %s", worktree_path)
 
-        return {
+        result: dict = {
             "status": "delivered",
             "pr_url": pr_url,
             "branch": branch_name,
         }
+        if session_name:
+            result["attach_cmd"] = f"ssh box -t zellij attach {session_name}"
+        return result

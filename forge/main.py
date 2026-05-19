@@ -18,6 +18,7 @@ from forge.api import (
     health,
     memory as memory_api,
     notebook as notebook_api,
+    repos as repos_api,
     schedules,
     tasks,
     threads as threads_api,
@@ -33,6 +34,7 @@ from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.memory import MemoryStore
 from forge.orchestrator import ForgeOrchestrator
+from forge.repos import RepoRegistry
 from forge.store import TaskStore
 from forge.thread_store import ThreadStore
 
@@ -49,6 +51,7 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(agents_api.router)
     app.include_router(fields_api.router)
     app.include_router(notebook_api.router)
+    app.include_router(repos_api.router)
     app.include_router(weather_api.router)
     app.include_router(todos_api.router)
 
@@ -80,6 +83,12 @@ def run():
 
         store = TaskStore(db)
         from pathlib import Path
+
+        repo_registry = RepoRegistry(settings.workspace_dir)
+        await repo_registry.scan()
+        repos_api.set_registry(repo_registry)
+        app.state.repo_registry = repo_registry
+
 
         from forge.notebook import NotebookReader, NotebookWriter
 

@@ -15,6 +15,7 @@ dependencies = [
     "python-frontmatter>=1.1",
     "prometheus-client>=0.21",
     "speedtest-cli>=2.1",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

@@ -1,0 +1,76 @@
+import asyncio
+import pytest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch, MagicMock
+
+from forge.zellij.runner import ZellijRunner
+
+
+async def test_available_returns_false_without_zellij():
+    with patch("forge.zellij.runner.shutil.which", return_value=None):
+        assert ZellijRunner.available() is False
+
+
+async def test_available_returns_true_with_zellij():
+    with patch("forge.zellij.runner.shutil.which", return_value="/usr/bin/zellij"):
+        assert ZellijRunner.available() is True
+
+
+async def test_run_falls_back_to_direct_when_no_zellij(tmp_path):
+    runner = ZellijRunner()
+    with patch.object(runner, "_run_direct", new=AsyncMock(return_value="ok")) as mock_direct, \
+         patch("forge.zellij.runner.shutil.which", return_value=None):
+        result = await runner.run("prompt", str(tmp_path), session_name="agent-test")
+    mock_direct.assert_awaited_once()
+    assert result == "ok"
+
+
+async def test_run_uses_direct_when_no_session_name(tmp_path):
+    runner = ZellijRunner()
+    with patch.object(runner, "_run_direct", new=AsyncMock(return_value="direct")) as mock_direct, \
+         patch("forge.zellij.runner.shutil.which", return_value="/usr/bin/zellij"):
+        result = await runner.run("prompt", str(tmp_path), session_name=None)
+    mock_direct.assert_awaited_once()
+    assert result == "direct"
+
+
+async def test_run_uses_zellij_when_available(tmp_path):
+    runner = ZellijRunner()
+    with patch.object(runner, "_run_in_zellij", new=AsyncMock(return_value="zellij-out")) as mock_zellij, \
+         patch("forge.zellij.runner.shutil.which", return_value="/usr/bin/zellij"):
+        result = await runner.run("prompt", str(tmp_path), session_name="agent-abc")
+    mock_zellij.assert_awaited_once()
+    assert result == "zellij-out"
+
+
+async def test_run_direct_raises_on_timeout(tmp_path):
+    runner = ZellijRunner(timeout=1)
+    env = {}
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec") as mock_exec:
+        mock_proc = MagicMock()
+        mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_proc.kill = MagicMock()
+        mock_proc.communicate = AsyncMock(side_effect=[asyncio.TimeoutError(), (b"", b"")])
+        mock_exec.return_value = mock_proc
+        with pytest.raises(TimeoutError, match="timed out"):
+            await runner._run_direct("prompt", str(tmp_path), env)
+
+
+async def test_run_direct_raises_on_nonzero_exit(tmp_path):
+    runner = ZellijRunner()
+    env = {}
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec") as mock_exec:
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b"some error"))
+        mock_exec.return_value = mock_proc
+        with pytest.raises(RuntimeError, match="Claude Code failed"):
+            await runner._run_direct("prompt", str(tmp_path), env)
+
+
+async def test_layout_files_exist():
+    from forge.zellij.runner import Path as _Path
+    import forge.zellij.runner as zmod
+    layouts_dir = Path(zmod.__file__).parent / "layouts"
+    assert (layouts_dir / "manual.kdl").exists()
+    assert (layouts_dir / "agent.kdl").exists()
