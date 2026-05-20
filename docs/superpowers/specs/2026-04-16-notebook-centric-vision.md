@@ -1,7 +1,8 @@
 ---
 title: "Ardent Forge — Notebook-Centric Vision"
 date: 2026-04-16
-status: draft
+status: superseded
+superseded_by: 2026-05-19-dev-toolbox-pivot.md
 ---
 
 # Ardent Forge — Notebook-Centric Vision

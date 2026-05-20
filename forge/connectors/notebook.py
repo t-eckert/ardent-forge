@@ -265,44 +265,6 @@ class NotebookConnector(Connector):
                 execute=self._summarize_log,
                 connector_name=self.name,
             ),
-            Tool(
-                name="notebook_write",
-                description=(
-                    "Write (overwrite) a note in the Notebook vault. Paths must start "
-                    "with an allowed prefix (Wiki/, Fields/, Log/, People/, Projects/) "
-                    "— enforced at the write boundary. "
-                    "Use for creating or updating a note; use notebook_append for log-style "
-                    "additions that shouldn't replace existing content."
-                ),
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string", "description": "Relative path under an allowed prefix."},
-                        "content": {"type": "string", "description": "Full file content."},
-                    },
-                    "required": ["path", "content"],
-                },
-                execute=self._write,
-                connector_name=self.name,
-                long_running=False,
-            ),
-            Tool(
-                name="notebook_append",
-                description=(
-                    "Append content to an existing note. Same path allowlist as "
-                    "notebook_write. Good for log entries and running notes."
-                ),
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string"},
-                        "content": {"type": "string"},
-                    },
-                    "required": ["path", "content"],
-                },
-                execute=self._append,
-                connector_name=self.name,
-            ),
         ]
 
     # ─── Tool implementations ──────────────────────────────────────────

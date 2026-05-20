@@ -2,6 +2,8 @@
 name: Architecture Restructuring - Ardent Forge, nb, and Homelab
 description: Split Ardent Forge into two independent applications (Ardent Forge for agentic coding, nb for knowledge management) deployed on shared Homelab infrastructure
 type: design
+status: superseded
+superseded_by: 2026-05-19-dev-toolbox-pivot.md
 ---
 
 # Architecture Restructuring: Ardent Forge, nb, and Homelab

@@ -56,8 +56,6 @@ async def test_connector_exposes_expected_tools(connector: NotebookConnector):
         "notebook_week_review",
         "notebook_stalled_work",
         "notebook_summarize_log",
-        "notebook_write",
-        "notebook_append",
     }
     assert all(t.connector_name == "notebook" for t in connector.tools)
 

@@ -8,9 +8,7 @@
     ./services/ollama.nix
     ./services/caddy.nix
     ./services/ntfy.nix
-    ./services/the-weather.nix
     ./services/autodeploy.nix
-    ./services/notebook-sync.nix
     ./services/tailscale-portforward.nix
   ];
 
