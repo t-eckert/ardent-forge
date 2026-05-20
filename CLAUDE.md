@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Ardent Forge is a personal agentic platform centered around interactions with a personal Obsidian notebook. A leader agent coordinates specialized sub-agents for notebook-driven tasks: daily logs, weekly reviews, knowledge retrieval, and work automation. The notebook (`forge/notebook/`) and notebook-aware orchestrator are the strategic core. Python + TypeScript monorepo.
+Ardent Forge is a personal developer-toolbox control plane for a single NixOS box accessed over Tailscale. It runs agentic Claude Code sessions (via Zellij) triggered from chat threads, Linear issues (`claude` label), and cron schedules. Secrets come from 1Password; code comes from GitHub. Python + TypeScript monorepo.
 
 ## Commands
 
@@ -42,27 +42,33 @@ failed ────────────────────────�
 
 **Agents** (`forge/agents/`) are stage-declared: each agent lists which pipeline stages it implements (`stages = ["triage", "execute", "verify"]`). The coordinator (`forge/coordinator.py`) skips undeclared stages. `execute` is required; `triage`/`verify` are gates (return bool); `execute`/`deliver` are producers (return dict merged into task result).
 
-Active agents: Echo (debug), Code (Claude Code in workspace repos), Plan (self-building), Research (Obsidian vault), Tickets (Linear sync).
+Active agents: Echo (debug), Code (Claude Code via Zellij in workspace repos), Plan (self-building), Tickets (Linear sync).
 
-**Connectors** (`forge/connectors/`) expose tools to agents. Agents declare which connectors they need via `connectors: list[str]`. The coordinator builds an `AgentContext` with resolved tools.
+**Connectors** (`forge/connectors/`) expose tools to agents and chat. Agents declare which connectors they need via `connectors: list[str]`. The coordinator builds an `AgentContext` with resolved tools.
+
+Active connectors: OPConnector (1Password secret resolution), WebSearchConnector (Tavily, optional), NotebookConnector (read-only Obsidian vault, optional), SpeedtestConnector (periodic bandwidth watcher).
 
 **Key modules:**
-- `forge/coordinator.py` — core loop: polls for tasks, dequeues, orchestrates agent stages
-- `forge/store.py` — TaskStore (task CRUD, SQLite)
+- `forge/coordinator.py` — core loop: Linear poll → cron fire → dequeue → orchestrate agent stages → post results
+- `forge/store.py` — TaskStore (task CRUD + schedule CRUD, SQLite)
 - `forge/thread_store.py` — ThreadStore (conversations, messages with variant types)
-- `forge/orchestrator/` — dispatches chat→task and posts result widgets back to threads
-- `forge/api/` — REST endpoints (tasks, chat, threads, schedules, memory, agents, health)
-- `forge/linear/` — Linear integration (poller, client, projects, sync)
+- `forge/orchestrator/` — ForgeOrchestrator: system prompt assembly, tool schemas, chat→task dispatch, resolution posting
+- `forge/api/` — REST endpoints (tasks, chat, threads, schedules, memory, agents, repos, notebook, health)
+- `forge/repos/` — RepoRegistry: scans `~/Repos/*/` for git repos + `repo.yaml` config (dev_port, env, claude_label)
+- `forge/zellij/` — ZellijRunner: runs Code tasks in named Zellij sessions (`agent-<task-id>`)
+- `forge/tailscale/` — TailscaleServe: exposes repo dev_ports via `tailscale serve --https`
+- `forge/linear/` — LinearPoller + LinearClient: ingests `ardent-forge` label issues; `claude` label → Code task; posts PR link on delivery
+- `forge/connectors/onepassword.py` — OPConnector: resolves `op://` references via `op read`; enforces `allowed_op_paths` from repo.yaml
 - `forge/memory/` — markdown-based memory store
-- `forge/notebook/` — Obsidian vault reader/writer
-- `forge/claude.py` — Claude Code runner (spawns CLI subprocesses)
+- `forge/notebook/` — Obsidian vault reader (read-only)
+- `forge/claude.py` — ClaudeRunner (spawns CLI subprocesses; fallback path when Zellij unavailable)
 - `forge/metrics.py` — Prometheus metrics (`/metrics` endpoint)
 
 ### Frontend: `ui/`
 
 SvelteKit 2 + Svelte 5 + Tailwind CSS 4 + TypeScript. Static adapter. Component library uses `bits-ui`, `phosphor-svelte` icons, `cva` for variants, `tailwind-merge`+`clsx` for class merging.
 
-Routes: `tasks/`, `threads/`, `library/`, `today/`. Shared code in `ui/src/lib/`. Storybook for component development. Playwright E2E tests fall back to mock data when API is unreachable.
+Routes: `today/` (Dashboard), `threads/`, `tasks/`, `library/` (agents, connectors, memory, repos, schedules, log). Shared code in `ui/src/lib/`. Storybook for component development. Playwright E2E tests fall back to mock data when API is unreachable.
 
 API proxy configured via `VITE_API_PROXY` env var (defaults to `http://localhost:7030`).
 
@@ -72,7 +78,9 @@ pytest + pytest-asyncio with `asyncio_mode = "auto"`. In-memory SQLite for isola
 
 ### Infrastructure: `nix/`
 
-NixOS deployment with systemd services. Grafana dashboards in `grafana/dashboards/`.
+NixOS deployment with systemd services. `sudo systemctl restart ardent-forge` to apply. Grafana dashboards in `grafana/dashboards/`.
+
+Workspace root: `~/Repos/` (env var `FORGE_WORKSPACE_DIR`).
 
 ### Design docs: `docs/superpowers/specs/`
 
@@ -83,5 +91,9 @@ Specs use YAML frontmatter (`---` delimited) — this is required for the spec w
 - **IDs**: Tasks and threads use ULIDs (sortable, `ulid-py`)
 - **Models**: Pydantic v2 with `BaseModel`, `StrEnum` for status/type enums
 - **Thread messages**: variant types (text, widget, task-dispatched, task-resolved)
-- **Chat dispatch**: `forge/api/chat.py` uses a `dispatch_task` meta-tool so chat can create tasks linked to the originating thread
-- **Self-building**: Plan agent clones the repo, modifies code, commits. Watchers in `forge/watchers/` coordinate spec→plan flow
+- **Chat dispatch**: `forge/api/chat.py` uses a `dispatch_task` meta-tool so chat can create tasks linked to the originating thread; `repo` field passes the target GitHub repo
+- **Secrets**: never persisted; OPConnector resolves `op://` refs at task start using the per-repo `allowed_op_paths` allowlist from `repo.yaml`
+- **Zellij sessions**: Code agent creates a named Zellij session; result includes `zellij_session` and `attach_cmd` for live observation
+- **Cron schedules**: stored in SQLite; coordinator fires due schedules each tick, advances `next_run` immediately to prevent double-fire
+- **Linear dispatch**: `claude` label on a Linear issue → Code task; `Repo: owner/name` in description sets the repo; PR link posted back as comment after delivery
+- **Self-building**: Plan agent clones the repo, modifies code, commits. SpecWatcher in `forge/watchers/` coordinates spec→plan flow
