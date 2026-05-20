@@ -1,8 +1,8 @@
-from forge.agents import AgentContext
+from forge.agents import Agent, AgentContext
 from forge.models import Task
 
 
-class EchoAgent:
+class EchoAgent(Agent):
     name = "echo"
     task_type = "echo"
     stages = ["execute"]

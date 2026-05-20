@@ -73,10 +73,17 @@ class Agent(Protocol):
 
     async def execute(self, task: "Task", ctx: AgentContext) -> dict: ...
 
-    # Optional — only called when declared in `stages`.
-    async def triage(self, task: "Task", ctx: AgentContext) -> bool: ...
-    async def verify(self, task: "Task", ctx: AgentContext) -> bool: ...
-    async def deliver(self, task: "Task", ctx: AgentContext) -> dict: ...
+    # Optional stages — default to pass-through so execute-only agents conform
+    # without dead stubs. Only invoked when named in `stages`; an agent that
+    # declares the stage overrides the relevant method.
+    async def triage(self, task: "Task", ctx: AgentContext) -> bool:
+        return True
+
+    async def verify(self, task: "Task", ctx: AgentContext) -> bool:
+        return True
+
+    async def deliver(self, task: "Task", ctx: AgentContext) -> dict:
+        return {}
 
 
 def validate_stages(stages: list[Stage]) -> None:
