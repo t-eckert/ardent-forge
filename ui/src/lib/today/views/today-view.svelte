@@ -5,7 +5,7 @@
 	import type { Thread } from '$lib/schemas/thread';
 	import type { AgentRun } from '$lib/schemas/agent';
 	import type { Task } from '$lib/schemas/task';
-	import type { Repo } from '$lib/api/typed';
+	import type { Repo, WeatherCurrent } from '$lib/api/typed';
 	import { formatRelative } from '$lib/utils/date';
 
 	interface Props {
@@ -14,6 +14,7 @@
 		queuedTasks?: Task[];
 		recentTasks?: AgentRun[];
 		repos?: Repo[];
+		weather?: WeatherCurrent | null;
 	}
 
 	let {
@@ -21,7 +22,8 @@
 		activeTasks = [],
 		queuedTasks = [],
 		recentTasks = [],
-		repos = []
+		repos = [],
+		weather = null
 	}: Props = $props();
 
 	function statusTone(status: Task['status']): 'ember' | 'moss' | 'stone' {
@@ -139,8 +141,34 @@
 			{/if}
 		</div>
 
-		<!-- Right column: repos + threads -->
+		<!-- Right column: weather + repos + threads -->
 		<div class="flex flex-col w-[360px] gap-7 flex-shrink-0">
+
+			<!-- Weather -->
+			{#if weather}
+				<Card surface="paper" class="p-5">
+					<div class="flex items-start justify-between gap-4">
+						<div class="flex flex-col gap-1">
+							<div class="flex items-baseline gap-2">
+								<span class="text-[28px] font-display leading-none">{Math.round(weather.currentC)}°C</span>
+								<Body size="sm" muted>{weather.summary}</Body>
+							</div>
+							<Meta size="xs">{weather.location}</Meta>
+						</div>
+						{#if weather.daily && weather.daily.length > 0}
+							<div class="flex gap-3">
+								{#each weather.daily.slice(0, 3) as day}
+									<div class="flex flex-col items-center gap-0.5">
+										<Meta size="xs">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</Meta>
+										<span class="text-[11px] font-mono text-[var(--color-ink)]">{Math.round(day.max_c)}°</span>
+										<span class="text-[11px] font-mono text-[var(--color-graphite)]">{Math.round(day.min_c)}°</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</Card>
+			{/if}
 
 			<!-- Repos -->
 			<section class="flex flex-col gap-2.5">

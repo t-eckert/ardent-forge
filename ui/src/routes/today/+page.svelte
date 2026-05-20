@@ -14,4 +14,5 @@
 	queuedTasks={data.queuedTasks}
 	recentTasks={data.recentTasks}
 	repos={data.repos}
+	weather={data.weather}
 />

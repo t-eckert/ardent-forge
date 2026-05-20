@@ -21,6 +21,7 @@ from forge.api import (
     schedules,
     tasks,
     threads as threads_api,
+    weather as weather_api,
 )
 from forge.config import Settings
 from forge.connectors import ConnectorRegistry
@@ -48,6 +49,7 @@ def create_app(db: Database | None = None) -> FastAPI:
     app.include_router(agents_api.router)
     app.include_router(notebook_api.router)
     app.include_router(repos_api.router)
+    app.include_router(weather_api.router)
 
     @app.get("/metrics")
     async def metrics():
@@ -114,7 +116,9 @@ def run():
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
         from forge.connectors.onepassword import OPConnector
+        from forge.connectors.weather import WeatherConnector
         connectors.register(OPConnector())
+        connectors.register(WeatherConnector())
         if settings.tavily_api_key:
             from forge.connectors.web_search import WebSearchConnector
 
