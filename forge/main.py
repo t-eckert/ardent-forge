@@ -74,17 +74,25 @@ def run():
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        """
+        This is where the whole system is assembled.
+        """
+
+        # Initialize a connection to the database.
         db = Database(settings.db_path)
         await db.initialize()
 
+        # Initialize the task store.
         store = TaskStore(db)
         from pathlib import Path
 
+        # Scans the ~/Repos/* directory for Git repos with `repo.yaml`
         repo_registry = RepoRegistry(settings.workspace_dir)
         scanned_repos = await repo_registry.scan()
         repos_api.set_registry(repo_registry)
         app.state.repo_registry = repo_registry
 
+        # Tailscale serve exposes dev ports configured for repos
         ts_serve = TailscaleServe()
         await ts_serve.sync(scanned_repos)
 
@@ -113,6 +121,7 @@ def run():
             )
         app.state.notebook_reader = notebook_reader
         app.state.notebook_writer = notebook_writer
+
         # Connectors — registered before chat so tools are available on first turn.
         connectors = ConnectorRegistry()
         from forge.connectors.onepassword import OPConnector
@@ -127,6 +136,7 @@ def run():
             from forge.connectors.notebook import NotebookConnector
 
             connectors.register(NotebookConnector(notebook_path))
+
         # Speed test — periodic bandwidth measurement.
         from forge.connectors.speedtest import SpeedtestConnector
 
