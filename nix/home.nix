@@ -28,6 +28,7 @@
     openssl
     pkg-config
     podman-compose
+    unzip
   ];
 
   # Forge-specific environment variables
