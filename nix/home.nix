@@ -29,6 +29,7 @@
     pkg-config
     podman-compose
     unzip
+    lsof
   ];
 
   # Forge-specific environment variables
