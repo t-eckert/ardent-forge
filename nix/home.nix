@@ -25,7 +25,7 @@
   # Forge-specific packages not covered by dotfiles
   home.packages = with pkgs; [
     uv              # Python package manager
-    openssl
+    openssl.dev
     pkg-config
     podman-compose
     unzip
@@ -36,6 +36,12 @@
   home.sessionVariables = {
     FORGE_DB_PATH = "/data/ardent-forge/forge.db";
     FORGE_WORKSPACE_DIR = "/home/${locals.username}/Repos";
+    # openssl-sys (pulled in by async-stripe and others) requires both the dev
+    # headers and the runtime libs. NixOS splits these across two outputs so
+    # cargo can't find them via standard paths — set them explicitly.
+    OPENSSL_DIR = "${pkgs.openssl.dev}";
+    OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
   };
 
   # Rebuild script — updates flake inputs then switches the system
