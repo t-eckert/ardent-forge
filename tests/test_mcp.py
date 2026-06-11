@@ -214,3 +214,58 @@ async def test_schedule_create_list_delete(store):
     assert deleted == {"deleted": sid}
 
     assert await mcp_server.delete_schedule(sid) == {"error": "Schedule not found"}
+
+
+class _FakeHit:
+    def __init__(self, path, line_number, line):
+        self.path = path
+        self.line_number = line_number
+        self.line = line
+
+
+class _FakeReader:
+    def search(self, query, path_prefix=None):
+        return [_FakeHit("notes/a.md", 3, f"match for {query}")]
+
+    def read(self, path):
+        if path == "notes/a.md":
+            return "file body"
+        raise FileNotFoundError(path)
+
+
+async def test_search_notebook_and_read_note():
+    mcp_server.configure(notebook_reader=_FakeReader())
+
+    hits = await mcp_server.search_notebook("foo")
+    assert hits == [{"path": "notes/a.md", "line_number": 3, "line": "match for foo"}]
+
+    note = await mcp_server.read_note("notes/a.md")
+    assert note == {"path": "notes/a.md", "content": "file body"}
+
+    missing = await mcp_server.read_note("notes/missing.md")
+    assert "error" in missing
+
+
+class _FakeTool:
+    async def execute(self, **kwargs):
+        return {"query": kwargs.get("query"), "results": []}
+
+
+class _FakeConnectors:
+    def __init__(self, tool):
+        self._tool = tool
+
+    def find_tool(self, name):
+        return self._tool if name == "web_search" else None
+
+
+async def test_web_search_uses_connector_tool():
+    mcp_server.configure(connectors=_FakeConnectors(_FakeTool()))
+    out = await mcp_server.web_search("latest python release")
+    assert out["query"] == "latest python release"
+
+
+async def test_web_search_missing_connector():
+    mcp_server.configure(connectors=_FakeConnectors(None))
+    out = await mcp_server.web_search("anything")
+    assert out == {"error": "web search not configured"}

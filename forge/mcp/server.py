@@ -231,6 +231,35 @@ async def delete_schedule(schedule_id: str) -> dict:
     return {"deleted": schedule_id}
 
 
+async def search_notebook(query: str) -> Any:
+    """Full-text search the read-only Obsidian notebook. Returns matching
+    file paths, line numbers, and lines."""
+    if _notebook_reader is None:
+        return {"error": "notebook not configured"}
+    return [
+        {"path": h.path, "line_number": h.line_number, "line": h.line}
+        for h in _notebook_reader.search(query)
+    ]
+
+
+async def read_note(path: str) -> dict:
+    """Read a note from the read-only notebook by vault-relative path."""
+    if _notebook_reader is None:
+        return {"error": "notebook not configured"}
+    try:
+        return {"path": path, "content": _notebook_reader.read(path)}
+    except (FileNotFoundError, ValueError) as exc:
+        return {"error": str(exc)}
+
+
+async def web_search(query: str, max_results: int = 5) -> dict:
+    """Search the web for current information via Forge's web-search connector."""
+    tool = _connectors.find_tool("web_search") if _connectors is not None else None
+    if tool is None:
+        return {"error": "web search not configured"}
+    return await tool.execute(query=query, max_results=max_results)
+
+
 def build_mcp_server(settings) -> FastMCP:
     """Construct the FastMCP server, registering tools available for this
     deployment. Conditional tools (notebook, web search) are registered only
