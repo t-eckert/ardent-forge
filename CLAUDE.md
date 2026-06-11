@@ -14,7 +14,15 @@ uv run forge                          # Start server (port 7030)
 uv run pytest -q                      # All tests
 uv run pytest tests/test_api.py       # Single file
 uv run pytest -k test_nudge           # Single test by name
+```
 
+```bash
+# MCP server (exposed by the running backend at /mcp)
+claude mcp add --transport http forge http://localhost:7030/mcp                       # on the box
+claude mcp add --transport http forge https://ardent-forge.feist-gondola.ts.net/mcp   # from another tailnet device (via Caddy)
+```
+
+```bash
 # Frontend (Node 22, pnpm)
 cd ui
 pnpm dev                              # Dev server (port 5180)
@@ -63,6 +71,7 @@ Active connectors: OPConnector (1Password secret resolution), WebSearchConnector
 - `forge/notebook/` — Obsidian vault reader (read-only)
 - `forge/claude.py` — ClaudeRunner (spawns CLI subprocesses; fallback path when Zellij unavailable)
 - `forge/metrics.py` — Prometheus metrics (`/metrics` endpoint)
+- `forge/mcp/` — FastMCP server mounted at `/mcp`; exposes Forge's tasks, memory, repos, schedules, and (when configured) notebook + web search to local Claude Code sessions. Tools wrap existing services, injected via `configure()` in `main.py`'s lifespan.
 
 ### Frontend: `ui/`
 

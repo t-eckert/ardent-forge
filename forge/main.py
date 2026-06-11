@@ -37,8 +37,19 @@ from forge.tailscale import TailscaleServe
 from forge.thread_store import ThreadStore
 
 
-def create_app(db: Database | None = None) -> FastAPI:
+def create_app(db: Database | None = None, settings: "Settings | None" = None) -> FastAPI:
     app = FastAPI(title="Ardent Forge")
+
+    # MCP server — mounted in-process so its tools call Forge's services
+    # directly. Services are injected via mcp.configure() in the lifespan;
+    # the session manager is run there too. Conditional tools are decided
+    # from settings here at build time.
+    from forge.mcp import build_mcp_server
+
+    mcp_server = build_mcp_server(settings or Settings())
+    app.state.mcp_server = mcp_server
+    app.mount("/mcp", mcp_server.streamable_http_app())
+
     app.include_router(health.router)
     app.include_router(tasks.router)
     app.include_router(chat.router)
@@ -275,13 +286,26 @@ def run():
         chat.configure(store=store, coordinator=coordinator)
         app.state.coordinator = coordinator
 
+        # Wire the MCP server's tools to the live services.
+        from forge.mcp import configure as mcp_configure
+
+        mcp_configure(
+            store=store,
+            memory=memory_store,
+            repo_registry=repo_registry,
+            coordinator=coordinator,
+            connectors=connectors,
+            notebook_reader=notebook_reader,
+        )
+
         await coordinator.startup()
 
         loop_task = asyncio.create_task(
             coordinator.run_loop(poll_interval=settings.poll_interval_seconds)
         )
 
-        yield
+        async with app.state.mcp_server.session_manager.run():
+            yield
 
         loop_task.cancel()
         try:
@@ -290,7 +314,7 @@ def run():
             pass
         await db.close()
 
-    app = create_app()
+    app = create_app(settings=settings)
     app.router.lifespan_context = lifespan
 
     ui_build_dir = os.path.join(os.path.dirname(__file__), "..", "ui", "build")

@@ -17,6 +17,7 @@ dependencies = [
     "speedtest-cli>=2.1",
     "pyyaml>=6.0",
     "croniter>=1.4",
+    "mcp>=1.2",
 ]
 
 [project.scripts]
