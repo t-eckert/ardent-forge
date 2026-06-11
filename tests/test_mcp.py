@@ -323,9 +323,9 @@ async def test_transport_round_trip(store, tmp_path):
     server = build_mcp_server(settings)
     mcp_server.configure(store=store)
 
-    # create_connected_server_and_client_session accepts FastMCP directly (no
-    # ._mcp_server indirection needed in mcp 1.27.2) and connects an in-memory
-    # client to the low-level server, exercising the real MCP protocol (no HTTP).
+    # create_connected_server_and_client_session accepts a FastMCP directly and
+    # unwraps it to the low-level ._mcp_server internally, then connects an
+    # in-memory client to it, exercising the real MCP protocol (no HTTP).
     async with create_connected_server_and_client_session(server) as client:
         listed = await client.list_tools()
         names = {t.name for t in listed.tools}
