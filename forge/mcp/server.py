@@ -186,6 +186,51 @@ async def get_repo(name: str) -> dict:
     return repo.model_dump(mode="json")
 
 
+async def list_schedules() -> Any:
+    """List cron schedules that fire Forge tasks."""
+    if _store is None:
+        return {"error": "store not configured"}
+    return await _store.list_schedules()
+
+
+async def create_schedule(
+    name: str,
+    cron_expr: str,
+    task_type: str,
+    repo: str | None = None,
+    prompt_template: str | None = None,
+    label: str | None = None,
+) -> dict:
+    """Create a cron schedule. cron_expr is standard 5-field cron. For Code
+    tasks, repo is GitHub owner/name and prompt_template becomes the task
+    description on each fire."""
+    if _store is None:
+        return {"error": "store not configured"}
+    template: dict = {}
+    if repo:
+        template["repo"] = repo
+    if prompt_template:
+        template["description"] = prompt_template
+    if label:
+        template["label"] = label
+    if prompt_template and not template.get("title"):
+        template["title"] = prompt_template.splitlines()[0][:120]
+    schedule_id = await _store.save_schedule(
+        name=name, cron_expr=cron_expr, task_type=task_type, task_template=template
+    )
+    return await _store.get_schedule(schedule_id)
+
+
+async def delete_schedule(schedule_id: str) -> dict:
+    """Delete a cron schedule by id."""
+    if _store is None:
+        return {"error": "store not configured"}
+    if await _store.get_schedule(schedule_id) is None:
+        return {"error": "Schedule not found"}
+    await _store.delete_schedule(schedule_id)
+    return {"deleted": schedule_id}
+
+
 def build_mcp_server(settings) -> FastMCP:
     """Construct the FastMCP server, registering tools available for this
     deployment. Conditional tools (notebook, web search) are registered only
@@ -200,6 +245,9 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(delete_memory, name="delete_memory")
     server.add_tool(list_repos, name="list_repos")
     server.add_tool(get_repo, name="get_repo")
+    server.add_tool(list_schedules, name="list_schedules")
+    server.add_tool(create_schedule, name="create_schedule")
+    server.add_tool(delete_schedule, name="delete_schedule")
     return server
 
 

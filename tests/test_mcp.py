@@ -191,3 +191,26 @@ async def test_list_and_get_repos():
 
     missing = await mcp_server.get_repo("zeta")
     assert missing == {"error": "Repo not found: zeta"}
+
+
+async def test_schedule_create_list_delete(store):
+    mcp_server.configure(store=store)
+
+    created = await mcp_server.create_schedule(
+        name="Nightly",
+        cron_expr="0 2 * * *",
+        task_type="code",
+        repo="t-eckert/ardent-forge",
+        prompt_template="Run the nightly maintenance pass",
+        label="maint",
+    )
+    sid = created["id"]
+    assert created["name"] == "Nightly"
+
+    listed = await mcp_server.list_schedules()
+    assert any(s["id"] == sid for s in listed)
+
+    deleted = await mcp_server.delete_schedule(sid)
+    assert deleted == {"deleted": sid}
+
+    assert await mcp_server.delete_schedule(sid) == {"error": "Schedule not found"}
