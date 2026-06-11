@@ -62,6 +62,8 @@ async def dispatch_task(
     and pick up the result (Code tasks expose zellij_session/attach_cmd in
     handler_data so you can attach to the live session).
     """
+    if _store is None:
+        return {"error": "store not configured"}
     if len(title) > 500:
         return {"error": "title exceeds 500 characters"}
     if len(description) > 50_000:
@@ -85,6 +87,8 @@ async def dispatch_task(
 
 async def get_task(task_id: str) -> dict:
     """Fetch a task's full state (status, result, handler_data) by id."""
+    if _store is None:
+        return {"error": "store not configured"}
     task = await _store.get(task_id)
     if task is None:
         return {"error": "Task not found"}
@@ -94,6 +98,8 @@ async def get_task(task_id: str) -> dict:
 async def list_tasks(status: str | None = None, type: str | None = None) -> Any:
     """List recent tasks, optionally filtered by status and/or type. Use for
     polling dispatched work."""
+    if _store is None:
+        return {"error": "store not configured"}
     if status:
         try:
             target = TaskStatus(status)

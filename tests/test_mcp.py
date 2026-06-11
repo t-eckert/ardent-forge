@@ -88,3 +88,28 @@ async def test_list_tasks_invalid_status(store):
     mcp_server.configure(store=store)
     out = await mcp_server.list_tasks(status="bogus")
     assert isinstance(out, dict) and "error" in out
+
+
+async def test_list_tasks_filters_by_type(store):
+    mcp_server.configure(store=store)
+    await mcp_server.dispatch_task(type="echo", title="E", description="D")
+    await mcp_server.dispatch_task(type="code", title="C", description="D")
+    echoes = await mcp_server.list_tasks(type="echo")
+    assert len(echoes) == 1
+    assert echoes[0]["type"] == "echo"
+
+
+async def test_dispatch_task_rejects_oversize_description(store):
+    mcp_server.configure(store=store)
+    out = await mcp_server.dispatch_task(
+        type="echo", title="t", description="x" * 50_001
+    )
+    assert "error" in out
+
+
+async def test_dispatch_task_rejects_oversize_type(store):
+    mcp_server.configure(store=store)
+    out = await mcp_server.dispatch_task(
+        type="x" * 65, title="t", description="d"
+    )
+    assert "error" in out
