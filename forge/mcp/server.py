@@ -113,6 +113,59 @@ async def list_tasks(status: str | None = None, type: str | None = None) -> Any:
     return [t.model_dump(mode="json") for t in tasks]
 
 
+def _mem_dict(entry) -> dict:
+    return {
+        "filename": entry.filename,
+        "slug": entry.slug,
+        "name": entry.name,
+        "description": entry.description,
+        "type": entry.type,
+        "body": entry.body.rstrip(),
+        "updated_at": entry.updated_at,
+    }
+
+
+async def list_memory() -> list[dict]:
+    """List Forge's memory entries (shared with chat/Linear sessions)."""
+    if _memory is None:
+        return {"error": "memory not configured"}
+    return [_mem_dict(e) for e in _memory.list()]
+
+
+async def read_memory(filename: str) -> dict:
+    """Read one memory entry, including its full body."""
+    if _memory is None:
+        return {"error": "memory not configured"}
+    entry = _memory.get(filename)
+    if entry is None:
+        return {"error": f"No memory: {filename}"}
+    return _mem_dict(entry)
+
+
+async def write_memory(
+    name: str, description: str, type: str, body: str, filename: str | None = None
+) -> dict:
+    """Create or update a memory entry. type is one of: user, feedback,
+    project, reference. Writes regenerate MEMORY.md automatically."""
+    if _memory is None:
+        return {"error": "memory not configured"}
+    if type not in VALID_TYPES:
+        return {"error": f"invalid type: {type}; must be one of {', '.join(VALID_TYPES)}"}
+    entry = _memory.write(
+        name=name, description=description, type=type, body=body, filename=filename
+    )
+    return _mem_dict(entry)
+
+
+async def delete_memory(filename: str) -> dict:
+    """Delete a memory entry by filename."""
+    if _memory is None:
+        return {"error": "memory not configured"}
+    if _memory.remove(filename):
+        return {"deleted": filename}
+    return {"error": f"No memory: {filename}"}
+
+
 def build_mcp_server(settings) -> FastMCP:
     """Construct the FastMCP server, registering tools available for this
     deployment. Conditional tools (notebook, web search) are registered only
@@ -121,6 +174,10 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(dispatch_task, name="dispatch_task")
     server.add_tool(get_task, name="get_task")
     server.add_tool(list_tasks, name="list_tasks")
+    server.add_tool(list_memory, name="list_memory")
+    server.add_tool(read_memory, name="read_memory")
+    server.add_tool(write_memory, name="write_memory")
+    server.add_tool(delete_memory, name="delete_memory")
     return server
 
 

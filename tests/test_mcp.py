@@ -2,6 +2,7 @@ import pytest
 
 from forge.db import Database
 from forge.mcp import server as mcp_server
+from forge.memory import MemoryStore
 from forge.models import TaskStatus
 from forge.store import TaskStore
 
@@ -111,5 +112,43 @@ async def test_dispatch_task_rejects_oversize_type(store):
     mcp_server.configure(store=store)
     out = await mcp_server.dispatch_task(
         type="x" * 65, title="t", description="d"
+    )
+    assert "error" in out
+
+
+@pytest.fixture
+def memory(tmp_path):
+    return MemoryStore(tmp_path)
+
+
+async def test_memory_write_read_list_delete(memory):
+    mcp_server.configure(memory=memory)
+
+    written = await mcp_server.write_memory(
+        name="Likes tabs",
+        description="prefers tabs",
+        type="user",
+        body="The user prefers tabs over spaces.",
+    )
+    assert written["name"] == "Likes tabs"
+    fname = written["filename"]
+
+    listed = await mcp_server.list_memory()
+    assert any(e["filename"] == fname for e in listed)
+
+    read = await mcp_server.read_memory(fname)
+    assert read["body"] == "The user prefers tabs over spaces."
+
+    deleted = await mcp_server.delete_memory(fname)
+    assert deleted == {"deleted": fname}
+    assert (await mcp_server.read_memory(fname)) == {
+        "error": f"No memory: {fname}"
+    }
+
+
+async def test_memory_write_rejects_bad_type(memory):
+    mcp_server.configure(memory=memory)
+    out = await mcp_server.write_memory(
+        name="x", description="y", type="bogus", body="z"
     )
     assert "error" in out
