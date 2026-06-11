@@ -120,7 +120,7 @@ def _mem_dict(entry) -> dict:
         "name": entry.name,
         "description": entry.description,
         "type": entry.type,
-        "body": entry.body.rstrip(),
+        "body": entry.body,
         "updated_at": entry.updated_at,
     }
 

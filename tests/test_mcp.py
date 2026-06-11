@@ -137,7 +137,7 @@ async def test_memory_write_read_list_delete(memory):
     assert any(e["filename"] == fname for e in listed)
 
     read = await mcp_server.read_memory(fname)
-    assert read["body"] == "The user prefers tabs over spaces."
+    assert read["body"] == "The user prefers tabs over spaces.\n"
 
     deleted = await mcp_server.delete_memory(fname)
     assert deleted == {"deleted": fname}
