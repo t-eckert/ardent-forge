@@ -215,9 +215,12 @@ async def create_schedule(
         template["label"] = label
     if prompt_template and not template.get("title"):
         template["title"] = prompt_template.splitlines()[0][:120]
-    schedule_id = await _store.save_schedule(
-        name=name, cron_expr=cron_expr, task_type=task_type, task_template=template
-    )
+    try:
+        schedule_id = await _store.save_schedule(
+            name=name, cron_expr=cron_expr, task_type=task_type, task_template=template
+        )
+    except ValueError as exc:
+        return {"error": f"invalid cron expression '{cron_expr}': {exc}"}
     return await _store.get_schedule(schedule_id)
 
 

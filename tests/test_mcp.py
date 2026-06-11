@@ -317,6 +317,14 @@ async def test_web_search_registered_when_tavily_set(tmp_path):
     assert "web_search" in names
 
 
+async def test_create_schedule_rejects_bad_cron(store):
+    mcp_server.configure(store=store)
+    out = await mcp_server.create_schedule(
+        name="Bad", cron_expr="not a cron", task_type="code"
+    )
+    assert "error" in out
+
+
 async def test_transport_round_trip(store, tmp_path):
     # Build a server with the always-on tools and wire live services.
     settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")
