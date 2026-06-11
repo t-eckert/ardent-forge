@@ -152,3 +152,12 @@ async def test_memory_write_rejects_bad_type(memory):
         name="x", description="y", type="bogus", body="z"
     )
     assert "error" in out
+
+
+async def test_write_memory_rejects_path_traversal(memory):
+    mcp_server.configure(memory=memory)
+    out = await mcp_server.write_memory(
+        name="x", description="y", type="user", body="z",
+        filename="../../etc/passwd",
+    )
+    assert "error" in out

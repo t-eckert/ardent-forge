@@ -125,7 +125,7 @@ def _mem_dict(entry) -> dict:
     }
 
 
-async def list_memory() -> list[dict]:
+async def list_memory() -> Any:
     """List Forge's memory entries (shared with chat/Linear sessions)."""
     if _memory is None:
         return {"error": "memory not configured"}
@@ -151,9 +151,12 @@ async def write_memory(
         return {"error": "memory not configured"}
     if type not in VALID_TYPES:
         return {"error": f"invalid type: {type}; must be one of {', '.join(VALID_TYPES)}"}
-    entry = _memory.write(
-        name=name, description=description, type=type, body=body, filename=filename
-    )
+    try:
+        entry = _memory.write(
+            name=name, description=description, type=type, body=body, filename=filename
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}
     return _mem_dict(entry)
 
 
