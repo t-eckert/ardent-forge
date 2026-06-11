@@ -325,6 +325,17 @@ async def test_create_schedule_rejects_bad_cron(store):
     assert "error" in out
 
 
+def test_streamable_http_route_at_root(tmp_path):
+    # The streamable-HTTP app must expose its route at "/", not "/mcp", so that
+    # mounting it at "/mcp" in main.py yields the endpoint "/mcp" rather than
+    # "/mcp/mcp" (which 405s the client). Regression guard for the mount path.
+    settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")
+    app = build_mcp_server(settings).streamable_http_app()
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/" in paths
+    assert "/mcp" not in paths
+
+
 async def test_transport_round_trip(store, tmp_path):
     # Build a server with the always-on tools and wire live services.
     settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")

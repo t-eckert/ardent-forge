@@ -267,7 +267,11 @@ def build_mcp_server(settings) -> FastMCP:
     """Construct the FastMCP server, registering tools available for this
     deployment. Conditional tools (notebook, web search) are registered only
     when their backing service is configured."""
-    server = FastMCP(name="forge", stateless_http=True)
+    # streamable_http_path="/" so that when the app is mounted at "/mcp" in
+    # main.py, the endpoint is exactly "/mcp" (the default "/mcp" path would
+    # land the route at "/mcp/mcp" under the mount). Requests to "/mcp" are
+    # 307-redirected to "/mcp/", which MCP clients follow.
+    server = FastMCP(name="forge", stateless_http=True, streamable_http_path="/")
     server.add_tool(dispatch_task, name="dispatch_task")
     server.add_tool(get_task, name="get_task")
     server.add_tool(list_tasks, name="list_tasks")
