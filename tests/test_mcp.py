@@ -1,6 +1,9 @@
 import pytest
+from mcp.shared.memory import create_connected_server_and_client_session
 
+from forge.config import Settings
 from forge.db import Database
+from forge.mcp import build_mcp_server
 from forge.mcp import server as mcp_server
 from forge.memory import MemoryStore
 from forge.models import TaskStatus
@@ -271,9 +274,6 @@ async def test_web_search_missing_connector():
     assert out == {"error": "web search not configured"}
 
 
-from forge.config import Settings
-from forge.mcp import build_mcp_server
-
 ALWAYS_ON = {
     "dispatch_task",
     "get_task",
@@ -315,3 +315,28 @@ async def test_web_search_registered_when_tavily_set(tmp_path):
     settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="tvly-x")
     names = await _tool_names(build_mcp_server(settings))
     assert "web_search" in names
+
+
+async def test_transport_round_trip(store, tmp_path):
+    # Build a server with the always-on tools and wire live services.
+    settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")
+    server = build_mcp_server(settings)
+    mcp_server.configure(store=store)
+
+    # create_connected_server_and_client_session accepts FastMCP directly (no
+    # ._mcp_server indirection needed in mcp 1.27.2) and connects an in-memory
+    # client to the low-level server, exercising the real MCP protocol (no HTTP).
+    async with create_connected_server_and_client_session(server) as client:
+        listed = await client.list_tools()
+        names = {t.name for t in listed.tools}
+        assert ALWAYS_ON <= names
+
+        result = await client.call_tool(
+            "dispatch_task",
+            {"type": "echo", "title": "Round trip", "description": "via MCP"},
+        )
+        assert result.isError is False
+
+    # The dispatched task really landed in the store.
+    tasks = await store.list_all()
+    assert any(t.title == "Round trip" for t in tasks)
