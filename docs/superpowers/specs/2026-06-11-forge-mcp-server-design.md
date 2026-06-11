@@ -51,11 +51,21 @@ Add the official MCP SDK to `pyproject.toml` dependencies: `mcp>=1.2` (the packa
 
 ### Client setup
 
-A Claude Code session on the box connects with:
+**On the box** (localhost):
 
 ```bash
 claude mcp add --transport http forge http://localhost:7030/mcp
 ```
+
+**From another tailnet device (e.g. the user's Mac).** Two paths, both already working given the current infra:
+
+- **Through Caddy over HTTPS (recommended).** `nix/services/caddy.nix` reverse-proxies the catch-all `handle { }` block to `127.0.0.1:7030`, so `/mcp` is served under the existing Forge UI host with TLS via tailscaled certs:
+  ```bash
+  claude mcp add --transport http forge https://ardent-forge.feist-gondola.ts.net/mcp
+  ```
+- **Direct to port 7030.** `networking.firewall.trustedInterfaces = [ "tailscale0" ]` opens all ports over the Tailscale interface, so `http://ardent-forge:7030/mcp` (or the tailnet IP) works as plain HTTP.
+
+**Caddy streaming check (implementation task).** Streamable-HTTP MCP uses long-lived SSE-style responses. Verify Caddy's `reverse_proxy` streams them through without buffering (it flushes by default, so this is expected to work — confirm with a real MCP client round-trip through the Caddy host, not just localhost).
 
 ## Tool surface
 
