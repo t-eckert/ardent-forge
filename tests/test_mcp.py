@@ -4,6 +4,7 @@ from forge.db import Database
 from forge.mcp import server as mcp_server
 from forge.memory import MemoryStore
 from forge.models import TaskStatus
+from forge.repos.models import Repo
 from forge.store import TaskStore
 
 
@@ -161,3 +162,32 @@ async def test_write_memory_rejects_path_traversal(memory):
         filename="../../etc/passwd",
     )
     assert "error" in out
+
+
+class _FakeRegistry:
+    def __init__(self, repos):
+        self._repos = repos
+
+    def list(self):
+        return self._repos
+
+    def get(self, name):
+        return next((r for r in self._repos if r.name == name), None)
+
+
+def _repo(name):
+    return Repo(name=name, path=f"/repos/{name}", default_branch="main")
+
+
+async def test_list_and_get_repos():
+    reg = _FakeRegistry([_repo("alpha"), _repo("beta")])
+    mcp_server.configure(repo_registry=reg)
+
+    repos = await mcp_server.list_repos()
+    assert {r["name"] for r in repos} == {"alpha", "beta"}
+
+    one = await mcp_server.get_repo("alpha")
+    assert one["name"] == "alpha"
+
+    missing = await mcp_server.get_repo("zeta")
+    assert missing == {"error": "Repo not found: zeta"}

@@ -169,6 +169,23 @@ async def delete_memory(filename: str) -> dict:
     return {"error": f"No memory: {filename}"}
 
 
+async def list_repos() -> Any:
+    """List workspace repos (name, path, dev_port, env, claude_label)."""
+    if _repo_registry is None:
+        return {"error": "repo registry not configured"}
+    return [r.model_dump(mode="json") for r in _repo_registry.list()]
+
+
+async def get_repo(name: str) -> dict:
+    """Fetch a single workspace repo's config by name."""
+    if _repo_registry is None:
+        return {"error": "repo registry not configured"}
+    repo = _repo_registry.get(name)
+    if repo is None:
+        return {"error": f"Repo not found: {name}"}
+    return repo.model_dump(mode="json")
+
+
 def build_mcp_server(settings) -> FastMCP:
     """Construct the FastMCP server, registering tools available for this
     deployment. Conditional tools (notebook, web search) are registered only
@@ -181,6 +198,8 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(read_memory, name="read_memory")
     server.add_tool(write_memory, name="write_memory")
     server.add_tool(delete_memory, name="delete_memory")
+    server.add_tool(list_repos, name="list_repos")
+    server.add_tool(get_repo, name="get_repo")
     return server
 
 
