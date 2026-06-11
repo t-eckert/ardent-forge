@@ -277,6 +277,14 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(list_schedules, name="list_schedules")
     server.add_tool(create_schedule, name="create_schedule")
     server.add_tool(delete_schedule, name="delete_schedule")
+
+    if Path(settings.notebook_dir).is_dir():
+        server.add_tool(search_notebook, name="search_notebook")
+        server.add_tool(read_note, name="read_note")
+
+    if settings.tavily_api_key:
+        server.add_tool(web_search, name="web_search")
+
     return server
 
 

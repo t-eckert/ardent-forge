@@ -269,3 +269,49 @@ async def test_web_search_missing_connector():
     mcp_server.configure(connectors=_FakeConnectors(None))
     out = await mcp_server.web_search("anything")
     assert out == {"error": "web search not configured"}
+
+
+from forge.config import Settings
+from forge.mcp import build_mcp_server
+
+ALWAYS_ON = {
+    "dispatch_task",
+    "get_task",
+    "list_tasks",
+    "list_memory",
+    "read_memory",
+    "write_memory",
+    "delete_memory",
+    "list_repos",
+    "get_repo",
+    "list_schedules",
+    "create_schedule",
+    "delete_schedule",
+}
+
+
+async def _tool_names(server):
+    return {t.name for t in await server.list_tools()}
+
+
+async def test_always_on_tools_registered(tmp_path):
+    settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")
+    names = await _tool_names(build_mcp_server(settings))
+    assert ALWAYS_ON <= names
+    assert "search_notebook" not in names
+    assert "read_note" not in names
+    assert "web_search" not in names
+
+
+async def test_notebook_tools_registered_when_dir_exists(tmp_path):
+    nb = tmp_path / "vault"
+    nb.mkdir()
+    settings = Settings(notebook_dir=str(nb), tavily_api_key="")
+    names = await _tool_names(build_mcp_server(settings))
+    assert {"search_notebook", "read_note"} <= names
+
+
+async def test_web_search_registered_when_tavily_set(tmp_path):
+    settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="tvly-x")
+    names = await _tool_names(build_mcp_server(settings))
+    assert "web_search" in names
