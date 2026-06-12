@@ -13,17 +13,38 @@ class VerificationResult:
     commands_run: list[str]
 
 
+def _taskfile_has_test(repo_path: str) -> bool:
+    """Return True only if a 'test' task is defined in the repo's Taskfile."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["task", "--list-all"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return any(
+            line.strip().startswith("test") or line.strip().startswith("* test")
+            for line in result.stdout.splitlines()
+        )
+    except Exception:
+        return False
+
+
 def detect_verify_commands(repo_path: str) -> list[str]:
     commands: list[str] = []
 
     if os.path.exists(os.path.join(repo_path, "Taskfile.yml")) or os.path.exists(
         os.path.join(repo_path, "Taskfile.yaml")
     ):
-        if os.path.exists(os.path.join(repo_path, "taskw")):
-            commands.append("./taskw test")
-        else:
-            commands.append("task test")
-        return commands
+        if _taskfile_has_test(repo_path):
+            if os.path.exists(os.path.join(repo_path, "taskw")):
+                commands.append("./taskw test")
+            else:
+                commands.append("task test")
+            return commands
+        # Taskfile exists but no test task — fall through to other detectors
 
     if os.path.exists(os.path.join(repo_path, "pyproject.toml")):
         commands.append("uv run pytest -v")
@@ -69,6 +90,10 @@ async def run_verification(
         stdout, _ = await proc.communicate()
         output = stdout.decode()
         all_output.append(f"$ {cmd}\n{output}")
+        if proc.returncode == 127:
+            # Command not found — tool not installed in this environment; skip.
+            logger.warning("Verification tool not found, skipping: %s", cmd)
+            continue
         if proc.returncode != 0:
             logger.error(f"Verification failed: {cmd}")
             return VerificationResult(

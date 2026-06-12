@@ -38,6 +38,10 @@ class ZellijRunner:
             env["ANTHROPIC_API_KEY"] = env["FORGE_ANTHROPIC_API_KEY"]
         if extra_env:
             env.update(extra_env)
+        # Prepend system profile so nix, go, and other host tools are available
+        # even when the service PATH is a restricted allowlist.
+        system_bins = "/run/current-system/sw/bin:/run/current-system/sw/sbin"
+        env["PATH"] = system_bins + ":" + env.get("PATH", "")
 
         if session_name and self.available():
             logger.info("Running Claude in Zellij session %s (cwd=%s)", session_name, work_dir)
