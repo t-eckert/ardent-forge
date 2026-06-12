@@ -13,9 +13,7 @@ export interface PinnedItem {
 	kind: 'thread' | 'note' | 'agent';
 }
 
-const DEFAULTS: PinnedItem[] = [
-	{ id: 'todays-log', label: "Today's log", href: '/library/log/today', kind: 'note' }
-];
+const DEFAULTS: PinnedItem[] = [];
 
 const items = $state<PinnedItem[]>(DEFAULTS);
 

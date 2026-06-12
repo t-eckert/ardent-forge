@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SpineItem from './spine-item.svelte';
-	import { Sun, ChatCircle, GitBranch, Books, ListChecks, Gear } from '$lib/icons';
+	import { Sun, ChatCircle, GitBranch, ListChecks, Gear, Robot, Brain, Plug, CalendarBlank, Receipt } from '$lib/icons';
 	import { Meta, Eyebrow } from '$lib/typography';
 	import { StatusDot, KeycapHint } from '$lib/components';
 	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
@@ -14,8 +14,6 @@
 		todayDow?: string;
 		/** Unread thread count */
 		threadCount?: number;
-		/** Total library entries */
-		libraryCount?: number;
 		/** Active-task count (running, queued, needs-review) */
 		tasksActive?: number;
 	}
@@ -24,7 +22,6 @@
 		active,
 		todayDow = new Date().toLocaleDateString('en-CA', { weekday: 'short' }).toUpperCase(),
 		threadCount = 0,
-		libraryCount = 0,
 		tasksActive = 0
 	}: Props = $props();
 
@@ -58,11 +55,6 @@
 		{/snippet}
 	</SpineItem>
 	<SpineItem href="/repos" label="Repos" icon={GitBranch} active={active === 'repos'} />
-	<SpineItem href="/library" label="Library" icon={Books} active={active === 'library'}>
-		{#snippet meta()}
-			<Meta size="xs">{libraryCount ? libraryCount.toLocaleString() : ''}</Meta>
-		{/snippet}
-	</SpineItem>
 	<SpineItem href="/tasks" label="Tasks" icon={ListChecks} active={active === 'tasks'}>
 		{#snippet meta()}
 			{#if tasksActive > 0}
@@ -73,6 +65,16 @@
 			{/if}
 		{/snippet}
 	</SpineItem>
+
+	<!-- System -->
+	<div class="pt-4 pb-1 px-2.5">
+		<Eyebrow>SYSTEM</Eyebrow>
+	</div>
+	<SpineItem href="/library/agents" label="Agents" icon={Robot} active={active === 'agents'} />
+	<SpineItem href="/library/connectors" label="Connectors" icon={Plug} active={active === 'connectors'} />
+	<SpineItem href="/library/schedules" label="Schedules" icon={CalendarBlank} active={active === 'schedules'} />
+	<SpineItem href="/library/memory" label="Memory" icon={Brain} active={active === 'memory'} />
+	<SpineItem href="/library/log" label="Log" icon={Receipt} active={active === 'log'} />
 
 	<!-- Pinned -->
 	{#if pinned.items.length > 0}

@@ -10,7 +10,6 @@
 	interface ChromeCounts {
 		threadCount?: number;
 		tasksActive?: number;
-		libraryCount?: number;
 	}
 
 	interface Props {
@@ -35,7 +34,6 @@
 		active={activeSpine}
 		threadCount={chrome.threadCount ?? 0}
 		tasksActive={chrome.tasksActive ?? 0}
-		libraryCount={chrome.libraryCount ?? 0}
 	/>
 	<main class="flex-1 flex flex-col min-w-0">
 		<BreadcrumbStrip {trail} />

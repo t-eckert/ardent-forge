@@ -15,6 +15,8 @@ export {
 	ChatCircle,
 	Books,
 	Robot,
+	Brain,
+	Plug,
 
 	// Chrome + palette
 	MagnifyingGlass,
