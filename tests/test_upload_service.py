@@ -7,6 +7,7 @@ import pytest
 from forge.uploads import UploadService
 
 
+
 @pytest.fixture
 def upload_dir(tmp_path):
     return tmp_path / "uploads"
@@ -53,7 +54,6 @@ def test_get_latest_returns_none_when_empty(service):
 
 def test_get_latest_returns_most_recent(service):
     service.save_file(b"first", "a.png")
-    time.sleep(0.05)
     p2 = service.save_file(b"second", "b.png")
     assert service.get_latest() == p2
 
@@ -85,3 +85,8 @@ def test_delete_old_files_keeps_recent(service, upload_dir):
 def test_delete_old_files_returns_zero_when_empty(service):
     service.ensure_dir()
     assert service.delete_old_files() == 0
+
+
+def test_save_file_unique_on_rapid_saves(service):
+    paths = [service.save_file(b"data", "screenshot.png") for _ in range(3)]
+    assert len(set(paths)) == 3

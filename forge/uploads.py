@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import os
-import time
+from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class UploadService:
         stem = Path(original_name).stem if original_name else ""
         if not stem:
             stem = "screenshot"
-        ts = time.strftime("%Y-%m-%dT%H-%M-%S")
+        ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S-%f")
         dest = self._dir / f"{stem}-{ts}{suffix}"
         dest.write_bytes(content)
         return dest
@@ -37,7 +36,7 @@ class UploadService:
 
     def delete_old_files(self, max_age_days: int = 7) -> int:
         self.ensure_dir()
-        cutoff = time.time() - max_age_days * 86400
+        cutoff = datetime.now().timestamp() - max_age_days * 86400
         deleted = 0
         for f in self._dir.iterdir():
             if f.is_file() and f.stat().st_mtime < cutoff:
