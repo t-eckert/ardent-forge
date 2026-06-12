@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Heading, Eyebrow, Body, Meta } from '$lib/typography';
 	import { Card, StatusDot, Chip } from '$lib/components';
+	import Markdown from '$lib/components/markdown.svelte';
 	import { OpenThreads } from '$lib/today';
 	import type { Thread } from '$lib/schemas/thread';
 	import type { AgentRun } from '$lib/schemas/agent';
@@ -15,6 +16,8 @@
 		recentTasks?: AgentRun[];
 		repos?: Repo[];
 		weather?: WeatherCurrent | null;
+		dailyLog?: string | null;
+		todayDate?: string;
 	}
 
 	let {
@@ -23,8 +26,15 @@
 		queuedTasks = [],
 		recentTasks = [],
 		repos = [],
-		weather = null
+		weather = null,
+		dailyLog = null,
+		todayDate = new Date().toISOString().slice(0, 10)
 	}: Props = $props();
+
+	function stripFrontmatter(text: string): string {
+		const m = text.match(/^---\n[\s\S]*?\n---\n?/);
+		return m ? text.slice(m[0].length) : text;
+	}
 
 	function statusTone(status: Task['status']): 'ember' | 'moss' | 'stone' {
 		if (status === 'failed') return 'ember';
@@ -56,8 +66,19 @@
 	</div>
 
 	<div class="flex gap-9">
-		<!-- Left column: tasks -->
+		<!-- Left column: daily log + tasks -->
 		<div class="flex flex-col flex-1 gap-8 min-w-0">
+
+			<!-- Daily log -->
+			{#if dailyLog}
+				<section class="flex flex-col gap-2.5">
+					<header class="flex items-end justify-between pb-1.5 border-b border-[var(--color-border)]">
+						<Heading size="md">Today</Heading>
+						<a href="/library/log/{todayDate}" class="font-mono text-[11px] text-[var(--color-ember-deep)]">full entry →</a>
+					</header>
+					<Markdown source={stripFrontmatter(dailyLog)} class="text-sm" />
+				</section>
+			{/if}
 
 			<!-- Active tasks -->
 			<section class="flex flex-col gap-2.5">

@@ -15,4 +15,6 @@
 	recentTasks={data.recentTasks}
 	repos={data.repos}
 	weather={data.weather}
+	dailyLog={data.dailyLog?.body ?? null}
+	todayDate={data.todayDate}
 />

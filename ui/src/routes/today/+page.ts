@@ -5,14 +5,17 @@ import { adaptThread, adaptTaskToAgentRun } from '$lib/api/adapters';
 export const ssr = false;
 
 export const load: PageLoad = async () => {
-	const [threads, tasks, repos, weather] = await Promise.all([
+	const todayDate = new Date().toISOString().slice(0, 10);
+
+	const [threads, tasks, repos, weather, dailyLog] = await Promise.all([
 		api.threads
 			.list()
 			.then((raw) => raw.map((t) => adaptThread(t)))
 			.catch(() => []),
 		api.tasks.list().catch(() => []),
 		api.repos.list().catch(() => []),
-		api.weather.current().catch(() => null)
+		api.weather.current().catch(() => null),
+		api.notebook.read(`Log/${todayDate}.md`).catch(() => null)
 	]);
 
 	const activeTasks = tasks.filter((t) =>
@@ -24,5 +27,5 @@ export const load: PageLoad = async () => {
 		.slice(0, 10)
 		.map(adaptTaskToAgentRun);
 
-	return { threads, activeTasks, queuedTasks, recentTasks, repos, weather };
+	return { threads, activeTasks, queuedTasks, recentTasks, repos, weather, dailyLog, todayDate };
 };
