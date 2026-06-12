@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from starlette.responses import Response
+from starlette.requests import Request
+from starlette.responses import RedirectResponse, Response
 
 from forge.api import (
     agents as agents_api,
@@ -49,6 +50,19 @@ def create_app(db: Database | None = None, settings: "Settings | None" = None) -
     mcp_server = build_mcp_server(settings or Settings())
     app.state.mcp_server = mcp_server
     app.mount("/mcp", mcp_server.streamable_http_app())
+
+    # Starlette's Mount only matches the prefix *with* a trailing slash, so a
+    # request to the bare "/mcp" returns Match.NONE and falls through to the
+    # SPA catch-all StaticFiles mount at "/" (added in run()), which 405s any
+    # non-GET. Redirect the bare path to "/mcp/" — registered before the SPA
+    # mount so it wins, and MCP clients follow the 307 (preserving method/body).
+    async def _mcp_trailing_slash(request: Request) -> RedirectResponse:
+        target = "/mcp/"
+        if request.url.query:
+            target += "?" + request.url.query
+        return RedirectResponse(url=target, status_code=307)
+
+    app.add_route("/mcp", _mcp_trailing_slash, methods=["GET", "POST", "DELETE"])
 
     app.include_router(health.router)
     app.include_router(tasks.router)

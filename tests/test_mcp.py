@@ -327,13 +327,44 @@ async def test_create_schedule_rejects_bad_cron(store):
 
 def test_streamable_http_route_at_root(tmp_path):
     # The streamable-HTTP app must expose its route at "/", not "/mcp", so that
-    # mounting it at "/mcp" in main.py yields the endpoint "/mcp" rather than
+    # mounting it at "/mcp" in main.py yields the endpoint "/mcp/" rather than
     # "/mcp/mcp" (which 405s the client). Regression guard for the mount path.
     settings = Settings(notebook_dir=str(tmp_path / "missing"), tavily_api_key="")
     app = build_mcp_server(settings).streamable_http_app()
     paths = {getattr(r, "path", None) for r in app.routes}
     assert "/" in paths
     assert "/mcp" not in paths
+
+
+def test_bare_mcp_path_redirects_past_spa_catch_all(tmp_path):
+    # Starlette's Mount only matches "/mcp/" (with trailing slash) — a request to
+    # the bare "/mcp" returns Match.NONE. In production a SPA StaticFiles mount at
+    # "/" (added in run()) then swallows the bare path and 405s the non-GET MCP
+    # POST. create_app must register an explicit redirect so the bare path lands
+    # on the real endpoint. This test reproduces the catch-all and asserts the
+    # POST is redirected to "/mcp/" rather than 405'd.
+    from starlette.testclient import TestClient
+
+    from forge.main import create_app
+
+    app = create_app(settings=Settings(notebook_dir=str(tmp_path / "missing")))
+
+    catch_all = tmp_path / "ui_build"
+    catch_all.mkdir()
+    (catch_all / "index.html").write_text("<html></html>")
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=catch_all, html=True), name="ui")
+
+    client = TestClient(app)
+    resp = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        headers={"Accept": "application/json, text/event-stream"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 307
+    assert resp.headers["location"] == "/mcp/"
 
 
 async def test_transport_round_trip(store, tmp_path):
