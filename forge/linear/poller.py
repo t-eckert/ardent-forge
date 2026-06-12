@@ -8,10 +8,6 @@ from forge.store import TaskStore
 logger = logging.getLogger(__name__)
 
 LABEL_TO_TYPE = {
-    "research": TaskType.RESEARCH,
-    "report": TaskType.REPORT,
-    "notebook": TaskType.NOTEBOOK,
-    "triage": TaskType.TRIAGE,
     "claude": TaskType.CODE,
 }
 

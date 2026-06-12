@@ -11,7 +11,7 @@
 
 	let { thread, active = false }: Props = $props();
 
-	const kindTone = $derived(thread.kind === 'places+tools' ? 'ember' : thread.kind === 'health+tools' ? 'moss' : 'ember');
+	const kindTone = $derived(thread.kind === 'code+tools' ? 'ember' : 'ember');
 
 	function stamp(iso: string): string {
 		const ageHours = (Date.now() - new Date(iso).getTime()) / 3_600_000;

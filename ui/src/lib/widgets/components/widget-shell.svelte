@@ -12,7 +12,7 @@
 	 */
 
 	interface Props {
-		/** Tool id (e.g. 'code.diff', 'health.workouts'), shown as CODE.DIFF */
+		/** Tool id (e.g. 'code.diff', 'weather.forecast'), shown as CODE.DIFF */
 		toolId: string;
 		/** Icon component for the tool badge */
 		badgeIcon: Component;

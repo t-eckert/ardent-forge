@@ -23,7 +23,7 @@ export const Nested: Story = {
 	args: {
 		trail: [
 			{ label: 'Library', href: '/library' },
-			{ label: 'Fields' }
+			{ label: 'Memory' }
 		],
 		showActions: true
 	}

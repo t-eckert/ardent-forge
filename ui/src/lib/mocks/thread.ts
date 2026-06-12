@@ -30,7 +30,7 @@ export function makeThreadList(): ThreadT[] {
 			id: 'thread-pizza',
 			title: 'Pizza near home',
 			preview: '4 pins · Pizza Pie top pick',
-			kind: 'places+tools',
+			kind: 'chat',
 			lastActivityIso: daysAgoIso(2),
 			unread: false,
 			widgetCount: 1
