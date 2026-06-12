@@ -17,7 +17,6 @@ export interface SourceSync {
 }
 
 const DEFAULTS: SourceSync[] = [
-	{ source: 'strava', state: 'live', lastSyncIso: iso(-4) },
 	{ source: 'notebook', state: 'synced', lastSyncIso: iso(-2) },
 	{ source: 'linear', state: 'synced', lastSyncIso: iso(-6) },
 	{ source: 'github', state: 'live', lastSyncIso: iso(-1) },

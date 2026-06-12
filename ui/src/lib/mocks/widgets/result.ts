@@ -3,7 +3,7 @@ import type { ResultPayload } from '$lib/schemas/widgets';
 export function makeResearchResult(): ResultPayload {
 	return {
 		tool: 'result',
-		label: 'research output',
+		label: 'code result',
 		data: {
 			status: 'ok',
 			files: ['Wiki/Svelte 5 Breaking Changes.md'],

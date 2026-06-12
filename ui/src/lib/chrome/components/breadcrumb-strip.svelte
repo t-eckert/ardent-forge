@@ -10,7 +10,7 @@
 		trail: BreadcrumbSegment[];
 		/** Optional status chip — live indicator, tool badge, etc. */
 		statusChip?: { label: string; tone?: 'ember' | 'moss' | 'neutral' };
-		/** Right-side meta line (e.g. "strava synced · 4m") */
+		/** Right-side meta line (e.g. "notebook synced · 4m") */
 		rightMeta?: string;
 		/** Right-side actions slot */
 		actions?: Snippet;

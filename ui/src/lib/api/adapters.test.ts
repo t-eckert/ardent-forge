@@ -19,14 +19,14 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 					id: 'msg-1',
 					thread_id: baseThread.id,
 					role: 'assistant',
-					content: 'dispatched research — Svelte 5',
+					content: 'dispatched code — Svelte 5',
 					variant: 'task-dispatched',
 					widgets: [],
 					task_id: '01KP00000000000000000000AA',
 					tool_use_id: 'toolu_1',
 					task: {
 						id: '01KP00000000000000000000AA',
-						type: 'research',
+						type: 'code',
 						title: 'Svelte 5 notes',
 						status: 'executing',
 						stages: ['triage', 'execute', 'verify', 'deliver'],
@@ -44,8 +44,8 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 		expect(m.variant).toBe('task-dispatched');
 		expect(m.dispatchedTask).toBeDefined();
 		expect(m.dispatchedTask!.id).toBe('01KP00000000000000000000AA');
-		expect(m.dispatchedTask!.agentTaskType).toBe('research');
-		expect(m.dispatchedTask!.agent).toBe('research-agent');
+		expect(m.dispatchedTask!.agentTaskType).toBe('code');
+		expect(m.dispatchedTask!.agent).toBe('code-agent');
 		expect(m.dispatchedTask!.stages).toEqual(['triage', 'execute', 'verify', 'deliver']);
 		expect(m.dispatchedTask!.currentStage).toBe('execute');
 		expect(m.dispatchedTask!.status).toBe('running');
@@ -59,13 +59,13 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 					id: 'msg-2',
 					thread_id: baseThread.id,
 					role: 'assistant',
-					content: 'research finished — svelte 5 notes. 1 notes written',
+					content: 'code finished — svelte 5 notes. 1 notes written',
 					variant: 'task-resolved',
 					widgets: [],
 					task_id: '01KP00000000000000000000AA',
 					task: {
 						id: '01KP00000000000000000000AA',
-						type: 'research',
+						type: 'code',
 						title: 'Svelte 5 notes',
 						status: 'completed',
 						stages: ['triage', 'execute', 'verify', 'deliver'],
@@ -82,7 +82,7 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 		if (m.role !== 'assistant') throw new Error('expected assistant message');
 		expect(m.variant).toBe('task-resolved');
 		expect(m.resolvedTask).toBeDefined();
-		expect(m.resolvedTask!.agent).toBe('research-agent');
+		expect(m.resolvedTask!.agent).toBe('code-agent');
 		expect(m.resolvedTask!.title).toBe('Svelte 5 notes');
 		expect(m.resolvedTask!.summary).toContain('1 notes written');
 	});
@@ -95,13 +95,13 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 					id: 'msg-2b',
 					thread_id: baseThread.id,
 					role: 'assistant',
-					content: 'research finished — svelte 5 notes.',
+					content: 'code finished — svelte 5 notes.',
 					variant: 'task-resolved',
 					widgets: [],
 					task_id: '01KP00000000000000000000BB',
 					task: {
 						id: '01KP00000000000000000000BB',
-						type: 'research',
+						type: 'code',
 						title: 'Svelte 5 notes',
 						status: 'completed',
 						stages: ['execute'],
@@ -124,7 +124,7 @@ describe('adaptThreadDetail — task variant enrichment', () => {
 		const artifact = m.resolvedTask!.artifact!;
 		expect(artifact.tool).toBe('result');
 		if (artifact.tool !== 'result') throw new Error('expected result widget');
-		expect(artifact.label).toBe('research output');
+		expect(artifact.label).toBe('code output');
 		expect(artifact.data.files).toEqual(['a.md']);
 		expect(artifact.data.source_url).toBe('https://example.com/x');
 	});

@@ -7,7 +7,7 @@ export type TaskStatus =
   | "completed"
   | "failed";
 
-export type TaskType = "code" | "research" | "report" | "notebook" | "triage";
+export type TaskType = "code" | "triage";
 
 export type TaskSource = "linear" | "chat" | "schedule" | "webhook";
 

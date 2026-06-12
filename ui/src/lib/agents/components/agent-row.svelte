@@ -24,8 +24,6 @@
 				return { label: '⟲', tone: 'signal' };
 			case 'notebook-sync':
 				return { label: '¶', tone: 'graphite' };
-			case 'strava-pull':
-				return { label: '♥', tone: 'ember' };
 			case 'ci-watcher':
 				return { label: '▸', tone: 'ink' };
 			case 'backup-agent':

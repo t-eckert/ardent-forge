@@ -67,14 +67,6 @@ export function makeAgentRunList(): AgentRunT[] {
 			summary: '14 logs · 3 new wiki links'
 		}),
 		makeAgentRun({
-			id: 'run-cron-strava',
-			kind: 'strava-pull',
-			startedIso: hoursAgoIso(0.5),
-			durationLabel: 'every 15m · last 04:47',
-			status: 'cron',
-			summary: 'no new activities'
-		}),
-		makeAgentRun({
 			id: 'run-ci-idle',
 			kind: 'ci-watcher',
 			startedIso: hoursAgoIso(12),

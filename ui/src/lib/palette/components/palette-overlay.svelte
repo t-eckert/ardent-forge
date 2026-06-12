@@ -25,15 +25,13 @@
 	});
 
 	const classLabels: Record<PaletteResult['class'], string> = {
-		workout: 'WORKOUTS',
-		todo: 'TODOS',
 		task: 'TASKS',
 		note: 'NOTES',
 		thread: 'THREADS',
 		action: 'ACTIONS'
 	};
 
-	const order: PaletteResult['class'][] = ['workout', 'todo', 'task', 'thread', 'note', 'action'];
+	const order: PaletteResult['class'][] = ['task', 'thread', 'note', 'action'];
 
 	function handleSelect(result: PaletteResult) {
 		palette.hide();

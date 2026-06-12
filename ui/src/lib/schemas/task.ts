@@ -21,7 +21,7 @@ export const TaskStatus = z.enum([
 ]);
 export type TaskStatus = z.infer<typeof TaskStatus>;
 
-export const TaskKind = z.enum(['code', 'plan', 'research', 'tickets', 'echo']);
+export const TaskKind = z.enum(['code', 'plan', 'tickets', 'echo']);
 export type TaskKind = z.infer<typeof TaskKind>;
 
 export const TaskStep = z.object({

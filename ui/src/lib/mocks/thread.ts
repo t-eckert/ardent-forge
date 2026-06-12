@@ -5,7 +5,7 @@ export function makeThread(overrides: Partial<ThreadT> = {}): ThreadT {
 	return Thread.parse({
 		id: 'thread-morning',
 		title: 'Morning briefing',
-		preview: 'weather · purchases · long run fuel',
+		preview: 'weather · repos · code tasks',
 		kind: 'code+tools',
 		lastActivityIso: hoursAgoIso(3),
 		unread: true,
@@ -32,15 +32,6 @@ export function makeThreadList(): ThreadT[] {
 			preview: '4 pins · Pizza Pie top pick',
 			kind: 'places+tools',
 			lastActivityIso: daysAgoIso(2),
-			unread: false,
-			widgetCount: 1
-		}),
-		makeThread({
-			id: 'thread-purchases',
-			title: 'Weekly purchases review',
-			preview: '$412.86 · groceries leading',
-			kind: 'code+tools',
-			lastActivityIso: daysAgoIso(6),
 			unread: false,
 			widgetCount: 1
 		})

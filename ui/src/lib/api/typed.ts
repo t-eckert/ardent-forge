@@ -12,7 +12,6 @@
 
 import { z, type ZodType } from 'zod';
 import { Task } from '$lib/schemas/task';
-import { Todo } from '$lib/schemas/todo';
 
 const API_BASE: string = (import.meta.env?.VITE_API_URL ?? '').replace(/\/$/, '');
 
@@ -77,28 +76,6 @@ const MemoryEntry = z.object({
 });
 const MemoryList = z.array(MemoryEntry);
 
-const FieldStatus = z.object({
-	label: z.string(),
-	tone: z.enum(['ember', 'moss', 'graphite', 'warn'])
-});
-const FieldSummary = z.object({
-	slug: z.string(),
-	name: z.string(),
-	path: z.string(),
-	entries: z.number().int(),
-	category: z.string().optional(),
-	tagline: z.string().optional(),
-	status: FieldStatus.optional(),
-	sources: z.array(z.string()).optional(),
-	featured: z.boolean().optional()
-});
-const FieldList = z.array(FieldSummary);
-
-const FieldEntries = z.object({
-	slug: z.string(),
-	entries: z.array(z.string())
-});
-
 const WeatherCurrent = z.object({
 	location: z.string(),
 	currentC: z.number(),
@@ -111,10 +88,6 @@ const WeatherCurrent = z.object({
 		description: z.string()
 	})).optional()
 });
-
-const TodoList = z.array(Todo.extend({
-	created_at: z.string().optional()
-}).passthrough());
 
 const Repo = z.object({
 	name: z.string(),
@@ -179,7 +152,6 @@ const BackendThreadDetail = BackendThread.extend({ messages: z.array(BackendMess
 export type Connector = z.infer<typeof Connector>;
 export type MemoryEntry = z.infer<typeof MemoryEntry>;
 export type AgentRoster = z.infer<typeof AgentRoster>;
-export type FieldSummary = z.infer<typeof FieldSummary>;
 export type WeatherCurrent = z.infer<typeof WeatherCurrent>;
 export type BackendThread = z.infer<typeof BackendThread>;
 export type BackendThreadDetail = z.infer<typeof BackendThreadDetail>;
@@ -215,12 +187,6 @@ export const api = {
 		index: () => request('/api/memory/index', z.object({ index: z.string() }))
 	},
 
-	fields: {
-		list: () => request('/api/fields', FieldList),
-		get: (slug: string) => request(`/api/fields/${slug}`, FieldSummary),
-		entries: (slug: string) => request(`/api/fields/${slug}/entries`, FieldEntries)
-	},
-
 	weather: {
 		current: () => request('/api/weather/current', WeatherCurrent)
 	},
@@ -234,19 +200,6 @@ export const api = {
 			return request(`/api/notebook/search?${params}`, z.array(z.object({ path: z.string(), line_number: z.number(), line: z.string() })));
 		},
 		counts: () => request('/api/notebook/counts', z.object({ log: z.number(), wiki: z.number(), fields: z.number(), people: z.number(), collections: z.number() }))
-	},
-
-	todos: {
-		list: (due?: string) => {
-			const q = due ? `?due=${due}` : '';
-			return request(`/api/todos${q}`, TodoList);
-		},
-		create: (body: { title: string; status?: string; category?: string; context?: string; due_iso?: string }) =>
-			request('/api/todos', z.any(), { method: 'POST', body: JSON.stringify(body) }),
-		update: (id: string, patch: Record<string, unknown>) =>
-			request(`/api/todos/${id}`, z.any(), { method: 'PATCH', body: JSON.stringify(patch) }),
-		delete: (id: string) =>
-			request(`/api/todos/${id}`, z.any(), { method: 'DELETE' })
 	},
 
 	threads: {
