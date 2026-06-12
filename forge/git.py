@@ -11,10 +11,23 @@ class GitOps:
         os.makedirs(workspace_dir, exist_ok=True)
 
     async def ensure_repo(self, source: str, repo_name: str) -> str:
-        # Use just the repo name (last segment of "owner/repo") so agent
-        # worktrees land in ~/Repos/<name> alongside manual checkouts.
-        safe_name = repo_name.split("/")[-1]
-        repo_path = os.path.join(self._workspace_dir, safe_name)
+        # Prefer the host/owner/repo layout used by the repo registry.
+        # For a GitHub source "owner/repo", check github.com/owner/repo first
+        # so the agent reuses an existing checkout rather than cloning a copy.
+        parts = repo_name.split("/")
+        if len(parts) == 2:
+            owner, name = parts
+            preferred = os.path.join(self._workspace_dir, "github.com", owner, name)
+            if os.path.exists(preferred):
+                await self._run(["git", "fetch", "--all"], cwd=preferred)
+                return preferred
+            # Clone into the preferred location so future tasks reuse it.
+            os.makedirs(os.path.dirname(preferred), exist_ok=True)
+            await self._run(["git", "clone", source, preferred])
+            return preferred
+
+        # Fallback for bare repo names with no owner segment.
+        repo_path = os.path.join(self._workspace_dir, parts[-1])
         if os.path.exists(repo_path):
             await self._run(["git", "fetch", "--all"], cwd=repo_path)
             return repo_path
