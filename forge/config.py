@@ -24,24 +24,11 @@ class Settings(BaseSettings):
     # Web search (Tavily)
     tavily_api_key: str = ""
 
-    # Strava — OAuth creds + rotating refresh token state.
-    # REFRESH_TOKEN is seed-only: the connector persists the latest token
-    # to TOKEN_PATH and uses that as the source of truth afterward.
-    strava_client_id: str = ""
-    strava_client_secret: str = ""
-    strava_refresh_token: str = ""
-    strava_token_path: str = "/data/ardent-forge/strava/tokens.json"
-
     # Repos — shared with manual checkouts; agent worktrees are sub-dirs
     workspace_dir: str = "/home/thomaseckert/Repos"
 
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"
-
-    # Art study — syllabus-anchored agent. Phase 1 start is the Monday of
-    # week 1; phases 2 and 3 derive from it via default_phase_schedule.
-    art_syllabus_path: str = "Artistic Course of Study.md"
-    art_phase_1_start: str = "2026-04-13"
 
     # Forge memory — markdown store of things Forge learned about the user
     memory_dir: str = "/data/ardent-forge/memory"
