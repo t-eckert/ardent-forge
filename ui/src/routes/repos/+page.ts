@@ -4,6 +4,9 @@ import { api } from '$lib/api/typed';
 export const ssr = false;
 
 export const load: PageLoad = async () => {
-	const repos = await api.repos.list().catch(() => []);
-	return { repos };
+	const [repos, projects] = await Promise.all([
+		api.repos.list().catch(() => []),
+		api.projects.list().catch(() => [])
+	]);
+	return { repos, projects };
 };

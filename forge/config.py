@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Repos — shared with manual checkouts; agent worktrees are sub-dirs
     workspace_dir: str = "/home/thomaseckert/Repos"
 
+    # Projects — collections of related repos grouped under a project name
+    projects_dir: str = "/home/thomaseckert/Projects"
+
     # Notebook (Obsidian vault)
     notebook_dir: str = "/data/ardent-forge/notebook"
 

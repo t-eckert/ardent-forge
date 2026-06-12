@@ -97,6 +97,14 @@ const Repo = z.object({
 const RepoList = z.array(Repo);
 export type Repo = z.infer<typeof Repo>;
 
+const Project = z.object({
+	name: z.string(),
+	path: z.string(),
+	repos: z.array(Repo)
+});
+const ProjectList = z.array(Project);
+export type Project = z.infer<typeof Project>;
+
 const Schedule = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -229,6 +237,10 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify({ url })
 		})
+	},
+
+	projects: {
+		list: () => request('/api/projects', ProjectList)
 	},
 
 	schedules: {

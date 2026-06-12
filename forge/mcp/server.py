@@ -186,6 +186,14 @@ async def get_repo(name: str) -> dict:
     return repo.model_dump(mode="json")
 
 
+async def list_projects() -> Any:
+    """List projects scanned from the projects directory. Each project groups
+    related repos under a common name (e.g. 'Chill-Subs+Galley')."""
+    if _repo_registry is None:
+        return {"error": "repo registry not configured"}
+    return [p.model_dump(mode="json") for p in _repo_registry.list_projects()]
+
+
 async def clone_repo(url: str) -> dict:
     """Clone a git repo into the workspace using the host/owner/repo directory layout.
 
@@ -298,6 +306,7 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(list_repos, name="list_repos")
     server.add_tool(get_repo, name="get_repo")
     server.add_tool(clone_repo, name="clone_repo")
+    server.add_tool(list_projects, name="list_projects")
     server.add_tool(list_schedules, name="list_schedules")
     server.add_tool(create_schedule, name="create_schedule")
     server.add_tool(delete_schedule, name="delete_schedule")

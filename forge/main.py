@@ -110,8 +110,9 @@ def run():
         store = TaskStore(db)
         from pathlib import Path
 
-        repo_registry = RepoRegistry(settings.workspace_dir)
+        repo_registry = RepoRegistry(settings.workspace_dir, projects_dir=settings.projects_dir)
         await repo_registry.scan()
+        await repo_registry.scan_projects()
         repos_api.set_registry(repo_registry)
         app.state.repo_registry = repo_registry
 

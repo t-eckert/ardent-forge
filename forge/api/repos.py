@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from forge.repos.models import Repo
+from forge.repos.models import Project, Repo
 from forge.repos.registry import RepoRegistry, parse_clone_url
 
 router = APIRouter()
@@ -43,3 +43,10 @@ async def get_repo(name: str) -> Repo | None:
     if _registry is None:
         return None
     return _registry.get(name)
+
+
+@router.get("/api/projects")
+async def list_projects() -> list[Project]:
+    if _registry is None:
+        return []
+    return _registry.list_projects()

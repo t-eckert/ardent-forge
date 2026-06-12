@@ -3,7 +3,7 @@ import logging
 import re
 from pathlib import Path
 
-from forge.repos.models import Repo
+from forge.repos.models import Project, Repo
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,11 @@ class RepoRegistry:
     # github.com/owner/repo is 3 levels deep; allow a little headroom
     _MAX_SCAN_DEPTH = 4
 
-    def __init__(self, workspace_dir: str):
+    def __init__(self, workspace_dir: str, projects_dir: str | None = None):
         self._workspace_dir = Path(workspace_dir)
+        self._projects_dir = Path(projects_dir) if projects_dir else None
         self._repos: dict[str, Repo] = {}
+        self._projects: dict[str, Project] = {}
 
     async def scan(self) -> list[Repo]:
         repos: list[Repo] = []
@@ -104,6 +106,46 @@ class RepoRegistry:
 
     def get(self, name: str) -> Repo | None:
         return self._repos.get(name)
+
+    async def scan_projects(self) -> list[Project]:
+        projects: list[Project] = []
+        if self._projects_dir is None or not self._projects_dir.exists():
+            if self._projects_dir is not None:
+                logger.warning("Projects directory %s does not exist", self._projects_dir)
+            return projects
+        for entry in sorted(self._projects_dir.iterdir()):
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+            try:
+                project = await self._load_project(entry)
+                projects.append(project)
+                self._projects[project.name] = project
+            except Exception:
+                logger.warning("Failed to load project at %s", entry, exc_info=True)
+        logger.info("Project registry: %d projects found in %s", len(projects), self._projects_dir)
+        return projects
+
+    def list_projects(self) -> list[Project]:
+        return list(self._projects.values())
+
+    def get_project(self, name: str) -> Project | None:
+        return self._projects.get(name)
+
+    async def _load_project(self, path: Path) -> Project:
+        repo_paths: list[Path] = []
+        self._walk(path, 0, repo_paths)
+        repos: list[Repo] = []
+        for repo_path in sorted(repo_paths):
+            try:
+                default_branch = await self._get_default_branch(repo_path)
+                try:
+                    name = str(repo_path.relative_to(path))
+                except ValueError:
+                    name = repo_path.name
+                repos.append(Repo(name=name, path=str(repo_path), default_branch=default_branch))
+            except Exception:
+                logger.warning("Failed to load repo at %s", repo_path, exc_info=True)
+        return Project(name=path.name, path=str(path), repos=repos)
 
     async def _load_repo(self, path: Path) -> Repo:
         default_branch = await self._get_default_branch(path)
