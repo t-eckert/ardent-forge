@@ -25,9 +25,6 @@
 					<div class="flex flex-col gap-2">
 						<div class="flex items-center justify-between gap-2">
 							<Heading size="sm">{repo.name}</Heading>
-							{#if repo.dev_port}
-								<Chip tone="moss">:{repo.dev_port}</Chip>
-							{/if}
 						</div>
 						<div class="flex flex-col gap-0.5">
 							<Meta size="xs">branch: {repo.default_branch}</Meta>

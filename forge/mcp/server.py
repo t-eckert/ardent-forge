@@ -170,20 +170,36 @@ async def delete_memory(filename: str) -> dict:
 
 
 async def list_repos() -> Any:
-    """List workspace repos (name, path, dev_port, env, claude_label)."""
+    """List workspace repos scanned from the workspace directory."""
     if _repo_registry is None:
         return {"error": "repo registry not configured"}
     return [r.model_dump(mode="json") for r in _repo_registry.list()]
 
 
 async def get_repo(name: str) -> dict:
-    """Fetch a single workspace repo's config by name."""
+    """Fetch a single workspace repo by name (relative path from workspace root)."""
     if _repo_registry is None:
         return {"error": "repo registry not configured"}
     repo = _repo_registry.get(name)
     if repo is None:
         return {"error": f"Repo not found: {name}"}
     return repo.model_dump(mode="json")
+
+
+async def clone_repo(url: str) -> dict:
+    """Clone a git repo into the workspace using the host/owner/repo directory layout.
+
+    Accepts any of: https://github.com/owner/repo, git@github.com:owner/repo,
+    or bare owner/repo shorthand (defaults to github.com). If the destination
+    already exists it is registered without re-cloning. Returns the Repo on
+    success or an error dict."""
+    if _repo_registry is None:
+        return {"error": "repo registry not configured"}
+    try:
+        repo = await _repo_registry.clone(url)
+        return repo.model_dump(mode="json")
+    except (ValueError, RuntimeError) as exc:
+        return {"error": str(exc)}
 
 
 async def list_schedules() -> Any:
@@ -281,6 +297,7 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(delete_memory, name="delete_memory")
     server.add_tool(list_repos, name="list_repos")
     server.add_tool(get_repo, name="get_repo")
+    server.add_tool(clone_repo, name="clone_repo")
     server.add_tool(list_schedules, name="list_schedules")
     server.add_tool(create_schedule, name="create_schedule")
     server.add_tool(delete_schedule, name="delete_schedule")

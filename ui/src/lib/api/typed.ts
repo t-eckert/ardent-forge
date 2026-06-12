@@ -92,8 +92,7 @@ const WeatherCurrent = z.object({
 const Repo = z.object({
 	name: z.string(),
 	path: z.string(),
-	default_branch: z.string(),
-	dev_port: z.number().nullable().optional()
+	default_branch: z.string()
 });
 const RepoList = z.array(Repo);
 export type Repo = z.infer<typeof Repo>;

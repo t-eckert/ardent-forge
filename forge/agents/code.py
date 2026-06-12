@@ -1,9 +1,7 @@
 import logging
-import os
 
 from forge.agents import AgentContext
 from forge.claude import build_prompt
-from forge.connectors.onepassword import OPConnector
 from forge.git import GitOps
 from forge.models import Task
 from forge.verify import run_verification
@@ -30,7 +28,6 @@ class CodeAgent:
     ):
         self._git = GitOps(workspace_dir)
         self._zellij = ZellijRunner(model=claude_model, timeout=claude_timeout)
-        self._op = OPConnector()
 
     async def triage(self, task: Task, ctx: AgentContext) -> bool:
         if not task.repo:
@@ -45,10 +42,6 @@ class CodeAgent:
 
         repo_path = await self._git.ensure_repo(repo_url, task.repo)
         worktree_path = await self._git.create_worktree(repo_path, branch_name)
-
-        # Resolve per-repo secrets declared in repo.yaml env block
-        repo_name = task.repo.split("/")[-1]
-        task_env = await self._resolve_repo_env(repo_name, ctx)
 
         prompt = build_prompt(
             title=task.title,
@@ -71,7 +64,7 @@ class CodeAgent:
 
             try:
                 output = await self._zellij.run(
-                    prompt, worktree_path, session_name=session_name, extra_env=task_env
+                    prompt, worktree_path, session_name=session_name
                 )
             except (TimeoutError, RuntimeError) as e:
                 retry_context = f"Attempt {attempt + 1} failed: {e}"
@@ -89,17 +82,6 @@ class CodeAgent:
             "zellij_session": session_name,
             "attach_cmd": f"ssh box -t zellij attach {session_name}",
         }
-
-    async def _resolve_repo_env(self, repo_name: str, ctx: AgentContext) -> dict[str, str]:
-        """Return env vars from repo.yaml, with op:// refs resolved via OPConnector."""
-        if ctx.settings is None:
-            return {}
-        from forge.repos import RepoRegistry
-        registry = RepoRegistry(ctx.settings.workspace_dir)
-        config = registry.config(repo_name)
-        if not config.env:
-            return {}
-        return await self._op.resolve_refs(config.env, allowed_paths=config.allowed_op_paths)
 
     async def verify(self, task: Task, ctx: AgentContext) -> bool:
         worktree_path = task.handler_data.get("worktree_path")

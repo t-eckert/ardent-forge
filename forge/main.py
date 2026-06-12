@@ -34,7 +34,6 @@ from forge.memory import MemoryStore
 from forge.orchestrator import ForgeOrchestrator
 from forge.repos import RepoRegistry
 from forge.store import TaskStore
-from forge.tailscale import TailscaleServe
 from forge.thread_store import ThreadStore
 
 
@@ -111,15 +110,10 @@ def run():
         store = TaskStore(db)
         from pathlib import Path
 
-        # Scans the ~/Repos/* directory for Git repos with `repo.yaml`
         repo_registry = RepoRegistry(settings.workspace_dir)
-        scanned_repos = await repo_registry.scan()
+        await repo_registry.scan()
         repos_api.set_registry(repo_registry)
         app.state.repo_registry = repo_registry
-
-        # Tailscale serve exposes dev ports configured for repos
-        ts_serve = TailscaleServe()
-        await ts_serve.sync(scanned_repos)
 
 
 
@@ -239,9 +233,9 @@ def run():
 
             async def _fetch_main() -> None:
                 git = GitOps(settings.workspace_dir)
-                await git._run("git fetch origin main", cwd=af_repo_path)
-                await git._run("git checkout main", cwd=af_repo_path)
-                await git._run("git reset --hard origin/main", cwd=af_repo_path)
+                await git._run(["git", "fetch", "origin", "main"], cwd=af_repo_path)
+                await git._run(["git", "checkout", "main"], cwd=af_repo_path)
+                await git._run(["git", "reset", "--hard", "origin/main"], cwd=af_repo_path)
 
             watchers.append(
                 SpecWatcher(

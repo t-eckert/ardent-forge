@@ -185,14 +185,9 @@
 					<div class="flex flex-col gap-1.5">
 						{#each repos as repo (repo.name)}
 							<Card surface="paper" class="p-3">
-								<div class="flex items-center justify-between gap-2">
-									<div class="flex flex-col gap-0.5 min-w-0">
-										<span class="text-[13px] font-medium text-[var(--color-ink)] truncate">{repo.name}</span>
-										<Meta size="xs">{repo.default_branch}</Meta>
-									</div>
-									{#if repo.dev_port}
-										<Chip tone="moss">:{repo.dev_port}</Chip>
-									{/if}
+								<div class="flex flex-col gap-0.5 min-w-0">
+									<span class="text-[13px] font-medium text-[var(--color-ink)] truncate">{repo.name}</span>
+									<Meta size="xs">{repo.default_branch}</Meta>
 								</div>
 							</Card>
 						{/each}
