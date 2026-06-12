@@ -18,11 +18,6 @@ export const ListOnly: StoryObj<ComponentProps<typeof TaskListHarness>> = {
 	render: () => ({ Component: TaskListHarness })
 };
 
-export const ResolvedResearch: StoryObj<DetailArgs> = {
-	name: 'Detail · completed research task',
-	args: { activeId: '01KP000000000000000000RSRC' }
-};
-
 export const ExecutingCode: StoryObj<DetailArgs> = {
 	name: 'Detail · code task in flight',
 	args: { activeId: '01KP000000000000000000CODE' }

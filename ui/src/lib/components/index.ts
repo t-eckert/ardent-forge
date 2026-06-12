@@ -7,4 +7,3 @@ export { default as Card } from './card.svelte';
 export { default as EmptyState } from './empty-state.svelte';
 export { default as Spinner } from './spinner.svelte';
 export { default as Avatar } from './avatar.svelte';
-export { default as PinMarker } from './pin-marker.svelte';

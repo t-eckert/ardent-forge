@@ -23,7 +23,7 @@ export const Nested: Story = {
 	args: {
 		trail: [
 			{ label: 'Library', href: '/library' },
-			{ label: 'Fields' }
+			{ label: 'Memory' }
 		],
 		showActions: true
 	}
@@ -34,11 +34,11 @@ export const DeepWithLive: Story = {
 	args: {
 		trail: [
 			{ label: 'Library', href: '/library' },
-			{ label: 'Health', href: '/library/fields/health' },
-			{ label: 'Workouts' }
+			{ label: 'Memory', href: '/library/memory' },
+			{ label: 'Notes' }
 		],
 		statusChip: { label: '● live', tone: 'moss' },
-		rightMeta: 'strava synced · 4m',
+		rightMeta: 'notebook synced · 4m',
 		showActions: true
 	}
 };

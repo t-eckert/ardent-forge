@@ -8,7 +8,6 @@
 	import EmptyState from './empty-state.svelte';
 	import Spinner from './spinner.svelte';
 	import Avatar from './avatar.svelte';
-	import PinMarker from './pin-marker.svelte';
 	import { Eyebrow, Body, Stat, Heading } from '$lib/typography';
 </script>
 
@@ -98,16 +97,6 @@
 			<Avatar label="G" tone="graphite" />
 			<Avatar label={'{ }'} tone="ink" />
 			<Avatar label="♥" tone="ember" size="lg" />
-		</div>
-	</div>
-
-	<div class="flex flex-col gap-3">
-		<Eyebrow>PIN MARKER</Eyebrow>
-		<div class="flex gap-4 items-center">
-			<PinMarker label="1" active />
-			<PinMarker label="2" />
-			<PinMarker label="3" />
-			<PinMarker label="4" />
 		</div>
 	</div>
 

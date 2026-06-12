@@ -9,7 +9,7 @@ export const Thread = z.object({
 	/** One-line summary for preview rows */
 	preview: z.string(),
 	/** Tool capabilities exposed in this thread (shown as a chip) */
-	kind: z.enum(['code+tools', 'health+tools', 'places+tools', 'chat']),
+	kind: z.enum(['code+tools', 'chat']),
 	lastActivityIso: IsoDate,
 	unread: z.boolean().default(false),
 	/** Widget count — shown as "3 widgets" chip when > 0 */

@@ -1,17 +1,11 @@
 import { z } from 'zod';
 import { CodeDiffPayload } from './code-diff';
 import { WeatherPayload } from './weather';
-import { PurchasesPayload } from './purchases';
-import { WorkoutsPayload } from './workouts';
-import { PlacesMapPayload } from './places-map';
 import { ResultPayload } from './result';
 import { CodeResultPayload } from './code-result';
 
 export * from './code-diff';
 export * from './weather';
-export * from './purchases';
-export * from './workouts';
-export * from './places-map';
 export * from './result';
 export * from './code-result';
 
@@ -20,12 +14,9 @@ export * from './code-result';
  * Add new widget schemas here so `widget-host` stays exhaustive.
  */
 export const WidgetPayload = z.discriminatedUnion('tool', [
-	CodeDiffPayload,
-	WeatherPayload,
-	PurchasesPayload,
-	WorkoutsPayload,
-	PlacesMapPayload,
-	ResultPayload,
-	CodeResultPayload
+    CodeDiffPayload,
+    WeatherPayload,
+    ResultPayload,
+    CodeResultPayload
 ]);
 export type WidgetPayload = z.infer<typeof WidgetPayload>;

@@ -59,7 +59,7 @@ async def test_poll_detects_task_type_from_labels(poller, store, mock_client):
     await poller.poll()
     all_tasks = await store.list_all()
     assert len(all_tasks) == 1
-    assert all_tasks[0].type == "research"
+    assert all_tasks[0].type == "code"
 
 
 async def test_poll_empty(poller, mock_client):

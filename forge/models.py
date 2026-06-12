@@ -18,12 +18,9 @@ class TaskStatus(StrEnum):
 
 class TaskType(StrEnum):
     CODE = "code"
-    RESEARCH = "research"
-    REPORT = "report"
-    NOTEBOOK = "notebook"
-    TRIAGE = "triage"
     PLAN = "plan"
     TICKETS = "tickets"
+    ECHO = "echo"
 
 
 class TaskSource(StrEnum):

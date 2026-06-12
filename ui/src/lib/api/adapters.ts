@@ -20,7 +20,7 @@ import type {
 import type { Task } from '$lib/schemas/task';
 import type { AgentRun } from '$lib/schemas/agent';
 
-const KNOWN_KINDS = ['code+tools', 'health+tools', 'places+tools', 'chat'] as const;
+const KNOWN_KINDS = ['code+tools', 'chat'] as const;
 type Kind = (typeof KNOWN_KINDS)[number];
 
 function coerceKind(raw: string): Kind {

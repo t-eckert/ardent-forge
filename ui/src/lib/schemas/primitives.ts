@@ -41,7 +41,6 @@ export type Url = z.infer<typeof Url>;
 
 /** Source system a piece of data came from */
 export const Source = z.enum([
-	'strava',
 	'notebook',
 	'garmin',
 	'linear',

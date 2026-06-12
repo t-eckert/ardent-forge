@@ -10,12 +10,10 @@ export interface PinnedItem {
 	label: string;
 	href: string;
 	/** kind affects the glyph used by the sidebar row */
-	kind: 'field' | 'thread' | 'note' | 'agent';
+	kind: 'thread' | 'note' | 'agent';
 }
 
 const DEFAULTS: PinnedItem[] = [
-	{ id: 'health-workouts', label: 'Health / Workouts', href: '/library/fields/health/workouts', kind: 'field' },
-	{ id: 'redpanda-core', label: 'Redpanda / Core', href: '/library/fields/redpanda/core', kind: 'field' },
 	{ id: 'todays-log', label: "Today's log", href: '/library/log/today', kind: 'note' }
 ];
 

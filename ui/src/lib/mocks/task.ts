@@ -40,14 +40,13 @@ export function makeTaskList(): Task[] {
 		}),
 		makeTask({
 			id: '01KP000000000000000000RSRC',
-			type: 'research',
+			type: 'code',
 			status: 'completed',
-			title: 'Svelte 5 breaking changes',
+			title: 'Svelte 5 migration audit',
 			completed_at: new Date(Date.now() - 3_600_000).toISOString(),
 			result: {
 				status: 'ok',
-				files: ['Wiki/Svelte 5 Breaking Changes.md'],
-				source_url: 'https://svelte.dev/docs/svelte/v5-migration-guide'
+				pr: 'https://github.com/t-eckert/ardent-forge/pull/42'
 			}
 		}),
 		makeTask({

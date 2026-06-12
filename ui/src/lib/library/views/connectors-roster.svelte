@@ -23,7 +23,6 @@
 	function badgeFor(name: string): { label: string; tone: 'ember' | 'signal' | 'graphite' | 'ink' } {
 		const map: Record<string, any> = {
 			weather: { label: '☀', tone: 'ember' },
-			strava: { label: 'S', tone: 'ember' },
 			github: { label: '{}', tone: 'ink' },
 			linear: { label: 'L', tone: 'signal' },
 			notebook: { label: '¶', tone: 'graphite' },

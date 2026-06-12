@@ -22,7 +22,6 @@
 			code: { label: '{}', tone: 'ink' },
 			'code-agent': { label: '{}', tone: 'ink' },
 			plan: { label: '§', tone: 'signal' },
-			research: { label: '¶', tone: 'graphite' },
 			tickets: { label: '→', tone: 'ember' },
 			echo: { label: '·', tone: 'graphite' }
 		};

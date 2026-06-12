@@ -19,7 +19,6 @@
 		switch (type) {
 			case 'code': return { label: '{}', tone: 'ink' };
 			case 'plan': return { label: '◇', tone: 'signal' };
-			case 'research': return { label: '?', tone: 'graphite' };
 			case 'tickets': return { label: '#', tone: 'ember' };
 			case 'echo': return { label: '·', tone: 'graphite' };
 			default: return { label: '·', tone: 'graphite' };

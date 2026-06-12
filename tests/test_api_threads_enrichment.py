@@ -19,7 +19,7 @@ from forge.thread_store import ThreadStore
 
 class ResearchAgent:
     name = "research-agent"
-    task_type = "research"
+    task_type = "code"
     stages = ["triage", "execute", "verify", "deliver"]
     connectors: list[str] = []
 
@@ -58,7 +58,7 @@ async def test_dispatched_message_embeds_task_summary(client):
     thread = await thread_store.create(title="Research Svelte 5", kind="code+tools")
 
     task = Task.new(
-        task_type=TaskType("research"),
+        task_type=TaskType("code"),
         source=TaskSource.CHAT,
         title="Svelte 5 notes",
         description="…",
@@ -68,7 +68,7 @@ async def test_dispatched_message_embeds_task_summary(client):
     await thread_store.append_message(
         thread_id=thread.id,
         role="assistant",
-        content="dispatched research — Svelte 5 notes",
+        content="dispatched code — Svelte 5 migration",
         variant="task-dispatched",
         task_id=task.id,
         tool_use_id="toolu_abc",
@@ -82,7 +82,7 @@ async def test_dispatched_message_embeds_task_summary(client):
 
     task_summary = msg["task"]
     assert task_summary["id"] == task.id
-    assert task_summary["type"] == "research"
+    assert task_summary["type"] == "code"
     assert task_summary["status"] == "queued"
     assert task_summary["current_stage"] == "triage"
     assert task_summary["stages"] == ["triage", "execute", "verify", "deliver"]
@@ -94,7 +94,7 @@ async def test_resolved_message_carries_result_and_nulls_stage(client):
     thread = await thread_store.create(title="Done work")
 
     task = Task.new(
-        task_type=TaskType("research"),
+        task_type=TaskType("code"),
         source=TaskSource.CHAT,
         title="Completed research",
         description="…",
@@ -106,7 +106,7 @@ async def test_resolved_message_carries_result_and_nulls_stage(client):
     await thread_store.append_message(
         thread_id=thread.id,
         role="assistant",
-        content="research finished — completed research",
+        content="code finished — completed work",
         variant="task-resolved",
         task_id=task.id,
     )
