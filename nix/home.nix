@@ -30,6 +30,7 @@
     podman-compose
     unzip
     lsof
+    pyright         # pyright-langserver for Claude Code pyright-lsp plugin
   ];
 
   # Forge-specific environment variables
