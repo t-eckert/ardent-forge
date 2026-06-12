@@ -6,7 +6,6 @@
 		agentCount?: number;
 		connectorCount?: number;
 		memoryCount?: number;
-		repoCount?: number;
 		scheduleCount?: number;
 	}
 
@@ -14,7 +13,6 @@
 		agentCount = 0,
 		connectorCount = 0,
 		memoryCount = 0,
-		repoCount = 0,
 		scheduleCount = 0
 	}: Props = $props();
 
@@ -26,12 +24,6 @@
 	}
 
 	const facets = $derived<Facet[]>([
-		{
-			label: 'Repos',
-			href: '/library/repos',
-			count: String(repoCount),
-			description: 'Git repositories scanned from the workspace'
-		},
 		{
 			label: 'Schedules',
 			href: '/library/schedules',
@@ -69,7 +61,7 @@
 	<div class="flex flex-col gap-1.5">
 		<Eyebrow>LIBRARY</Eyebrow>
 		<Display size="lg">Library</Display>
-		<Heading size="sm" italic>Repos, agents, connectors, and everything Forge runs on.</Heading>
+		<Heading size="sm" italic>Agents, connectors, memory, and everything Forge runs on.</Heading>
 	</div>
 
 	<div class="grid grid-cols-3 gap-4">

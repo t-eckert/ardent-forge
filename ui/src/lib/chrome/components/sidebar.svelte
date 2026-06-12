@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SpineItem from './spine-item.svelte';
-	import { Sun, ChatCircle, Books, ListChecks, Gear } from '$lib/icons';
+	import { Sun, ChatCircle, GitBranch, Books, ListChecks, Gear } from '$lib/icons';
 	import { Meta, Eyebrow } from '$lib/typography';
 	import { StatusDot, KeycapHint } from '$lib/components';
 	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
@@ -57,6 +57,7 @@
 			<Meta size="xs">{threadCount || ''}</Meta>
 		{/snippet}
 	</SpineItem>
+	<SpineItem href="/repos" label="Repos" icon={GitBranch} active={active === 'repos'} />
 	<SpineItem href="/library" label="Library" icon={Books} active={active === 'library'}>
 		{#snippet meta()}
 			<Meta size="xs">{libraryCount ? libraryCount.toLocaleString() : ''}</Meta>

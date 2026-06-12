@@ -224,7 +224,11 @@ export const api = {
 
 	repos: {
 		list: () => request('/api/repos', RepoList),
-		get: (name: string) => request(`/api/repos/${name}`, Repo)
+		get: (name: string) => request(`/api/repos/${name}`, Repo),
+		clone: (url: string) => request('/api/repos/clone', Repo, {
+			method: 'POST',
+			body: JSON.stringify({ url })
+		})
 	},
 
 	schedules: {

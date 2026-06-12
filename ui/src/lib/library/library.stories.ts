@@ -20,7 +20,6 @@ export const WithCounts: Story = {
 		agentCount: 4,
 		connectorCount: 5,
 		memoryCount: 12,
-		repoCount: 6,
 		scheduleCount: 3
 	}
 };
