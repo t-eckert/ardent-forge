@@ -12,6 +12,8 @@
     ./services/autodeploy.nix
     ./services/notebook-sync.nix
     ./services/tailscale-portforward.nix
+    ./services/marimo.nix
+    ./services/workspace-init.nix
   ];
 
   # ── System ──────────────────────────────────────────────
@@ -109,6 +111,7 @@
     vim
     curl
     htop
+    btop
     _1password-cli
     claude-code
     ghostty.terminfo

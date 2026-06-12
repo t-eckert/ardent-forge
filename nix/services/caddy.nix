@@ -14,6 +14,7 @@ let
     cs-editor  = { backend = "127.0.0.1:8010"; };  # chill-subs editor
     cs-grafana = { backend = "127.0.0.1:8022"; };  # podman: local_grafana_1
     cs-galley  = { backend = "127.0.0.1:8020"; };  # galley backend
+    lab        = { backend = "127.0.0.1:2718"; };  # marimo notebooks
   };
 
   csNodeBlock = lib.concatStringsSep "\n  " (lib.mapAttrsToList

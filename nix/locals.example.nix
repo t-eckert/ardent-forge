@@ -11,4 +11,12 @@
   sshKeys = [
     "ssh-ed25519 AAAA... you@host"
   ];
+
+  # GitHub repos to clone into ~/Repos/github.com/owner/repo on first boot.
+  # GH_TOKEN is resolved from 1Password at start time, so private repos work.
+  # Add a new entry and run `sudo systemctl start workspace-init` to clone
+  # without rebooting.
+  workspaceRepos = [
+    "owner/repo"
+  ];
 }
