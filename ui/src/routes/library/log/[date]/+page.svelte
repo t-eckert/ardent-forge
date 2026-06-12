@@ -32,7 +32,7 @@
 	</div>
 
 	{#if data.body}
-		<Markdown source={data.body} />
+		<Markdown source={data.body} path="Log/{data.date}.md" />
 	{:else}
 		<Body muted>No log entry found for {data.date}.</Body>
 	{/if}

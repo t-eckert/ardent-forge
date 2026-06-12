@@ -206,7 +206,12 @@ export const api = {
 			if (path) params.set('path', path);
 			return request(`/api/notebook/search?${params}`, z.array(z.object({ path: z.string(), line_number: z.number(), line: z.string() })));
 		},
-		counts: () => request('/api/notebook/counts', z.object({ log: z.number(), wiki: z.number(), fields: z.number(), people: z.number(), collections: z.number() }))
+		counts: () => request('/api/notebook/counts', z.object({ log: z.number(), wiki: z.number(), fields: z.number(), people: z.number(), collections: z.number() })),
+		updateCheckbox: (path: string, line: number, marker: string) =>
+			request('/api/notebook/checkbox', z.object({ path: z.string(), line: z.number(), marker: z.string() }), {
+				method: 'PATCH',
+				body: JSON.stringify({ path, line, marker })
+			})
 	},
 
 	threads: {

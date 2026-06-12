@@ -1,16 +1,11 @@
-"""/api/notebook — read-only access to the Obsidian vault for the UI.
-
-Forge owns the notebook; the UI never touches disk directly (static bundle,
-no filesystem). These endpoints are the contract: Library/Daily log,
-Library/Wiki, and future Field views call through here.
-
-Writes are deliberately not exposed — Forge reads the notebook; the user
-writes the notebook via Obsidian.
-"""
+"""/api/notebook — read/write access to the Obsidian vault for the UI."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
+
+from forge.notebook.writer import VALID_CHECKBOX_MARKERS
 
 router = APIRouter(prefix="/api/notebook")
 
@@ -92,3 +87,26 @@ async def resolve_wikilink(name: str, request: Request):
     if resolved is None:
         raise HTTPException(status_code=404, detail=f"No note matches: {name}")
     return {"name": name, "path": str(resolved)}
+
+
+class CheckboxUpdate(BaseModel):
+    path: str
+    line: int
+    marker: str
+
+
+@router.patch("/checkbox")
+async def update_checkbox(body: CheckboxUpdate, request: Request):
+    """Update a task checkbox marker on a specific line of a notebook file."""
+    writer = getattr(request.app.state, "notebook_writer", None)
+    if writer is None:
+        raise HTTPException(status_code=503, detail="Notebook writer not configured")
+    if body.marker not in VALID_CHECKBOX_MARKERS:
+        raise HTTPException(status_code=422, detail=f"Invalid marker: {body.marker!r}")
+    try:
+        writer.update_checkbox(body.path, body.line, body.marker)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"path": body.path, "line": body.line, "marker": body.marker}

@@ -31,10 +31,7 @@
 		todayDate = new Date().toISOString().slice(0, 10)
 	}: Props = $props();
 
-	function stripFrontmatter(text: string): string {
-		const m = text.match(/^---\n[\s\S]*?\n---\n?/);
-		return m ? text.slice(m[0].length) : text;
-	}
+	const logPath = $derived(`Log/${todayDate}.md`);
 
 	function statusTone(status: Task['status']): 'ember' | 'moss' | 'stone' {
 		if (status === 'failed') return 'ember';
@@ -76,7 +73,7 @@
 						<Heading size="md">Today</Heading>
 						<a href="/library/log/{todayDate}" class="font-mono text-[11px] text-[var(--color-ember-deep)]">full entry →</a>
 					</header>
-					<Markdown source={stripFrontmatter(dailyLog)} class="text-sm" />
+					<Markdown source={dailyLog} path={logPath} class="text-sm" />
 				</section>
 			{/if}
 
