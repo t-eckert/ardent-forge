@@ -22,6 +22,7 @@ from forge.api import (
     schedules,
     tasks,
     threads as threads_api,
+    uploads as uploads_api,
     weather as weather_api,
 )
 from forge.config import Settings
@@ -74,6 +75,7 @@ def create_app(db: Database | None = None, settings: "Settings | None" = None) -
     app.include_router(notebook_api.router)
     app.include_router(repos_api.router)
     app.include_router(weather_api.router)
+    app.include_router(uploads_api.router)
 
     @app.get("/metrics")
     async def metrics():
@@ -86,6 +88,14 @@ def create_app(db: Database | None = None, settings: "Settings | None" = None) -
         schedules.set_store(store)
 
     return app
+
+
+async def _upload_cleanup_loop(service) -> None:
+    while True:
+        n = service.delete_old_files(max_age_days=7)
+        if n:
+            logging.getLogger(__name__).info("Cleaned up %d old upload(s)", n)
+        await asyncio.sleep(86400)
 
 
 def run():
@@ -106,9 +116,15 @@ def run():
         db = Database(settings.db_path)
         await db.initialize()
 
+        from pathlib import Path
+        from forge.uploads import UploadService
+        upload_service = UploadService(Path(settings.upload_dir).expanduser())
+        upload_service.ensure_dir()
+        uploads_api.set_service(upload_service)
+        upload_cleanup_task = asyncio.create_task(_upload_cleanup_loop(upload_service))
+
         # Initialize the task store.
         store = TaskStore(db)
-        from pathlib import Path
 
         repo_registry = RepoRegistry(settings.workspace_dir, projects_dir=settings.projects_dir)
         await repo_registry.scan()
@@ -319,6 +335,11 @@ def run():
         loop_task.cancel()
         try:
             await loop_task
+        except asyncio.CancelledError:
+            pass
+        upload_cleanup_task.cancel()
+        try:
+            await upload_cleanup_task
         except asyncio.CancelledError:
             pass
         await db.close()
