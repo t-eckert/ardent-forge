@@ -1,6 +1,6 @@
 import logging
 
-from forge.agents import AgentContext
+from forge.agents import AgentContext, record_triage_reason
 from forge.claude import build_prompt
 from forge.git import GitOps
 from forge.models import Task
@@ -23,7 +23,7 @@ class CodeAgent:
     def __init__(
         self,
         workspace_dir: str = "/home/thomaseckert/Repos",
-        claude_model: str = "claude-sonnet-4-20250514",
+        claude_model: str = "sonnet",
         claude_timeout: int = 300,
     ):
         self._git = GitOps(workspace_dir)
@@ -32,6 +32,12 @@ class CodeAgent:
     async def triage(self, task: Task, ctx: AgentContext) -> bool:
         if not task.repo:
             logger.warning("Task %s has no repo, cannot handle", task.id)
+            await record_triage_reason(
+                ctx,
+                task,
+                "No repository specified. A code task needs a target GitHub "
+                "repo (owner/name) — set the `repo` field when dispatching.",
+            )
             return False
         return True
 

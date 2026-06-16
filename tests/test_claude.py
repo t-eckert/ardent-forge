@@ -36,11 +36,11 @@ def test_build_prompt_with_retry_context():
 
 
 def test_claude_runner_init():
-    runner = ClaudeRunner(model="claude-sonnet-4-20250514", timeout=120)
-    assert runner._model == "claude-sonnet-4-20250514"
+    runner = ClaudeRunner(model="opus", timeout=120)
+    assert runner._model == "opus"
     assert runner._timeout == 120
 
 
 def test_claude_runner_default_model():
     runner = ClaudeRunner()
-    assert runner._model == "claude-sonnet-4-20250514"
+    assert runner._model == "sonnet"

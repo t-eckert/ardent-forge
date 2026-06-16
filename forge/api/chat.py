@@ -19,7 +19,7 @@ _orchestrator: ForgeOrchestrator | None = None
 _thread_store: ThreadStore | None = None
 _coordinator: "object | None" = None  # avoid import cycle; typed as "has .nudge()"
 _anthropic_api_key: str | None = None
-_chat_model: str = "claude-sonnet-4-20250514"
+_chat_model: str = "claude-sonnet-4-6"
 
 
 def _default_anthropic_client(api_key: str):

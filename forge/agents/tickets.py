@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from forge.agents import AgentContext
+from forge.agents import AgentContext, record_triage_reason
 from forge.frontmatter import SpecStatus, update_spec_status
 from forge.git import GitOps
 from forge.guardrails import check_handler_allowlist
@@ -69,7 +69,15 @@ class TicketsAgent:
         self._label = label
 
     async def triage(self, task: Task, ctx: AgentContext) -> bool:
-        return extract_plan_path(task.description) is not None
+        if extract_plan_path(task.description) is None:
+            await record_triage_reason(
+                ctx,
+                task,
+                "No plan path found in the task description. A tickets task needs "
+                "a `plan:` reference to a plan under docs/superpowers/plans/.",
+            )
+            return False
+        return True
 
     async def execute(self, task: Task, ctx: AgentContext) -> dict:
         plan_rel = extract_plan_path(task.description)

@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # Self-building loop
     self_repo: str = "t-eckert/ardent-forge"
     self_repo_url: str = "https://github.com/t-eckert/ardent-forge.git"
-    planner_claude_model: str = "claude-opus-4-20250514"
+    planner_claude_model: str = "opus"
 
     # Speed test — periodic internet bandwidth measurement.
     # Set to 0 to disable. Value is in minutes between tests.

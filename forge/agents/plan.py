@@ -2,7 +2,7 @@ import logging
 import re
 from pathlib import Path
 
-from forge.agents import AgentContext
+from forge.agents import AgentContext, record_triage_reason
 from forge.claude import ClaudeRunner
 from forge.git import GitOps
 from forge.guardrails import check_handler_allowlist
@@ -50,7 +50,7 @@ class PlanAgent:
         workspace_dir: str = "/var/lib/ardent-forge/repos",
         specs_dir: str = "docs/superpowers/specs",
         self_repo: str = "t-eckert/ardent-forge",
-        claude_model: str = "claude-opus-4-20250514",
+        claude_model: str = "opus",
         claude_timeout: int = 600,
     ):
         self._git = GitOps(workspace_dir)
@@ -62,6 +62,12 @@ class PlanAgent:
         spec_path = extract_spec_path(task.description)
         if not spec_path:
             logger.warning(f"Task {task.id} has no spec path in description")
+            await record_triage_reason(
+                ctx,
+                task,
+                "No spec path found in the task description. A plan task needs a "
+                "`spec:` reference to a design doc under docs/superpowers/specs/.",
+            )
             return False
         return True
 

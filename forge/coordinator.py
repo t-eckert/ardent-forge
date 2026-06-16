@@ -187,8 +187,16 @@ class Coordinator:
                         time.monotonic() - stage_start
                     )
                     if not ok:
+                        # A gate may leave an actionable reason on handler_data
+                        # (see Agent protocol docstring); surface it instead of
+                        # the opaque generic message when present.
+                        reloaded = await self._store.get(task.id)
+                        reason = None
+                        if reloaded is not None:
+                            reason = (reloaded.handler_data or {}).get("triage_reason")
                         await self._store.mark_failed(
-                            task.id, error="Agent declined task during triage"
+                            task.id,
+                            error=reason or "Agent declined task during triage",
                         )
                         TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                         continue

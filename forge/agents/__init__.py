@@ -86,6 +86,20 @@ class Agent(Protocol):
         return {}
 
 
+async def record_triage_reason(ctx: AgentContext, task: "Task", reason: str) -> None:
+    """Leave an actionable decline reason for the coordinator to surface.
+
+    Gates (triage/verify) return only a pass/fail bool, so a declining gate
+    communicates *why* via the task's handler_data trace. The coordinator reads
+    ``triage_reason`` and uses it as the failure message instead of the generic
+    "Agent declined task during triage". No-ops when the context has no store
+    (e.g. unit tests that drive a gate directly with a bare context).
+    """
+    if ctx.store is None:
+        return
+    await ctx.store.update_handler_data(task.id, {"triage_reason": reason})
+
+
 def validate_stages(stages: list[Stage]) -> None:
     """Every stage must be one of the known names, and execute must be present."""
     unknown = [s for s in stages if s not in _STAGE_ORDER]
@@ -118,4 +132,11 @@ class AgentRegistry:
         return list(self._by_task_type.values())
 
 
-__all__ = ["Agent", "AgentContext", "AgentRegistry", "Stage", "validate_stages"]
+__all__ = [
+    "Agent",
+    "AgentContext",
+    "AgentRegistry",
+    "Stage",
+    "record_triage_reason",
+    "validate_stages",
+]
