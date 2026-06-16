@@ -68,6 +68,24 @@
     '';
   };
 
+  # Manual test runner — run the backend suite on demand (no CI gate).
+  # Usage: af-test                 # full suite
+  #        af-test -k test_nudge   # filter
+  #        af-test tests/test_api.py
+  home.file.".local/bin/af-test" = {
+    executable = true;
+    text = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      REPO_DIR="/data/ardent-forge/repo"
+      cd "$REPO_DIR"
+
+      echo "Running backend test suite (uv run pytest)..."
+      exec uv run pytest "$@"
+    '';
+  };
+
   # First-boot setup script
   home.file.".local/bin/forge-setup" = {
     executable = true;
