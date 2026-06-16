@@ -2,8 +2,16 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
+from enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class VerificationStatus(StrEnum):
+    PASSED = "passed"  # at least one command ran and everything that ran passed
+    FAILED = "failed"  # a command exited nonzero — a real verification failure
+    NO_TESTS = "no_tests"  # no verification commands detected (nothing to run)
+    INCONCLUSIVE = "inconclusive"  # commands detected but none could run (tools missing)
 
 
 @dataclass
@@ -11,6 +19,7 @@ class VerificationResult:
     success: bool
     output: str
     commands_run: list[str]
+    status: VerificationStatus = VerificationStatus.PASSED
 
 
 def _taskfile_has_test(repo_path: str) -> bool:
@@ -71,15 +80,23 @@ async def run_verification(
     if commands is None:
         commands = detect_verify_commands(repo_path)
     if not commands:
-        logger.warning(f"No verification commands detected for {repo_path}")
+        # Nothing to verify — e.g. a docs/config change or a repo with no test
+        # setup. We don't block delivery on this, but it is NOT a verified pass;
+        # surface NO_TESTS so the caller can record it rather than silently
+        # claiming success.
+        logger.warning("No verification commands detected for %s", repo_path)
         return VerificationResult(
-            success=True, output="No verification commands found", commands_run=[]
+            success=True,
+            output="No verification commands found",
+            commands_run=[],
+            status=VerificationStatus.NO_TESTS,
         )
 
     all_output: list[str] = []
     commands_run: list[str] = []
+    executed = 0  # commands that actually ran to completion (returncode != 127)
     for cmd in commands:
-        logger.info(f"Running: {cmd} in {repo_path}")
+        logger.info("Running: %s in %s", cmd, repo_path)
         commands_run.append(cmd)
         proc = await asyncio.create_subprocess_shell(
             cmd,
@@ -91,15 +108,41 @@ async def run_verification(
         output = stdout.decode()
         all_output.append(f"$ {cmd}\n{output}")
         if proc.returncode == 127:
-            # Command not found — tool not installed in this environment; skip.
+            # Command not found — the tool isn't installed in this environment.
+            # Skip it, but remember it didn't actually run so we don't mistake a
+            # repo full of missing tools for a clean pass.
             logger.warning("Verification tool not found, skipping: %s", cmd)
             continue
         if proc.returncode != 0:
-            logger.error(f"Verification failed: {cmd}")
+            logger.error("Verification failed: %s", cmd)
             return VerificationResult(
-                success=False, output="\n".join(all_output), commands_run=commands_run
+                success=False,
+                output="\n".join(all_output),
+                commands_run=commands_run,
+                status=VerificationStatus.FAILED,
             )
+        executed += 1
+
+    if executed == 0:
+        # Verification commands were detected (the repo expects to be tested),
+        # but none could actually run because their tools are missing. Treat as
+        # a gate failure rather than a silent pass — the environment is broken.
+        logger.error(
+            "Verification inconclusive: %d command(s) detected for %s but none "
+            "could run (missing tools)",
+            len(commands),
+            repo_path,
+        )
+        return VerificationResult(
+            success=False,
+            output="\n".join(all_output),
+            commands_run=commands_run,
+            status=VerificationStatus.INCONCLUSIVE,
+        )
 
     return VerificationResult(
-        success=True, output="\n".join(all_output), commands_run=commands_run
+        success=True,
+        output="\n".join(all_output),
+        commands_run=commands_run,
+        status=VerificationStatus.PASSED,
     )

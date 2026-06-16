@@ -1,7 +1,12 @@
 import os
 import pytest
 
-from forge.verify import detect_verify_commands, VerificationResult
+from forge.verify import (
+    detect_verify_commands,
+    run_verification,
+    VerificationResult,
+    VerificationStatus,
+)
 
 
 def test_detect_python_uv(tmp_path):
@@ -58,3 +63,50 @@ def test_verification_result():
 
     failed = VerificationResult(success=False, output="1 failed", commands_run=["pytest"])
     assert not failed.success
+
+
+# --- run_verification status semantics (no silent passes) -------------------
+#
+# `success` is no longer overloaded: it must reflect an explicit status so the
+# delivery gate can distinguish "verified" from "couldn't verify".
+#   - no test setup detected      -> NO_TESTS, passes (don't block docs/config)
+#   - a command ran and passed    -> PASSED, passes
+#   - a command failed (nonzero)  -> FAILED, blocks
+#   - tests exist but none ran    -> INCONCLUSIVE, blocks (was a silent pass)
+
+
+async def test_no_commands_is_no_tests(tmp_path):
+    result = await run_verification(str(tmp_path), commands=[])
+    assert result.status == VerificationStatus.NO_TESTS
+    assert result.success is True
+
+
+async def test_passing_command_is_passed(tmp_path):
+    result = await run_verification(str(tmp_path), commands=["true"])
+    assert result.status == VerificationStatus.PASSED
+    assert result.success is True
+
+
+async def test_failing_command_is_failed(tmp_path):
+    result = await run_verification(str(tmp_path), commands=["false"])
+    assert result.status == VerificationStatus.FAILED
+    assert result.success is False
+
+
+async def test_all_tools_missing_is_inconclusive(tmp_path):
+    # A detected command whose tool isn't installed exits 127. If nothing else
+    # runs, verification couldn't actually happen — must NOT silently pass.
+    result = await run_verification(
+        str(tmp_path), commands=["forge-no-such-tool-zzz --version"]
+    )
+    assert result.status == VerificationStatus.INCONCLUSIVE
+    assert result.success is False
+
+
+async def test_missing_tool_plus_passing_command_is_passed(tmp_path):
+    # If at least one command actually ran and passed, verification happened.
+    result = await run_verification(
+        str(tmp_path), commands=["forge-no-such-tool-zzz", "true"]
+    )
+    assert result.status == VerificationStatus.PASSED
+    assert result.success is True

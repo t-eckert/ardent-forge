@@ -12,6 +12,27 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 2
 
 
+async def _record_verification(
+    ctx: AgentContext,
+    task: Task,
+    status: str,
+    commands_run: list[str],
+    reason: str | None = None,
+) -> None:
+    """Persist the verification outcome to the task so it's never silent.
+
+    Records status (passed/failed/no_tests/inconclusive) and the commands that
+    ran, regardless of pass/fail, so a task's result shows what was actually
+    verified. No-ops when the context has no store (unit tests with a bare ctx).
+    """
+    if ctx.store is None:
+        return
+    payload: dict = {"status": status, "commands_run": commands_run}
+    if reason:
+        payload["reason"] = reason
+    await ctx.store.update_handler_data(task.id, {"verification": payload})
+
+
 class CodeAgent:
     """Full-pipeline agent: clones repo, runs Claude in Zellij, verifies, opens PR."""
 
@@ -93,8 +114,17 @@ class CodeAgent:
         worktree_path = task.handler_data.get("worktree_path")
         if not worktree_path:
             logger.error("No worktree_path in handler_data for task %s", task.id)
+            await _record_verification(
+                ctx, task, "failed", commands_run=[], reason="no worktree_path"
+            )
             return False
         result = await run_verification(worktree_path)
+        # Always record the outcome — including NO_TESTS and INCONCLUSIVE — so a
+        # task's result shows what was (or wasn't) actually verified instead of
+        # an opaque pass/fail.
+        await _record_verification(
+            ctx, task, result.status.value, commands_run=result.commands_run
+        )
         return result.success
 
     async def deliver(self, task: Task, ctx: AgentContext) -> dict:
