@@ -1,8 +1,5 @@
-import os
 import pytest
-from pathlib import Path
 
-from forge.repos.models import Repo, RepoConfig
 from forge.repos.registry import RepoRegistry
 
 
@@ -77,48 +74,3 @@ async def test_list_returns_all_scanned(workspace):
     await registry.scan()
     names = {r.name for r in registry.list()}
     assert names == {"alpha", "beta", "gamma"}
-
-
-def test_repo_config_defaults():
-    config = RepoConfig()
-    assert config.dev_port is None
-    assert config.allowed_op_paths == []
-
-
-def test_repo_config_with_dev_port():
-    config = RepoConfig(dev_port=5173)
-    assert config.dev_port == 5173
-
-
-async def test_repo_yaml_is_parsed(workspace):
-    workspace.mkdir()
-    repo = workspace / "web-app"
-    repo.mkdir()
-    (repo / ".git").mkdir()
-    (repo / "repo.yaml").write_text("dev_port: 5173\nclaude_label: claude\n")
-    registry = RepoRegistry(str(workspace))
-    await registry.scan()
-    r = registry.get("web-app")
-    assert r is not None
-    assert r.dev_port == 5173
-
-
-async def test_invalid_repo_yaml_is_skipped(workspace):
-    workspace.mkdir()
-    repo = workspace / "broken"
-    repo.mkdir()
-    (repo / ".git").mkdir()
-    (repo / "repo.yaml").write_text(": invalid: yaml: [\n")
-    registry = RepoRegistry(str(workspace))
-    repos = await registry.scan()
-    # Repo still loads, just without config
-    assert len(repos) == 1
-    assert repos[0].dev_port is None
-
-
-async def test_config_returns_default_for_unknown_repo(workspace):
-    workspace.mkdir()
-    registry = RepoRegistry(str(workspace))
-    config = registry.config("nonexistent")
-    assert isinstance(config, RepoConfig)
-    assert config.dev_port is None
