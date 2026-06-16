@@ -19,6 +19,7 @@ in {
       gh
       openssh
       ripgrep
+      go-task
       claude-code
       _1password-cli
       nodejs_22
