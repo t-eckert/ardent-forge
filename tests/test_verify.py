@@ -35,7 +35,13 @@ def test_detect_go(tmp_path):
 
 
 def test_detect_taskfile(tmp_path):
-    (tmp_path / "Taskfile.yml").write_text("version: '3'\n")
+    # detect_verify_commands only emits `task test` when the Taskfile actually
+    # defines a `test` task (verify.py:_taskfile_has_test), so the fixture must
+    # declare one — mirroring test_detect_node's package.json test script.
+    # Exercises the real `task` binary, which the box provides (go-task).
+    (tmp_path / "Taskfile.yml").write_text(
+        "version: '3'\ntasks:\n  test:\n    cmds:\n      - echo ok\n"
+    )
     commands = detect_verify_commands(str(tmp_path))
     assert any("task" in cmd.lower() for cmd in commands)
 
