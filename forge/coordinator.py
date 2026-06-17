@@ -177,6 +177,12 @@ class Coordinator:
         """Single funnel for every failure. Tears down any orphaned Zellij
         session, then requeues with backoff (retryable + budget left) or marks
         the task terminally failed."""
+        # Re-load the latest state: a producing stage (e.g. Code) may have
+        # persisted ``zellij_session`` to handler_data *after* this task object
+        # was dequeued, so the in-hand copy can be stale. Fall back to the passed
+        # object if the row has since vanished.
+        task = await self._store.get(task.id) or task
+
         session = (task.handler_data or {}).get("zellij_session")
         if session:
             try:
@@ -300,7 +306,13 @@ class Coordinator:
                 )
                 aggregated = dict(result or {})
                 await self._store.update_handler_data(task.id, aggregated)
-                task = await self._store.get(task.id)
+                refreshed = await self._store.get(task.id)
+                if refreshed is None:
+                    logger.error(
+                        "Task %s vanished from DB after execute; skipping", task.id
+                    )
+                    continue
+                task = refreshed
 
                 # Verify — optional.
                 if "verify" in stages:

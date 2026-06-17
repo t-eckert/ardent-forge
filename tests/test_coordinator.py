@@ -233,6 +233,34 @@ async def test_code_task_session_killed_before_retry(store):
         mock_kill.assert_awaited_once_with("agent-x")
 
 
+class SessionMidStageAgent:
+    """Persists its zellij_session to the store *during* execute (after the task
+    was dequeued), then fails — mimics CodeAgent, where the session name isn't in
+    the dequeued task object. Exercises that _fail_or_retry re-reads handler_data."""
+
+    name = "midsession"
+    task_type = "midsession"
+    stages = ["execute"]
+    connectors: list[str] = []
+    timeout_seconds = 60
+
+    async def execute(self, task, ctx):
+        await ctx.store.update_handler_data(task.id, {"zellij_session": "agent-mid"})
+        raise RuntimeError("boom after persisting session")
+
+
+async def test_session_persisted_mid_stage_is_killed_on_failure(store):
+    reg = AgentRegistry()
+    reg.register(SessionMidStageAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "midsession")  # dequeued object has no session yet
+
+    with patch("forge.coordinator.kill_session") as mock_kill:
+        await coord.process_pending()
+        mock_kill.assert_awaited_once_with("agent-mid")
+
+
 async def test_reaper_requeues_task_past_timeout(store):
     reg = AgentRegistry()
     reg.register(EchoAgent())  # echo timeout_seconds = 60
