@@ -73,10 +73,11 @@ class Coordinator:
             self._wake.set()
 
     async def startup(self):
-        """Called once on application start. Resets stuck tasks."""
-        reset_count = await self._store.reset_active_tasks()
-        if reset_count > 0:
-            logger.info(f"Reset {reset_count} stuck tasks to queued on startup")
+        """Called once on application start. Reaps tasks left active by an
+        unclean shutdown, routing them through the retry/backoff path."""
+        reaped = await self.reap_stuck_tasks()
+        if reaped > 0:
+            logger.info("Reaped %d stuck tasks on startup", reaped)
 
     async def tick(self) -> int:
         """Run one cycle: poll Linear if configured, dequeue pending tasks, process them."""
@@ -116,6 +117,13 @@ class Coordinator:
                 logger.info("Fired %d scheduled tasks", fired)
         except Exception:
             logger.exception("Error firing schedules")
+
+        try:
+            reaped = await self.reap_stuck_tasks()
+            if reaped > 0:
+                logger.info("Reaped %d stuck tasks", reaped)
+        except Exception:
+            logger.exception("Error reaping stuck tasks")
 
         result = await self.process_pending()
         TICK_DURATION_SECONDS.observe(time.monotonic() - tick_start)
@@ -196,6 +204,30 @@ class Coordinator:
         else:
             await self._store.mark_failed(task.id, error=error, kind=kind)
             TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+
+    async def reap_stuck_tasks(self) -> int:
+        """Backstop for tasks orphaned by a crash/restart: any task stuck in an
+        active state longer than its effective timeout is routed through the
+        same timeout path as an in-process timeout (teardown + retry-or-fail)."""
+        now = datetime.now(timezone.utc)
+        reaped = 0
+        for task in await self._store.list_active_tasks():
+            agent = self._registry.get(task.type)
+            timeout = (
+                self._effective_timeout(task, agent)
+                if agent is not None
+                else self._default_timeout
+            )
+            age = (now - task.updated_at).total_seconds()
+            if age > timeout:
+                await self._fail_or_retry(
+                    task,
+                    error=f"Task stuck in {task.status} for {int(age)}s "
+                    f"(timeout {int(timeout)}s)",
+                    kind=retry.TIMEOUT,
+                )
+                reaped += 1
+        return reaped
 
     async def process_pending(self) -> int:
         pending = await self._store.list_pending(limit=self._max_concurrent)

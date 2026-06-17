@@ -116,6 +116,9 @@ async def test_coordinator_calls_extra_watchers_in_tick():
         async def reset_active_tasks(self):
             return 0
 
+        async def list_active_tasks(self):
+            return []
+
     store = FakeStore()
     registry = AgentRegistry()
     w1 = AsyncMock()
@@ -228,3 +231,37 @@ async def test_code_task_session_killed_before_retry(store):
     with patch("forge.coordinator.kill_session") as mock_kill:
         await coord.process_pending()
         mock_kill.assert_awaited_once_with("agent-x")
+
+
+async def test_reaper_requeues_task_past_timeout(store):
+    reg = AgentRegistry()
+    reg.register(EchoAgent())  # echo timeout_seconds = 60
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "echo")
+    await store.update_status(task.id, TaskStatus.EXECUTING)
+    # Backdate updated_at well past the 60s echo timeout.
+    old = "2000-01-01T00:00:00+00:00"
+    await store._db.execute(
+        "UPDATE tasks SET updated_at = ? WHERE id = ?", (old, task.id)
+    )
+
+    reaped = await coord.reap_stuck_tasks()
+    assert reaped == 1
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.QUEUED
+    assert loaded.failure_kind == "timeout"
+
+
+async def test_reaper_ignores_fresh_active_task(store):
+    reg = AgentRegistry()
+    reg.register(EchoAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "echo")
+    await store.update_status(task.id, TaskStatus.EXECUTING)  # updated_at = now
+
+    reaped = await coord.reap_stuck_tasks()
+    assert reaped == 0
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.EXECUTING
