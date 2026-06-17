@@ -20,3 +20,13 @@ def test_settings_from_env(monkeypatch):
     assert settings.db_path == "/tmp/test.db"
     assert settings.poll_interval_seconds == 60
     assert settings.anthropic_api_key == "sk-test"
+
+
+def test_resilience_settings_defaults():
+    from forge.config import Settings
+
+    s = Settings()
+    assert s.max_retries == 3
+    assert s.retry_base_seconds == 60
+    assert s.retry_max_seconds == 900
+    assert s.default_timeout_seconds == 1800
