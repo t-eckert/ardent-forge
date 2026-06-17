@@ -40,6 +40,7 @@ class CodeAgent:
     task_type = "code"
     stages = ["triage", "execute", "verify", "deliver"]
     connectors = ["github", "onepassword"]
+    timeout_seconds = 3600
 
     def __init__(
         self,
@@ -66,6 +67,11 @@ class CodeAgent:
         repo_url = f"https://github.com/{task.repo}.git"
         branch_name = f"forge/{task.id[:12]}"
         session_name = f"agent-{task.id}"
+
+        # Persist the session name before the long-running Claude run so that a
+        # timeout/reap can tear down the orphaned session (the result dict below
+        # is only written back to the store *after* execute completes).
+        await ctx.store.update_handler_data(task.id, {"zellij_session": session_name})
 
         repo_path = await self._git.ensure_repo(repo_url, task.repo)
         worktree_path = await self._git.create_worktree(repo_path, branch_name)

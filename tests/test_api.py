@@ -128,3 +128,43 @@ async def test_list_tasks_filter_by_origin_thread(client, db):
     filtered = resp.json()
     assert len(filtered) == 1
     assert filtered[0]["id"] == a["id"]
+
+
+async def test_manual_retry_requeues_failed_task(client):
+    from forge.api.tasks import get_store
+    from forge.models import TaskStatus
+
+    create = await client.post(
+        "/api/tasks",
+        json={"type": "echo", "title": "t", "description": "d"},
+    )
+    task_id = create.json()["id"]
+
+    store = get_store()
+    await store.mark_failed(task_id, error="boom", kind="timeout")
+
+    resp = await client.post(f"/api/tasks/{task_id}/retry")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "queued"
+    assert body["retries"] == 0
+    assert body["failure_kind"] is None
+
+    loaded = await store.get(task_id)
+    assert loaded.status == TaskStatus.QUEUED
+
+
+async def test_manual_retry_rejects_non_failed(client):
+    create = await client.post(
+        "/api/tasks",
+        json={"type": "echo", "title": "t", "description": "d"},
+    )
+    task_id = create.json()["id"]  # status queued, not failed
+
+    resp = await client.post(f"/api/tasks/{task_id}/retry")
+    assert resp.status_code == 409
+
+
+async def test_manual_retry_unknown_task_404(client):
+    resp = await client.post("/api/tasks/does-not-exist/retry")
+    assert resp.status_code == 404

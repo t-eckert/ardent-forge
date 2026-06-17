@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     poll_interval_seconds: int = 300
     max_concurrent_tasks: int = 2
 
+    # Task resilience — retries with exponential backoff + execution timeout
+    max_retries: int = 3
+    retry_base_seconds: int = 60
+    retry_max_seconds: int = 900
+    default_timeout_seconds: int = 1800
+
     # Server
     host: str = "0.0.0.0"
     port: int = 7030

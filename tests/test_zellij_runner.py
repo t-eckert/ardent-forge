@@ -74,3 +74,31 @@ async def test_layout_files_exist():
     layouts_dir = Path(zmod.__file__).parent / "layouts"
     assert (layouts_dir / "manual.kdl").exists()
     assert (layouts_dir / "agent.kdl").exists()
+
+
+async def test_kill_session_noop_when_zellij_missing(monkeypatch):
+    import forge.zellij.runner as runner
+
+    # Simulate zellij not installed — must be a silent no-op, not an error.
+    monkeypatch.setattr(runner.shutil, "which", lambda _: None)
+    await runner.kill_session("agent-doesnotexist")  # should not raise
+
+
+async def test_kill_session_invokes_zellij(monkeypatch):
+    import forge.zellij.runner as runner
+
+    calls = []
+
+    class FakeProc:
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*args, **kwargs):
+        calls.append(args)
+        return FakeProc()
+
+    monkeypatch.setattr(runner.shutil, "which", lambda _: "/usr/bin/zellij")
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+
+    await runner.kill_session("agent-123")
+    assert calls and calls[0][:3] == ("zellij", "kill-session", "agent-123")

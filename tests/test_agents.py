@@ -10,6 +10,7 @@ class _Exec:
     task_type = "exec"
     stages = ["execute"]
     connectors: list[str] = []
+    timeout_seconds = 60
 
     async def execute(self, task, ctx):
         return {"ok": True}
@@ -20,6 +21,7 @@ class _Full:
     task_type = "full"
     stages = ["triage", "execute", "verify", "deliver"]
     connectors = ["weather"]
+    timeout_seconds = 60
 
     async def triage(self, task, ctx):
         return True
@@ -78,6 +80,7 @@ def test_registry_rejects_invalid_stages():
         task_type = "bad"
         stages = ["verify"]  # missing execute
         connectors: list[str] = []
+        timeout_seconds = 60
 
         async def execute(self, task, ctx):
             return {}
@@ -92,3 +95,11 @@ def test_full_agent_is_runtime_checkable():
     # Execute-only agents don't; that's expected and why `stages` drives dispatch,
     # not isinstance() checks.
     assert isinstance(_Full(), Agent)
+
+
+def test_agents_declare_timeout_seconds():
+    from forge.agents.echo import EchoAgent
+    from forge.agents.code import CodeAgent
+
+    assert EchoAgent().timeout_seconds == 60
+    assert CodeAgent().timeout_seconds == 3600

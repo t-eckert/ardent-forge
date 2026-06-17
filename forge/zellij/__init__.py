@@ -1,3 +1,3 @@
-from forge.zellij.runner import ZellijRunner
+from forge.zellij.runner import ZellijRunner, kill_session
 
-__all__ = ["ZellijRunner"]
+__all__ = ["ZellijRunner", "kill_session"]

@@ -44,6 +44,9 @@ class Task(BaseModel):
     handler_data: dict = Field(default_factory=dict)
     result: dict | None = None
     retries: int = 0
+    max_retries: int = 3
+    available_at: datetime | None = None
+    failure_kind: str | None = None
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None = None
@@ -85,6 +88,11 @@ class Task(BaseModel):
             "handler_data": json.dumps(self.handler_data),
             "result": json.dumps(self.result) if self.result else None,
             "retries": self.retries,
+            "max_retries": self.max_retries,
+            "available_at": (
+                self.available_at.isoformat() if self.available_at else None
+            ),
+            "failure_kind": self.failure_kind,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "completed_at": (
@@ -110,6 +118,13 @@ class Task(BaseModel):
             handler_data=json.loads(row["handler_data"]) if row["handler_data"] else {},
             result=json.loads(row["result"]) if row.get("result") else None,
             retries=row["retries"],
+            max_retries=row.get("max_retries", 3),
+            available_at=(
+                datetime.fromisoformat(row["available_at"])
+                if row.get("available_at")
+                else None
+            ),
+            failure_kind=row.get("failure_kind"),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             completed_at=(

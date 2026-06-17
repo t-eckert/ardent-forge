@@ -45,3 +45,16 @@ async def test_update_task_status(db: Database):
     )
     row = await db.fetch_one("SELECT status FROM tasks WHERE id = ?", ("01TASK002",))
     assert row["status"] == "executing"
+
+
+async def test_tasks_table_has_resilience_columns():
+    from forge.db import Database
+
+    db = Database(":memory:")
+    await db.initialize()
+    try:
+        rows = await db.fetch_all("PRAGMA table_info(tasks)")
+        names = {r["name"] for r in rows}
+        assert {"max_retries", "available_at", "failure_kind"} <= names
+    finally:
+        await db.close()

@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timedelta, timezone
 
 from forge.db import Database
 from forge.models import Task, TaskSource, TaskStatus, TaskType
@@ -125,3 +126,79 @@ async def test_mark_failed(store):
     assert loaded is not None
     assert loaded.status == TaskStatus.FAILED
     assert loaded.handler_data["error"] == "Something broke"
+
+
+def _new_task() -> Task:
+    return Task.new(
+        task_type=TaskType.ECHO, source=TaskSource.CHAT, title="t", description="d"
+    )
+
+
+async def test_mark_failed_records_kind(store):
+    task = _new_task()
+    await store.save(task)
+    await store.mark_failed(task.id, error="boom", kind="transient")
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.FAILED
+    assert loaded.failure_kind == "transient"
+    assert loaded.handler_data["error"] == "boom"
+
+
+async def test_list_pending_excludes_future_available_at(store):
+    future = _new_task()
+    await store.save(future)
+    await store.requeue(
+        future.id,
+        retries=1,
+        available_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        error="retry me",
+        kind="transient",
+    )
+    ready = _new_task()
+    await store.save(ready)
+
+    pending = await store.list_pending(limit=10)
+    ids = {t.id for t in pending}
+    assert ready.id in ids
+    assert future.id not in ids
+
+
+async def test_requeue_sets_status_retries_and_kind(store):
+    task = _new_task()
+    await store.save(task)
+    await store.requeue(
+        task.id, retries=2, available_at=None, error="e", kind="timeout"
+    )
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.QUEUED
+    assert loaded.retries == 2
+    assert loaded.failure_kind == "timeout"
+
+
+async def test_list_active_tasks_returns_only_active(store):
+    queued = _new_task()
+    await store.save(queued)
+    executing = _new_task()
+    await store.save(executing)
+    await store.update_status(executing.id, TaskStatus.EXECUTING)
+
+    active = await store.list_active_tasks()
+    ids = {t.id for t in active}
+    assert executing.id in ids
+    assert queued.id not in ids
+
+
+async def test_clear_for_retry_resets_budget(store):
+    task = _new_task()
+    await store.save(task)
+    await store.requeue(
+        task.id, retries=3, available_at="2099-01-01T00:00:00+00:00", kind="timeout"
+    )
+    await store.mark_failed(task.id, error="dead", kind="timeout")
+
+    await store.clear_for_retry(task.id)
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.QUEUED
+    assert loaded.retries == 0
+    assert loaded.available_at is None
+    assert loaded.failure_kind is None

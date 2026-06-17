@@ -147,3 +147,21 @@ class ZellijRunner:
         if rc != 0:
             raise RuntimeError(f"Claude Code failed (rc={rc}): {output[:500]}")
         return output
+
+
+async def kill_session(session_name: str) -> None:
+    """Tear down a Zellij session by name. Tolerant of an already-gone session
+    and of zellij not being installed (tests/CI) — never raises."""
+    if shutil.which("zellij") is None:
+        return
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "zellij",
+            "kill-session",
+            session_name,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+    except Exception:
+        logger.warning("Failed to kill zellij session %s", session_name, exc_info=True)

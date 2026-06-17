@@ -46,9 +46,12 @@ class TaskStore:
         return [Task.from_row(row) for row in rows]
 
     async def list_pending(self, limit: int = 10) -> list[Task]:
+        now = datetime.now(timezone.utc).isoformat()
         rows = await self._db.fetch_all(
-            "SELECT * FROM tasks WHERE status = ? ORDER BY created_at ASC LIMIT ?",
-            (TaskStatus.QUEUED.value, limit),
+            "SELECT * FROM tasks WHERE status = ? "
+            "AND (available_at IS NULL OR available_at <= ?) "
+            "ORDER BY created_at ASC LIMIT ?",
+            (TaskStatus.QUEUED.value, now, limit),
         )
         return [Task.from_row(row) for row in rows]
 
@@ -103,7 +106,7 @@ class TaskStore:
             return None
         return Task.from_row(row)
 
-    async def mark_failed(self, task_id: str, error: str):
+    async def mark_failed(self, task_id: str, error: str, kind: str = "terminal"):
         now = datetime.now(timezone.utc).isoformat()
         task = await self.get(task_id)
         if task is None:
@@ -111,8 +114,65 @@ class TaskStore:
         handler_data = task.handler_data
         handler_data["error"] = error
         await self._db.execute(
-            "UPDATE tasks SET status = ?, handler_data = ?, updated_at = ? WHERE id = ?",
-            (TaskStatus.FAILED.value, json.dumps(handler_data), now, task_id),
+            "UPDATE tasks SET status = ?, failure_kind = ?, handler_data = ?, "
+            "updated_at = ? WHERE id = ?",
+            (TaskStatus.FAILED.value, kind, json.dumps(handler_data), now, task_id),
+        )
+
+    async def requeue(
+        self,
+        task_id: str,
+        retries: int,
+        available_at: str | None,
+        error: str | None = None,
+        kind: str | None = None,
+    ):
+        """Put a failed task back in the queue with an updated retry count and
+        an optional backoff gate (``available_at`` ISO timestamp, or None to run
+        immediately)."""
+        now = datetime.now(timezone.utc).isoformat()
+        task = await self.get(task_id)
+        if task is None:
+            return
+        handler_data = task.handler_data
+        if error is not None:
+            handler_data["error"] = error
+        await self._db.execute(
+            "UPDATE tasks SET status = ?, retries = ?, available_at = ?, "
+            "failure_kind = ?, handler_data = ?, updated_at = ? WHERE id = ?",
+            (
+                TaskStatus.QUEUED.value,
+                retries,
+                available_at,
+                kind,
+                json.dumps(handler_data),
+                now,
+                task_id,
+            ),
+        )
+
+    async def list_active_tasks(self) -> list[Task]:
+        """Tasks currently in a non-terminal active state. Used by the reaper."""
+        active_states = (
+            TaskStatus.TRIAGING.value,
+            TaskStatus.EXECUTING.value,
+            TaskStatus.VERIFYING.value,
+            TaskStatus.DELIVERING.value,
+        )
+        placeholders = ", ".join("?" for _ in active_states)
+        rows = await self._db.fetch_all(
+            f"SELECT * FROM tasks WHERE status IN ({placeholders})",
+            active_states,
+        )
+        return [Task.from_row(row) for row in rows]
+
+    async def clear_for_retry(self, task_id: str):
+        """Manual retry: reset the retry budget and backoff gate, requeue now."""
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "UPDATE tasks SET status = ?, retries = 0, available_at = NULL, "
+            "failure_kind = NULL, updated_at = ? WHERE id = ?",
+            (TaskStatus.QUEUED.value, now, task_id),
         )
 
     # --- Chat messages ---

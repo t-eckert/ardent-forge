@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     handler_data TEXT NOT NULL DEFAULT '{}',
     result TEXT,
     retries INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    available_at TEXT,
+    failure_kind TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     completed_at TEXT
@@ -108,6 +111,9 @@ class Database:
         # SQLite has no "ADD COLUMN IF NOT EXISTS" — swallow duplicate-column.
         for alter in (
             "ALTER TABLE thread_messages ADD COLUMN tool_use_id TEXT",
+            "ALTER TABLE tasks ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3",
+            "ALTER TABLE tasks ADD COLUMN available_at TEXT",
+            "ALTER TABLE tasks ADD COLUMN failure_kind TEXT",
         ):
             try:
                 await self._conn.execute(alter)
