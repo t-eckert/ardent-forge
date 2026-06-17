@@ -40,6 +40,7 @@ class CodeAgent:
     task_type = "code"
     stages = ["triage", "execute", "verify", "deliver"]
     connectors = ["github", "onepassword"]
+    timeout_seconds = 3600
 
     def __init__(
         self,

@@ -70,6 +70,10 @@ class Agent(Protocol):
     task_type: str
     stages: list[Stage]
     connectors: list[str]
+    # Optional: max wall-clock seconds for a producing stage before the
+    # coordinator times the task out. Falls back to FORGE_DEFAULT_TIMEOUT_SECONDS
+    # when an agent does not declare it.
+    timeout_seconds: int
 
     async def execute(self, task: "Task", ctx: AgentContext) -> dict: ...
 

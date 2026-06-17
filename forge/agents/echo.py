@@ -7,6 +7,7 @@ class EchoAgent(Agent):
     task_type = "echo"
     stages = ["execute"]
     connectors: list[str] = []
+    timeout_seconds = 60
 
     async def execute(self, task: Task, ctx: AgentContext) -> dict:
         return {"message": f"Echo: {task.title}"}
