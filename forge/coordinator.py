@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 
 from forge.agents import AgentContext, AgentRegistry
 from forge.connectors import ConnectorRegistry
@@ -20,6 +21,8 @@ from forge.metrics import (
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.state import transition
 from forge.store import TaskStore
+from forge import retry
+from forge.zellij import kill_session
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,14 @@ class Coordinator:
         self._poller = poller
         self._watchers = watchers or []
         self._orchestrator = orchestrator
+        # Resilience config — read from settings with safe fallbacks for tests
+        # that construct the coordinator without a Settings object.
+        self._max_retries = getattr(settings, "max_retries", 3) if settings else 3
+        self._retry_base = getattr(settings, "retry_base_seconds", 60) if settings else 60
+        self._retry_cap = getattr(settings, "retry_max_seconds", 900) if settings else 900
+        self._default_timeout = (
+            getattr(settings, "default_timeout_seconds", 1800) if settings else 1800
+        )
         # Wake signal — chat.py sets this after dispatching a task so the
         # coordinator starts processing within seconds instead of waiting for
         # the next poll tick. Created lazily on first loop entry so it binds
@@ -146,6 +157,46 @@ class Coordinator:
             tools = self._connectors.tools_for(agent.connectors)
         return AgentContext(tools=tools, store=self._store, settings=self._settings)
 
+    def _effective_timeout(self, task: Task, agent) -> float:
+        """Resolve the timeout for a producing stage: per-task override →
+        agent default → global default."""
+        override = (task.handler_data or {}).get("timeout_seconds")
+        if override:
+            return float(override)
+        return float(getattr(agent, "timeout_seconds", None) or self._default_timeout)
+
+    async def _fail_or_retry(self, task: Task, error: str, kind: str) -> None:
+        """Single funnel for every failure. Tears down any orphaned Zellij
+        session, then requeues with backoff (retryable + budget left) or marks
+        the task terminally failed."""
+        session = (task.handler_data or {}).get("zellij_session")
+        if session:
+            try:
+                await kill_session(session)
+            except Exception:
+                logger.exception("kill_session failed for %s", session)
+
+        if retry.is_retryable(kind) and task.retries < self._max_retries:
+            next_attempt = task.retries + 1
+            delay = retry.backoff(next_attempt, self._retry_base, self._retry_cap)
+            available_at = (
+                datetime.now(timezone.utc) + timedelta(seconds=delay)
+            ).isoformat()
+            await self._store.requeue(
+                task.id,
+                retries=next_attempt,
+                available_at=available_at,
+                error=error,
+                kind=kind,
+            )
+            logger.info(
+                "Requeued task %s (attempt %d/%d, kind=%s, backoff=%ss)",
+                task.id, next_attempt, self._max_retries, kind, delay,
+            )
+        else:
+            await self._store.mark_failed(task.id, error=error, kind=kind)
+            TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+
     async def process_pending(self) -> int:
         pending = await self._store.list_pending(limit=self._max_concurrent)
         QUEUE_DEPTH.set(len(pending))
@@ -159,10 +210,11 @@ class Coordinator:
                 logger.warning(
                     f"No agent for task type '{task.type}', failing task {task.id}"
                 )
-                await self._store.mark_failed(
-                    task.id, error=f"No agent registered for type '{task.type}'"
+                await self._fail_or_retry(
+                    task,
+                    error=f"No agent registered for type '{task.type}'",
+                    kind=retry.TERMINAL,
                 )
-                TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                 tasks_processed += 1
                 continue
 
@@ -194,11 +246,11 @@ class Coordinator:
                         reason = None
                         if reloaded is not None:
                             reason = (reloaded.handler_data or {}).get("triage_reason")
-                        await self._store.mark_failed(
-                            task.id,
+                        await self._fail_or_retry(
+                            task,
                             error=reason or "Agent declined task during triage",
+                            kind=retry.DECLINED,
                         )
-                        TASKS_TOTAL.labels(type=task.type, status="failed").inc()
                         continue
 
                 # Execute — always present per AgentRegistry validation.
@@ -207,7 +259,10 @@ class Coordinator:
                 current_status = new_status
 
                 stage_start = time.monotonic()
-                result = await agent.execute(task, ctx)
+                result = await asyncio.wait_for(
+                    agent.execute(task, ctx),
+                    timeout=self._effective_timeout(task, agent),
+                )
                 TASK_STAGE_DURATION_SECONDS.labels(stage="execute").observe(
                     time.monotonic() - stage_start
                 )
@@ -227,8 +282,9 @@ class Coordinator:
                         time.monotonic() - stage_start
                     )
                     if not verified:
-                        await self._store.mark_failed(task.id, error="Verification failed")
-                        TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+                        await self._fail_or_retry(
+                            task, error="Verification failed", kind=retry.VERIFICATION
+                        )
                         continue
 
                 # Deliver — optional.
@@ -238,7 +294,10 @@ class Coordinator:
                     current_status = new_status
 
                     stage_start = time.monotonic()
-                    delivery = await agent.deliver(task, ctx)
+                    delivery = await asyncio.wait_for(
+                        agent.deliver(task, ctx),
+                        timeout=self._effective_timeout(task, agent),
+                    )
                     TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
                         time.monotonic() - stage_start
                     )
@@ -273,10 +332,13 @@ class Coordinator:
                             "Failed to post Linear result for task %s", task.id
                         )
 
+            except TimeoutError as e:
+                logger.warning("Task %s timed out: %s", task.id, e)
+                await self._fail_or_retry(task, error=str(e), kind=retry.TIMEOUT)
+                HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
             except Exception as e:
                 logger.exception(f"Error processing task {task.id}")
-                await self._store.mark_failed(task.id, error=str(e))
-                TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+                await self._fail_or_retry(task, error=str(e), kind=retry.TRANSIENT)
                 HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
             finally:
                 ACTIVE_TASKS.dec()

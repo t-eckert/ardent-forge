@@ -127,3 +127,104 @@ async def test_coordinator_calls_extra_watchers_in_tick():
     await coord.tick()
     w1.poll.assert_awaited_once()
     w2.poll.assert_awaited_once()
+
+
+from unittest.mock import patch
+
+
+class BoomAgent:
+    name = "boom"
+    task_type = "boom"
+    stages = ["execute"]
+    connectors: list[str] = []
+    timeout_seconds = 60
+
+    async def execute(self, task, ctx):
+        raise RuntimeError("kaboom")
+
+
+class SlowAgent:
+    name = "slow"
+    task_type = "slow"
+    stages = ["execute"]
+    connectors: list[str] = []
+    timeout_seconds = 60
+
+    async def execute(self, task, ctx):
+        import asyncio
+        await asyncio.sleep(5)
+        return {}
+
+
+async def _save(store, type_):
+    t = Task.new(task_type=TaskType.ECHO, source=TaskSource.CHAT, title="t", description="d")
+    t = t.model_copy(update={"type": type_})
+    await store.save(t)
+    return t
+
+
+async def test_transient_exception_requeues_with_backoff(store):
+    reg = AgentRegistry()
+    reg.register(BoomAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "boom")
+    await coord.process_pending()
+
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.QUEUED       # requeued, not failed
+    assert loaded.retries == 1
+    assert loaded.failure_kind == "transient"
+    assert loaded.available_at is not None          # backoff gate set
+
+
+async def test_retries_exhaust_to_terminal_failure(store):
+    reg = AgentRegistry()
+    reg.register(BoomAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "boom")
+    # max_retries default 3 → fails on attempts producing retries 1,2,3 then terminal.
+    # Clear the backoff gate before each loop so the task is dequeuable, and stop
+    # once it has reached the terminal FAILED state.
+    for _ in range(5):
+        current = await store.get(task.id)
+        if current.status == TaskStatus.FAILED:
+            break
+        await store._db.execute(
+            "UPDATE tasks SET available_at = NULL WHERE id = ?", (task.id,)
+        )
+        await coord.process_pending()
+
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.FAILED
+    assert loaded.retries == 3
+    assert loaded.failure_kind == "transient"
+
+
+async def test_timeout_classified_and_requeued(store):
+    reg = AgentRegistry()
+    reg.register(SlowAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "slow")
+    # Per-task override to force a fast timeout.
+    await store.update_handler_data(task.id, {"timeout_seconds": 0.05})
+    await coord.process_pending()
+
+    loaded = await store.get(task.id)
+    assert loaded.status == TaskStatus.QUEUED
+    assert loaded.failure_kind == "timeout"
+
+
+async def test_code_task_session_killed_before_retry(store):
+    reg = AgentRegistry()
+    reg.register(BoomAgent())
+    coord = Coordinator(store=store, registry=reg, max_concurrent=2)
+
+    task = await _save(store, "boom")
+    await store.update_handler_data(task.id, {"zellij_session": "agent-x"})
+
+    with patch("forge.coordinator.kill_session") as mock_kill:
+        await coord.process_pending()
+        mock_kill.assert_awaited_once_with("agent-x")
