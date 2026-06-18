@@ -26,7 +26,8 @@ claude mcp add --transport http forge https://ardent-forge.feist-gondola.ts.net/
 # Frontend (Node 22, pnpm)
 cd ui
 pnpm dev                              # Dev server (port 5180)
-pnpm dev   # against the box: cp ui/.env.local.example ui/.env.local first (proxies /api over Tailscale)
+                                      # Hybrid (UI on another machine, API on the box over Tailscale):
+                                      #   cp ui/.env.local.example ui/.env.local, then pnpm dev
 pnpm build                            # Production build
 pnpm check                            # Svelte typecheck
 pnpm test                             # Unit + Storybook tests (needs chromium)
