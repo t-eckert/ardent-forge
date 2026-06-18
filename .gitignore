@@ -26,3 +26,7 @@ ui/test-results/
 ui/playwright-report/
 ui/blob-report/
 ui/playwright/.cache/
+
+# Per-machine UI dev config (e.g. VITE_API_PROXY pointing at the box)
+ui/.env.local
+ui/.env.*.local

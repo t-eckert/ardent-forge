@@ -26,6 +26,8 @@ claude mcp add --transport http forge https://ardent-forge.feist-gondola.ts.net/
 # Frontend (Node 22, pnpm)
 cd ui
 pnpm dev                              # Dev server (port 5180)
+                                      # Hybrid (UI on another machine, API on the box over Tailscale):
+                                      #   cp ui/.env.local.example ui/.env.local, then pnpm dev
 pnpm build                            # Production build
 pnpm check                            # Svelte typecheck
 pnpm test                             # Unit + Storybook tests (needs chromium)
@@ -79,7 +81,7 @@ SvelteKit 2 + Svelte 5 + Tailwind CSS 4 + TypeScript. Static adapter. Component 
 
 Routes: `today/` (Dashboard), `threads/`, `tasks/`, `library/` (agents, connectors, memory, repos, schedules, log). Shared code in `ui/src/lib/`. Storybook for component development. Playwright E2E tests fall back to mock data when API is unreachable.
 
-API proxy configured via `VITE_API_PROXY` env var (defaults to `http://localhost:7030`).
+API proxy configured via `VITE_API_PROXY` env var (defaults to `http://localhost:7030`). For hybrid dev — running the UI on another machine (e.g. a Mac, for design tools like Paper) against the live Forge on the box — copy `ui/.env.local.example` to `ui/.env.local`; `vite.config.ts` resolves the target via `loadEnv`, so plain `pnpm dev` then proxies `/api` and `/health` to the box over Tailscale. An inline `VITE_API_PROXY=... pnpm dev` still overrides the file.
 
 ### Tests: `tests/`
 
