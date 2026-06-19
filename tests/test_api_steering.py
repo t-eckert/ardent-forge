@@ -80,11 +80,8 @@ async def test_cancel_unknown_404(client):
     assert resp.status_code == 404
 
 
-import os
-
-
 async def test_follow_up_creates_linked_task(client, tmp_path):
-    c, store, _ = client
+    c, store, nudged = client
     wt = tmp_path / "wt"
     wt.mkdir()
     parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r", require_approval=True)
@@ -99,6 +96,22 @@ async def test_follow_up_creates_linked_task(client, tmp_path):
     assert body["repo"] == "o/r"
     assert body["require_approval"] is True
     assert body["status"] == "queued"
+    # The coordinator must be nudged so the follow-up runs promptly, not on the next poll.
+    assert nudged["count"] == 1
+
+
+async def test_follow_up_allowed_at_approval_gate(client, tmp_path):
+    c, store, _ = client
+    wt = tmp_path / "wt-gate"
+    wt.mkdir()
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_status(parent.id, TaskStatus.AWAITING_APPROVAL)
+    await store.update_handler_data(parent.id, {"worktree_path": str(wt)})
+
+    resp = await c.post(f"/api/tasks/{parent.id}/follow-up", json={"prompt": "tweak it"})
+    assert resp.status_code == 200
+    assert resp.json()["continues_task_id"] == parent.id
 
 
 async def test_follow_up_rejects_active_parent(client, tmp_path):
