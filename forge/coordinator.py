@@ -123,6 +123,11 @@ class Coordinator:
         except Exception:
             logger.exception("Error reaping stuck tasks")
 
+        try:
+            await self.resume_approved_deliveries()
+        except Exception:
+            logger.exception("Error resuming approved deliveries")
+
         result = await self.process_pending()
         TICK_DURATION_SECONDS.observe(time.monotonic() - tick_start)
         return result
@@ -208,6 +213,56 @@ class Coordinator:
         else:
             await self._store.mark_failed(task.id, error=error, kind=kind)
             TASKS_TOTAL.labels(type=task.type, status="failed").inc()
+
+    async def _deliver_and_complete(self, task: Task, agent, ctx: AgentContext, aggregated: dict) -> None:
+        """Run the deliver stage (if any), mark completed, post to Linear.
+        Shared by the normal pipeline and the post-approval resume pass."""
+        stages = agent.stages
+        if "deliver" in stages:
+            if task.status != TaskStatus.DELIVERING:
+                await self._store.update_status(
+                    task.id, transition(task.status, TaskStatus.DELIVERING)
+                )
+            stage_start = time.monotonic()
+            delivery = await asyncio.wait_for(
+                agent.deliver(task, ctx),
+                timeout=self._effective_timeout(task, agent),
+            )
+            TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
+                time.monotonic() - stage_start
+            )
+            aggregated = {**aggregated, **(delivery or {})}
+
+        await self._store.mark_completed(task.id, aggregated)
+        TASKS_TOTAL.labels(type=task.type, status="completed").inc()
+
+        reloaded = await self._store.get(task.id)
+        if self._poller is not None and reloaded is not None:
+            try:
+                await self._poller.post_result(reloaded)
+            except Exception:
+                logger.exception("Failed to post Linear result for task %s", task.id)
+
+    async def resume_approved_deliveries(self) -> int:
+        """Finish tasks approved after an approval-gate pause. Such a task sits
+        in `delivering` (set by mark_approved) with its execute/verify results
+        already in handler_data; run only its deliver stage + complete. The
+        normal pipeline never leaves a task in `delivering` between ticks, so
+        this only catches post-approval resumes."""
+        resumed = 0
+        for task in await self._store.list_by_status(TaskStatus.DELIVERING):
+            agent = self._registry.get(task.type)
+            if agent is None:
+                continue
+            ctx = self._build_context(agent)
+            aggregated = dict(task.handler_data or {})
+            try:
+                await self._deliver_and_complete(task, agent, ctx, aggregated)
+                resumed += 1
+            except Exception:
+                logger.exception("Resume-deliver failed for task %s", task.id)
+                await self._fail_or_retry(task, error="deliver failed after approval", kind=retry.TERMINAL)
+        return resumed
 
     async def reap_stuck_tasks(self) -> int:
         """Backstop for tasks orphaned by a crash/restart: any task stuck in an
@@ -329,37 +384,17 @@ class Coordinator:
                         )
                         continue
 
-                # Deliver — optional.
-                if "deliver" in stages:
-                    new_status = transition(current_status, TaskStatus.DELIVERING)
-                    await self._store.update_status(task.id, new_status)
-                    current_status = new_status
-
-                    stage_start = time.monotonic()
-                    delivery = await asyncio.wait_for(
-                        agent.deliver(task, ctx),
-                        timeout=self._effective_timeout(task, agent),
+                # Approval gate — park before deliver if the task opted in.
+                if task.require_approval and "deliver" in stages:
+                    await self._store.update_status(
+                        task.id, transition(current_status, TaskStatus.AWAITING_APPROVAL)
                     )
-                    TASK_STAGE_DURATION_SECONDS.labels(stage="deliver").observe(
-                        time.monotonic() - stage_start
-                    )
-                    aggregated = {**aggregated, **(delivery or {})}
+                    continue
 
-                await self._store.mark_completed(task.id, aggregated)
-                TASKS_TOTAL.labels(type=task.type, status="completed").inc()
+                await self._deliver_and_complete(task, agent, ctx, aggregated)
                 TASK_DURATION_SECONDS.labels(type=task.type).observe(
                     time.monotonic() - task_start
                 )
-
-                # Post PR link back to Linear for LINEAR-sourced tasks.
-                reloaded = await self._store.get(task.id)
-                if self._poller is not None and reloaded is not None:
-                    try:
-                        await self._poller.post_result(reloaded)
-                    except Exception:
-                        logger.exception(
-                            "Failed to post Linear result for task %s", task.id
-                        )
 
             except TimeoutError as e:
                 logger.warning("Task %s timed out: %s", task.id, e)
