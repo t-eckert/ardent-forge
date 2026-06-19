@@ -51,6 +51,7 @@ class Task(BaseModel):
     available_at: datetime | None = None
     failure_kind: str | None = None
     require_approval: bool = False
+    continues_task_id: str | None = None
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None = None
@@ -65,6 +66,7 @@ class Task(BaseModel):
         repo: str | None = None,
         source_id: str | None = None,
         require_approval: bool = False,
+        continues_task_id: str | None = None,
     ) -> "Task":
         now = datetime.now(timezone.utc)
         return cls(
@@ -77,6 +79,7 @@ class Task(BaseModel):
             title=title,
             description=description,
             require_approval=require_approval,
+            continues_task_id=continues_task_id,
             created_at=now,
             updated_at=now,
         )
@@ -100,6 +103,7 @@ class Task(BaseModel):
             ),
             "failure_kind": self.failure_kind,
             "require_approval": int(self.require_approval),
+            "continues_task_id": self.continues_task_id,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "completed_at": (
@@ -133,6 +137,7 @@ class Task(BaseModel):
             ),
             failure_kind=row.get("failure_kind"),
             require_approval=bool(row.get("require_approval", 0)),
+            continues_task_id=row.get("continues_task_id"),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             completed_at=(
