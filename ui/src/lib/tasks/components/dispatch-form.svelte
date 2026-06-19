@@ -9,6 +9,8 @@
 		agentTypes?: string[];
 	}
 
+	// 'tickets' is intentionally omitted — it's Linear-driven (synced from issues),
+	// not meaningfully dispatchable from a free-text prompt here.
 	let { repos = [], agentTypes = ['code', 'plan', 'echo'] }: Props = $props();
 
 	let prompt = $state('');
@@ -33,6 +35,7 @@
 			await goto(`/tasks/${task.id}`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to dispatch task';
+		} finally {
 			sending = false;
 		}
 	}
@@ -52,6 +55,7 @@
 	<textarea
 		bind:value={prompt}
 		onkeydown={onkey}
+		aria-label="Task prompt"
 		placeholder="Describe the work — e.g. 'add a /health/ready endpoint and a test'"
 		rows="3"
 		class="w-full resize-none bg-transparent text-sm text-[var(--color-ink)] outline-none placeholder:text-[var(--color-graphite)]"
@@ -59,6 +63,7 @@
 	<div class="flex items-center gap-2">
 		<select
 			bind:value={repo}
+			aria-label="Repository"
 			class="bg-[var(--color-paper)] border border-[var(--color-border)] rounded px-2 py-1 text-[12px]"
 		>
 			<option value="">(no repo)</option>
@@ -68,6 +73,7 @@
 		</select>
 		<select
 			bind:value={agentType}
+			aria-label="Agent type"
 			class="bg-[var(--color-paper)] border border-[var(--color-border)] rounded px-2 py-1 text-[12px]"
 		>
 			{#each agentTypes as a (a)}
