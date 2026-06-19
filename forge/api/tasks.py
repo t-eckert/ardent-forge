@@ -90,6 +90,55 @@ async def retry_task(task_id: str):
     return _task_dict(updated)
 
 
+_TERMINAL = {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}
+
+
+async def _kill_session_if_any(task) -> None:
+    session = (task.handler_data or {}).get("zellij_session")
+    if session:
+        await kill_session(session)
+
+
+@router.post("/{task_id}/cancel")
+async def cancel_task(task_id: str):
+    store = get_store()
+    task = await store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status in _TERMINAL:
+        raise HTTPException(status_code=409, detail=f"Cannot cancel a {task.status.value} task")
+    await _kill_session_if_any(task)
+    await store.mark_cancelled(task_id)
+    return _task_dict(await store.get(task_id))
+
+
+@router.post("/{task_id}/approve")
+async def approve_task(task_id: str):
+    store = get_store()
+    task = await store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status != TaskStatus.AWAITING_APPROVAL:
+        raise HTTPException(status_code=409, detail=f"Only awaiting_approval tasks can be approved (status={task.status.value})")
+    await store.mark_approved(task_id)
+    if _coordinator is not None and hasattr(_coordinator, "nudge"):
+        _coordinator.nudge()
+    return _task_dict(await store.get(task_id))
+
+
+@router.post("/{task_id}/reject")
+async def reject_task(task_id: str):
+    store = get_store()
+    task = await store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status != TaskStatus.AWAITING_APPROVAL:
+        raise HTTPException(status_code=409, detail=f"Only awaiting_approval tasks can be rejected (status={task.status.value})")
+    await _kill_session_if_any(task)
+    await store.mark_cancelled(task_id)
+    return _task_dict(await store.get(task_id))
+
+
 @router.get("/{task_id}")
 async def get_task(task_id: str):
     store = get_store()
