@@ -142,3 +142,27 @@ async def test_follow_up_missing_parent_404(client):
     c, _, _ = client
     resp = await c.post("/api/tasks/does-not-exist/follow-up", json={"prompt": "x"})
     assert resp.status_code == 404
+
+
+async def test_follow_up_carries_parent_worktree_keys(client, tmp_path):
+    c, store, _ = client
+    wt = tmp_path / "wt-keys"
+    wt.mkdir()
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_status(parent.id, TaskStatus.COMPLETED)
+    await store.update_handler_data(parent.id, {
+        "worktree_path": str(wt),
+        "repo_path": str(tmp_path / "repo"),
+        "branch_name": "forge/parent",
+    })
+
+    resp = await c.post(f"/api/tasks/{parent.id}/follow-up", json={"prompt": "x"})
+    assert resp.status_code == 200
+    body = resp.json()
+    hd = body["handler_data"]
+    # Carried forward so the worktree reaper sees the queued follow-up as a live
+    # reference and won't reclaim the worktree before it runs.
+    assert hd["worktree_path"] == str(wt)
+    assert hd["repo_path"] == str(tmp_path / "repo")
+    assert hd["branch_name"] == "forge/parent"

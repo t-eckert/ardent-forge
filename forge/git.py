@@ -113,7 +113,8 @@ class GitOps:
                  "--json", "url", "-q", ".[0].url"],
                 cwd=worktree_path,
             )
-        except RuntimeError:
+        except RuntimeError as e:
+            logger.warning("gh pr lookup failed for %s (treating as no PR): %s", worktree_path, e)
             return None
         url = out.strip()
         return url or None

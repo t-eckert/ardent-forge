@@ -179,6 +179,16 @@ async def follow_up_task(task_id: str, req: FollowUpRequest):
         require_approval=parent.require_approval,
         continues_task_id=parent.id,
     )
+    # Carry the parent's worktree references forward so the worktree reaper sees
+    # this queued follow-up as a live reference (QUEUED is an ACTIVE_STATE) and
+    # won't reclaim the worktree before the follow-up executes. The Code agent
+    # still resolves the worktree from the parent at execute time.
+    pdata = parent.handler_data or {}
+    follow_up.handler_data = {
+        k: pdata[k]
+        for k in ("worktree_path", "repo_path", "branch_name")
+        if k in pdata
+    }
     await store.save(follow_up)
 
     if _coordinator is not None and hasattr(_coordinator, "nudge"):

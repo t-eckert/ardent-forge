@@ -68,3 +68,12 @@ def test_skips_group_without_repo_path():
         "handler_data": {"worktree_path": "/repo/.worktrees/forge/a"},  # no repo_path
     })
     assert reapable_worktrees([t], now, timedelta(hours=48)) == []
+
+
+def test_queued_followup_protects_worktree():
+    now = datetime(2026, 6, 19, 12, 0, tzinfo=timezone.utc)
+    old = now - timedelta(hours=72)
+    wt = "/repo/.worktrees/forge/a"
+    parent = _task(TaskStatus.COMPLETED, old, wt)
+    followup = _task(TaskStatus.QUEUED, old, wt)  # queued, shares the worktree
+    assert reapable_worktrees([parent, followup], now, timedelta(hours=48)) == []
