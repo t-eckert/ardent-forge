@@ -175,30 +175,6 @@ class TaskStore:
             (TaskStatus.QUEUED.value, now, task_id),
         )
 
-    # --- Chat messages ---
-
-    async def save_chat_message(
-        self, role: str, content: str, task_id: str | None = None
-    ) -> str:
-        import ulid as _ulid
-
-        msg_id = str(_ulid.new())
-        now = datetime.now(timezone.utc).isoformat()
-        await self._db.execute(
-            "INSERT INTO chat_messages (id, role, content, task_id, created_at) VALUES (?, ?, ?, ?, ?)",
-            (msg_id, role, content, task_id, now),
-        )
-        return msg_id
-
-    async def list_chat_messages(self, limit: int = 200) -> list[dict]:
-        return await self._db.fetch_all(
-            "SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT ?",
-            (limit,),
-        )
-
-    async def clear_chat_messages(self):
-        await self._db.execute("DELETE FROM chat_messages")
-
     # --- Schedules ---
 
     async def save_schedule(

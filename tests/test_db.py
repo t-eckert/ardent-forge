@@ -16,7 +16,6 @@ async def test_initialize_creates_tables(db: Database):
     table_names = [row["name"] for row in tables]
     assert "tasks" in table_names
     assert "task_logs" in table_names
-    assert "chat_messages" in table_names
     assert "schedules" in table_names
 
 
