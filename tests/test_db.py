@@ -1,6 +1,7 @@
 import pytest
 
 from forge.db import Database
+from forge.store import TaskStore
 
 
 @pytest.fixture
@@ -9,6 +10,11 @@ async def db():
     await database.initialize()
     yield database
     await database.close()
+
+
+@pytest.fixture
+def store(db):
+    return TaskStore(db)
 
 
 async def test_initialize_creates_tables(db: Database):
@@ -57,3 +63,12 @@ async def test_tasks_table_has_resilience_columns():
         assert {"max_retries", "available_at", "failure_kind"} <= names
     finally:
         await db.close()
+
+
+async def test_task_require_approval_roundtrips(store):
+    from forge.models import Task, TaskType, TaskSource
+    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="gated", description="needs approval", require_approval=True)
+    await store.save(task)
+    loaded = await store.get(task.id)
+    assert loaded is not None
+    assert loaded.require_approval is True

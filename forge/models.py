@@ -14,6 +14,8 @@ class TaskStatus(StrEnum):
     DELIVERING = "delivering"
     COMPLETED = "completed"
     FAILED = "failed"
+    AWAITING_APPROVAL = "awaiting_approval"
+    CANCELLED = "cancelled"
 
 
 class TaskType(StrEnum):
@@ -48,6 +50,7 @@ class Task(BaseModel):
     max_retries: int = 3
     available_at: datetime | None = None
     failure_kind: str | None = None
+    require_approval: bool = False
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None = None
@@ -61,6 +64,7 @@ class Task(BaseModel):
         description: str,
         repo: str | None = None,
         source_id: str | None = None,
+        require_approval: bool = False,
     ) -> "Task":
         now = datetime.now(timezone.utc)
         return cls(
@@ -72,6 +76,7 @@ class Task(BaseModel):
             repo=repo,
             title=title,
             description=description,
+            require_approval=require_approval,
             created_at=now,
             updated_at=now,
         )
@@ -94,6 +99,7 @@ class Task(BaseModel):
                 self.available_at.isoformat() if self.available_at else None
             ),
             "failure_kind": self.failure_kind,
+            "require_approval": int(self.require_approval),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "completed_at": (
@@ -126,6 +132,7 @@ class Task(BaseModel):
                 else None
             ),
             failure_kind=row.get("failure_kind"),
+            require_approval=bool(row.get("require_approval", 0)),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             completed_at=(

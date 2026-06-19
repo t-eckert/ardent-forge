@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     max_retries INTEGER NOT NULL DEFAULT 3,
     available_at TEXT,
     failure_kind TEXT,
+    require_approval INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     completed_at TEXT
@@ -68,6 +69,7 @@ class Database:
             "ALTER TABLE tasks ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3",
             "ALTER TABLE tasks ADD COLUMN available_at TEXT",
             "ALTER TABLE tasks ADD COLUMN failure_kind TEXT",
+            "ALTER TABLE tasks ADD COLUMN require_approval INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 await self._conn.execute(alter)
