@@ -43,11 +43,11 @@ export const DeepWithLive: Story = {
 	}
 };
 
-export const Thread: Story = {
-	name: 'D · thread (named conversation)',
+export const Task: Story = {
+	name: 'D · task detail',
 	args: {
 		trail: [
-			{ label: 'Threads', href: '/threads' },
+			{ label: 'Tasks', href: '/tasks' },
 			{ label: 'Morning briefing' }
 		],
 		statusChip: { label: 'code+tools', tone: 'ember' },

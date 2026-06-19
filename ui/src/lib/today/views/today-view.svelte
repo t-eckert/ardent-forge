@@ -191,7 +191,7 @@
 						<Heading size="md">Repos</Heading>
 						<Meta size="sm">{repos.length} SCANNED</Meta>
 					</div>
-					<a href="/library/repos" class="font-mono text-[11px] text-[var(--color-ember-deep)]">all →</a>
+					<a href="/repos" class="font-mono text-[11px] text-[var(--color-ember-deep)]">all →</a>
 				</header>
 				{#if repos.length === 0}
 					<Body size="sm" muted>No repos found in workspace.</Body>
