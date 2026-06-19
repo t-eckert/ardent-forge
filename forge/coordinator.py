@@ -249,6 +249,11 @@ class Coordinator:
         already in handler_data; run only its deliver stage + complete. The
         normal pipeline never leaves a task in `delivering` between ticks, so
         this only catches post-approval resumes."""
+        # Note: TASK_DURATION_SECONDS is deliberately NOT observed here. A gated
+        # task's end-to-end duration would include human approval wait time,
+        # which is not comparable to ungated task latency — a metric hole is more
+        # honest than a think-time-polluted histogram. TASKS_TOTAL still counts
+        # the completion (via _deliver_and_complete).
         resumed = 0
         for task in await self._store.list_by_status(TaskStatus.DELIVERING):
             agent = self._registry.get(task.type)
@@ -259,9 +264,17 @@ class Coordinator:
             try:
                 await self._deliver_and_complete(task, agent, ctx, aggregated)
                 resumed += 1
-            except Exception:
+            except TimeoutError as e:
+                # Mirror the normal pipeline: deliver is a producing stage and can
+                # transiently fail/timeout, so preserve the task's retry budget
+                # rather than failing it terminally on the first hiccup.
+                logger.warning("Resume-deliver timed out for task %s: %s", task.id, e)
+                await self._fail_or_retry(task, error=str(e), kind=retry.TIMEOUT)
+                HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
+            except Exception as e:
                 logger.exception("Resume-deliver failed for task %s", task.id)
-                await self._fail_or_retry(task, error="deliver failed after approval", kind=retry.TERMINAL)
+                await self._fail_or_retry(task, error=str(e), kind=retry.TRANSIENT)
+                HANDLER_ERRORS_TOTAL.labels(type=task.type).inc()
         return resumed
 
     async def reap_stuck_tasks(self) -> int:
@@ -390,6 +403,16 @@ class Coordinator:
                         task.id, transition(current_status, TaskStatus.AWAITING_APPROVAL)
                     )
                     continue
+                if task.require_approval and "deliver" not in stages:
+                    # The gate only has meaning before a deliver stage; an
+                    # execute/verify-only agent has nothing to gate. Don't
+                    # silently honor the flag — surface that it was a no-op.
+                    logger.warning(
+                        "Task %s requested approval but agent %s has no deliver "
+                        "stage; completing without a gate",
+                        task.id,
+                        task.type,
+                    )
 
                 await self._deliver_and_complete(task, agent, ctx, aggregated)
                 TASK_DURATION_SECONDS.labels(type=task.type).observe(

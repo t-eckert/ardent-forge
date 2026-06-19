@@ -119,6 +119,12 @@ async def test_coordinator_calls_extra_watchers_in_tick():
         async def list_active_tasks(self):
             return []
 
+        async def list_by_status(self, status):
+            return []
+
+        async def list_due_schedules(self, now):
+            return []
+
     store = FakeStore()
     registry = AgentRegistry()
     w1 = AsyncMock()

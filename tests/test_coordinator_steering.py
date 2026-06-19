@@ -65,3 +65,43 @@ async def test_resume_delivers_approved_task(setup):
     loaded = await store.get(task.id)
     assert loaded.status == TaskStatus.COMPLETED
     assert loaded.result.get("delivered") is True
+
+
+class FailDeliverAgent:
+    """execute+verify ok, deliver raises — to exercise resume error handling."""
+    name = "faildeliver"
+    task_type = "code"
+    stages = ["execute", "verify", "deliver"]
+    connectors: list = []
+    timeout_seconds = 60
+
+    async def execute(self, task, ctx):
+        return {"executed": True}
+
+    async def verify(self, task, ctx):
+        return True
+
+    async def deliver(self, task, ctx):
+        raise RuntimeError("deliver boom")
+
+
+async def test_resume_deliver_failure_retries_not_terminal():
+    # A transient deliver failure on the resume path must preserve the retry
+    # budget (requeue), mirroring the normal pipeline — not fail terminally.
+    db = Database(":memory:")
+    await db.initialize()
+    store = TaskStore(db)
+    registry = AgentRegistry()
+    registry.register(FailDeliverAgent())
+    coord = Coordinator(store=store, registry=registry, connectors=None, settings=None, max_concurrent=2)
+    try:
+        task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", require_approval=True)
+        await store.save(task)
+        await coord.process_pending()  # parks at awaiting_approval
+        await store.mark_approved(task.id)  # -> delivering
+        await coord.resume_approved_deliveries()  # deliver raises
+        loaded = await store.get(task.id)
+        # retry.TRANSIENT with budget remaining => requeued, not terminally failed
+        assert loaded.status == TaskStatus.QUEUED
+    finally:
+        await db.close()
