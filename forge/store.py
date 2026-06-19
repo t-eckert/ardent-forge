@@ -166,6 +166,14 @@ class TaskStore:
         )
         return [Task.from_row(row) for row in rows]
 
+    async def list_tasks_with_worktrees(self) -> list[Task]:
+        """Tasks whose handler_data carries a worktree_path — candidates for the
+        worktree reaper. Low-volume single-box system, so a LIKE scan is fine."""
+        rows = await self._db.fetch_all(
+            "SELECT * FROM tasks WHERE handler_data LIKE '%\"worktree_path\"%'"
+        )
+        return [Task.from_row(row) for row in rows]
+
     async def mark_cancelled(self, task_id: str):
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute(

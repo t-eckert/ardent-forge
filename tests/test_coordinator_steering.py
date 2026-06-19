@@ -105,3 +105,49 @@ async def test_resume_deliver_failure_retries_not_terminal():
         assert loaded.status == TaskStatus.QUEUED
     finally:
         await db.close()
+
+
+from datetime import datetime, timedelta, timezone
+
+
+class _RecordingGit:
+    def __init__(self):
+        self.removed = []
+        self.pruned = []
+
+    async def cleanup_worktree(self, repo_path, worktree_path):
+        self.removed.append((repo_path, worktree_path))
+
+    async def prune_worktrees(self, repo_path):
+        self.pruned.append(repo_path)
+
+
+async def test_reap_old_worktrees_removes_stale(setup):
+    store, coord = setup
+    git = _RecordingGit()
+    coord._git = git
+    coord._worktree_ttl = timedelta(hours=48)
+
+    old = datetime.now(timezone.utc) - timedelta(hours=72)
+    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
+    task = task.model_copy(update={
+        "status": TaskStatus.COMPLETED,
+        "updated_at": old,
+        "handler_data": {"worktree_path": "/repo/.worktrees/forge/a", "repo_path": "/repo"},
+    })
+    await store.save(task)
+    # Backdate updated_at in the row in case save() stamps its own timestamp.
+    await store._db.execute(
+        "UPDATE tasks SET updated_at = ? WHERE id = ?", (old.isoformat(), task.id)
+    )
+
+    n = await coord.reap_old_worktrees()
+    assert n == 1
+    assert git.removed == [("/repo", "/repo/.worktrees/forge/a")]
+    assert git.pruned == ["/repo"]
+
+
+async def test_reap_old_worktrees_noop_without_git(setup):
+    store, coord = setup
+    coord._git = None
+    assert await coord.reap_old_worktrees() == 0

@@ -27,6 +27,7 @@ from forge.config import Settings
 from forge.connectors import ConnectorRegistry
 from forge.coordinator import Coordinator
 from forge.db import Database
+from forge.git import GitOps
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.memory import MemoryStore
@@ -273,6 +274,7 @@ def run():
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
             watchers=watchers,
+            git=GitOps(settings.workspace_dir),
         )
         app.state.coordinator = coordinator
         tasks.set_coordinator(coordinator)
