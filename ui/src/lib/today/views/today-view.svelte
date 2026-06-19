@@ -2,15 +2,12 @@
 	import { Heading, Eyebrow, Body, Meta } from '$lib/typography';
 	import { Card, StatusDot, Chip } from '$lib/components';
 	import Markdown from '$lib/components/markdown.svelte';
-	import { OpenThreads } from '$lib/today';
-	import type { Thread } from '$lib/schemas/thread';
 	import type { AgentRun } from '$lib/schemas/agent';
 	import type { Task } from '$lib/schemas/task';
 	import type { Repo, WeatherCurrent } from '$lib/api/typed';
 	import { formatRelative } from '$lib/utils/date';
 
 	interface Props {
-		threads?: Thread[];
 		activeTasks?: Task[];
 		queuedTasks?: Task[];
 		recentTasks?: AgentRun[];
@@ -21,7 +18,6 @@
 	}
 
 	let {
-		threads = [],
 		activeTasks = [],
 		queuedTasks = [],
 		recentTasks = [],
@@ -159,7 +155,7 @@
 			{/if}
 		</div>
 
-		<!-- Right column: weather + repos + threads -->
+		<!-- Right column: weather + repos -->
 		<div class="flex flex-col w-[360px] gap-7 flex-shrink-0">
 
 			<!-- Weather -->
@@ -213,8 +209,6 @@
 				{/if}
 			</section>
 
-			<!-- Open threads -->
-			<OpenThreads {threads} />
 		</div>
 	</div>
 </div>
