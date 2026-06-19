@@ -21,7 +21,6 @@
 	</div>
 	<Meta size="sm">
 		from {task.source}
-		{#if task.origin_thread_id} · thread <a href="/threads/{task.origin_thread_id}" class="underline">{task.origin_thread_id.slice(0, 8)}</a>{/if}
 		 · created {formatTime(task.created_at)}
 		{#if task.completed_at} · completed {formatTime(task.completed_at)}{/if}
 	</Meta>

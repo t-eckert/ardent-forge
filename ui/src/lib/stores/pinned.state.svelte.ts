@@ -10,7 +10,7 @@ export interface PinnedItem {
 	label: string;
 	href: string;
 	/** kind affects the glyph used by the sidebar row */
-	kind: 'thread' | 'note' | 'agent';
+	kind: 'note' | 'agent';
 }
 
 const DEFAULTS: PinnedItem[] = [];

@@ -28,6 +28,7 @@ class TaskSource(StrEnum):
     CHAT = "chat"
     SCHEDULE = "schedule"
     WEBHOOK = "webhook"
+    MANUAL = "manual"
 
 
 class Task(BaseModel):

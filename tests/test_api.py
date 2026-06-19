@@ -40,7 +40,7 @@ async def test_create_task(client):
     data = resp.json()
     assert data["title"] == "Test task"
     assert data["status"] == "queued"
-    assert data["source"] == "chat"
+    assert data["source"] == "manual"
     assert "id" in data
 
 

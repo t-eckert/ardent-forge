@@ -11,19 +11,12 @@ test.describe('smoke', () => {
 	test('Today renders the hero greeting + today panel', async ({ page }) => {
 		await page.goto('/today');
 		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-		// Mock threads list shows up in OpenThreads panel.
-		await expect(page.getByText(/overnight/i).first()).toBeVisible({ timeout: 10_000 });
 	});
 
-	test('Threads list renders and a thread is clickable', async ({ page }) => {
-		await page.goto('/threads');
-		// Mock threads are present — pick one and navigate.
-		const firstThread = page.locator('a[href^="/threads/"]').first();
-		await expect(firstThread).toBeVisible();
-		await firstThread.click();
-		await expect(page).toHaveURL(/\/threads\/[^/]+/);
-		// The composer input is present on thread detail.
-		await expect(page.getByRole('textbox', { name: /message/i })).toBeVisible();
+	test('Tasks landing shows the dispatch form', async ({ page }) => {
+		await page.goto('/tasks');
+		// The dispatch form replaced chat as the UI's task-creation surface.
+		await expect(page.getByText('DISPATCH A TASK')).toBeVisible({ timeout: 10_000 });
 	});
 
 	test('Library → Agents roster renders', async ({ page }) => {

@@ -9,7 +9,6 @@
 </script>
 
 <TodayView
-	threads={data.threads}
 	activeTasks={data.activeTasks}
 	queuedTasks={data.queuedTasks}
 	recentTasks={data.recentTasks}

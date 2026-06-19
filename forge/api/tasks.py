@@ -27,6 +27,14 @@ def get_store() -> TaskStore:
     return _store
 
 
+_coordinator: object | None = None
+
+
+def set_coordinator(coordinator: object) -> None:
+    global _coordinator
+    _coordinator = coordinator
+
+
 def _thread_store(request: Request) -> ThreadStore | None:
     return getattr(request.app.state, "thread_store", None)
 
@@ -59,13 +67,16 @@ async def create_task(req: CreateTaskRequest, request: Request):
             if req.type in TaskType.__members__.values()
             else req.type
         ),
-        source=TaskSource.CHAT,
+        source=TaskSource.MANUAL,
         title=req.title,
         description=req.description,
         repo=req.repo,
         source_id=req.source_id,
     )
     await store.save(task)
+
+    if _coordinator is not None and hasattr(_coordinator, "nudge"):
+        _coordinator.nudge()
 
     ts = _thread_store(request)
     if ts is not None and req.origin_thread_id:

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SpineItem from './spine-item.svelte';
-	import { Sun, ChatCircle, GitBranch, ListChecks, Gear, Robot, Brain, Plug, CalendarBlank, Receipt } from '$lib/icons';
+	import { Sun, GitBranch, ListChecks, Gear, Robot, Brain, Plug, CalendarBlank, Receipt } from '$lib/icons';
 	import { Meta, Eyebrow } from '$lib/typography';
 	import { StatusDot, KeycapHint } from '$lib/components';
 	import type { Spine } from '$lib/chrome/state/chrome.state.svelte';
@@ -12,8 +12,6 @@
 		active: Spine | null;
 		/** ISO date string; when set, the current day's abbreviation is shown next to Today */
 		todayDow?: string;
-		/** Unread thread count */
-		threadCount?: number;
 		/** Active-task count (running, queued, needs-review) */
 		tasksActive?: number;
 	}
@@ -21,7 +19,6 @@
 	let {
 		active,
 		todayDow = new Date().toLocaleDateString('en-CA', { weekday: 'short' }).toUpperCase(),
-		threadCount = 0,
 		tasksActive = 0
 	}: Props = $props();
 
@@ -47,11 +44,6 @@
 	<SpineItem href="/today" label="Today" icon={Sun} active={active === 'today'}>
 		{#snippet meta()}
 			<Meta size="xs">{todayDow}</Meta>
-		{/snippet}
-	</SpineItem>
-	<SpineItem href="/threads" label="Threads" icon={ChatCircle} active={active === 'threads'}>
-		{#snippet meta()}
-			<Meta size="xs">{threadCount || ''}</Meta>
 		{/snippet}
 	</SpineItem>
 	<SpineItem href="/repos" label="Repos" icon={GitBranch} active={active === 'repos'} />

@@ -13,6 +13,10 @@
 	let { children, data }: Props = $props();
 </script>
 
+<svelte:head>
+	<title>Ardent Forge</title>
+</svelte:head>
+
 <ThemeProvider>
 	<AppShell chrome={data.chrome}>
 		{@render children()}
