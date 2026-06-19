@@ -157,12 +157,14 @@ class CodeAgent:
         body_parts.append("\n---\nAutomated by Ardent Forge")
         body = "\n".join(body_parts)
 
+        push_error = None
         existing = await self._git.get_existing_pr_url(worktree_path)
         if existing:
             try:
                 await self._git.push_branch(worktree_path)
             except RuntimeError as e:
                 logger.warning("Failed to push follow-up commits for %s: %s", task.id, e)
+                push_error = str(e)
             pr_url = existing
         else:
             try:
@@ -183,4 +185,6 @@ class CodeAgent:
         }
         if session_name:
             result["attach_cmd"] = f"ssh box -t zellij attach {session_name}"
+        if push_error:
+            result["push_error"] = push_error
         return result

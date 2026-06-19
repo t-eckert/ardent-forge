@@ -169,3 +169,18 @@ async def test_deliver_creates_pr_when_none_exists(handler, tmp_path):
     assert result["pr_url"] == "https://github.com/o/r/pull/1"
     assert fake.created is True
     assert fake.cleaned is False
+
+
+async def test_deliver_existing_pr_push_failure_surfaces_error(handler, tmp_path):
+    class _PushFailGit(_FakeGit):
+        async def push_branch(self, worktree_path):
+            raise RuntimeError("remote: permission denied")
+
+    fake = _PushFailGit(existing_pr="https://github.com/o/r/pull/9")
+    handler._git = fake
+    task = _delivery_task(tmp_path)
+    result = await handler.deliver(task, ctx)
+    # Delivery does not raise; PR URL is still returned...
+    assert result["pr_url"] == "https://github.com/o/r/pull/9"
+    # ...but the push failure is surfaced in the result for the operator.
+    assert "permission denied" in result["push_error"]
