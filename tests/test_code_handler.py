@@ -184,3 +184,66 @@ async def test_deliver_existing_pr_push_failure_surfaces_error(handler, tmp_path
     assert result["pr_url"] == "https://github.com/o/r/pull/9"
     # ...but the push failure is surfaced in the result for the operator.
     assert "permission denied" in result["push_error"]
+
+
+async def test_followup_reuses_parent_worktree_and_continues(db, tmp_path):
+    store = TaskStore(db)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    parent_wt = tmp_path / "parent-wt"
+    parent_wt.mkdir()
+
+    h = CodeAgent(workspace_dir=str(workspace))
+
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_handler_data(parent.id, {
+        "worktree_path": str(parent_wt),
+        "repo_path": str(tmp_path / "repo"),
+        "branch_name": "forge/parent",
+    })
+
+    child = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
+        description="also add logging", repo="o/r", continues_task_id=parent.id,
+    )
+    await store.save(child)
+
+    calls = {}
+
+    async def fake_run(prompt, work_dir, session_name=None, continue_session=False):
+        calls["work_dir"] = work_dir
+        calls["continue_session"] = continue_session
+        return "done"
+
+    h._zellij.run = fake_run
+    h._git.create_worktree = AsyncMock(side_effect=AssertionError("must not create a worktree for a follow-up"))
+
+    vctx = AgentContext(tools=[], store=store, settings=None)
+    result = await h.execute(await store.get(child.id), vctx)
+
+    assert calls["work_dir"] == str(parent_wt)
+    assert calls["continue_session"] is True
+    assert result["worktree_path"] == str(parent_wt)
+    assert result["branch_name"] == "forge/parent"
+
+
+async def test_followup_missing_worktree_raises(db, tmp_path):
+    store = TaskStore(db)
+    workspace = tmp_path / "ws2"
+    workspace.mkdir()
+    h = CodeAgent(workspace_dir=str(workspace))
+
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_handler_data(parent.id, {"worktree_path": str(tmp_path / "gone")})
+
+    child = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
+        description="x", repo="o/r", continues_task_id=parent.id,
+    )
+    await store.save(child)
+
+    vctx = AgentContext(tools=[], store=store, settings=None)
+    with pytest.raises(RuntimeError):
+        await h.execute(await store.get(child.id), vctx)
