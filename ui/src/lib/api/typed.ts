@@ -232,7 +232,12 @@ export const api = {
 			const suffix = q.toString() ? `?${q}` : '';
 			return request(`/api/tasks${suffix}`, z.array(Task));
 		},
-		get: (id: string) => request(`/api/tasks/${id}`, Task)
+		get: (id: string) => request(`/api/tasks/${id}`, Task),
+		create: (input: { type: string; title: string; description: string; repo?: string | null }) =>
+			request('/api/tasks', Task, {
+				method: 'POST',
+				body: JSON.stringify(input)
+			})
 	},
 
 	repos: {
