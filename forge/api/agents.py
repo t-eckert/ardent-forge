@@ -12,10 +12,7 @@ router = APIRouter(prefix="/api/agents")
 
 
 def _registry(request: Request):
-    orchestrator = getattr(request.app.state, "orchestrator", None)
-    if orchestrator is None or orchestrator.agents is None:
-        return None
-    return orchestrator.agents
+    return getattr(request.app.state, "agent_registry", None)
 
 
 @router.get("")

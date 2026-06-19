@@ -2,7 +2,7 @@
 
 A FastMCP streamable-HTTP server mounted into the Forge FastAPI app at /mcp.
 Tools are thin wrappers over already-assembled services, injected via
-``configure(...)`` (same pattern as forge/api/chat.py) so this module stays
+``configure(...)`` (same pattern as forge/api/tasks.py) so this module stays
 import-light and avoids an import cycle with the coordinator.
 """
 

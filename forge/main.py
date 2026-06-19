@@ -13,7 +13,6 @@ from starlette.responses import RedirectResponse, Response
 
 from forge.api import (
     agents as agents_api,
-    chat,
     connectors as connectors_api,
     health,
     memory as memory_api,
@@ -21,7 +20,6 @@ from forge.api import (
     repos as repos_api,
     schedules,
     tasks,
-    threads as threads_api,
     uploads as uploads_api,
     weather as weather_api,
 )
@@ -32,10 +30,8 @@ from forge.db import Database
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.memory import MemoryStore
-from forge.orchestrator import ForgeOrchestrator
 from forge.repos import RepoRegistry
 from forge.store import TaskStore
-from forge.thread_store import ThreadStore
 
 
 def create_app(db: Database | None = None, settings: "Settings | None" = None) -> FastAPI:
@@ -66,11 +62,9 @@ def create_app(db: Database | None = None, settings: "Settings | None" = None) -
 
     app.include_router(health.router)
     app.include_router(tasks.router)
-    app.include_router(chat.router)
     app.include_router(schedules.router)
     app.include_router(connectors_api.router)
     app.include_router(memory_api.router)
-    app.include_router(threads_api.router)
     app.include_router(agents_api.router)
     app.include_router(notebook_api.router)
     app.include_router(repos_api.router)
@@ -84,7 +78,6 @@ def create_app(db: Database | None = None, settings: "Settings | None" = None) -
     if db is not None:
         store = TaskStore(db)
         tasks.set_store(store)
-        chat.configure(store=store)
         schedules.set_store(store)
 
     return app
@@ -132,8 +125,6 @@ def run():
         repos_api.set_registry(repo_registry)
         app.state.repo_registry = repo_registry
 
-
-
         from forge.notebook import NotebookReader, NotebookWriter
 
         notebook_reader: NotebookReader | None = None
@@ -158,7 +149,7 @@ def run():
         app.state.notebook_reader = notebook_reader
         app.state.notebook_writer = notebook_writer
 
-        # Connectors — registered before chat so tools are available on first turn.
+        # Connectors
         connectors = ConnectorRegistry()
         from forge.connectors.onepassword import OPConnector
         from forge.connectors.weather import WeatherConnector
@@ -183,11 +174,6 @@ def run():
         await connectors.setup_all()
 
         tasks.set_store(store)
-        chat.configure(
-            store=store,
-            connectors=connectors,
-            anthropic_api_key=settings.anthropic_api_key,
-        )
         schedules.set_store(store)
 
         app.state.connectors = connectors
@@ -212,6 +198,8 @@ def run():
                 claude_model=settings.planner_claude_model,
             )
         )
+
+        app.state.agent_registry = registry
 
         poller = None
         if settings.linear_api_key and settings.linear_team_id:
@@ -268,26 +256,7 @@ def run():
                 "self-building watchers disabled: could not clone AF repo"
             )
 
-        # Orchestrator — needs both registries fully populated.
-        thread_store = ThreadStore(db)
         memory_store = MemoryStore(settings.memory_dir)
-        orchestrator = ForgeOrchestrator(
-            connectors=connectors,
-            agents=registry,
-            store=store,
-            thread_store=thread_store,
-            memory=memory_store,
-            notebook_reader=notebook_reader,
-        )
-        chat.configure(
-            store=store,
-            connectors=connectors,
-            orchestrator=orchestrator,
-            thread_store=thread_store,
-            anthropic_api_key=settings.anthropic_api_key,
-        )
-        app.state.orchestrator = orchestrator
-        app.state.thread_store = thread_store
         app.state.memory_store = memory_store
 
         # Pre-register Prometheus series for every known label combination so
@@ -301,14 +270,10 @@ def run():
             registry=registry,
             connectors=connectors,
             settings=settings,
-            orchestrator=orchestrator,
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
             watchers=watchers,
         )
-        # Hand the coordinator to chat so dispatched tasks can nudge the loop
-        # for near-immediate processing instead of waiting a full tick.
-        chat.configure(store=store, coordinator=coordinator)
         app.state.coordinator = coordinator
         tasks.set_coordinator(coordinator)
 
