@@ -114,3 +114,58 @@ async def test_verify_records_passed_and_allows(db, handler, tmp_path):
     assert ok is True
     reloaded = await store.get(task.id)
     assert reloaded.handler_data["verification"]["status"] == "passed"
+
+
+class _FakeGit:
+    def __init__(self, existing_pr=None):
+        self._existing_pr = existing_pr
+        self.created = False
+        self.pushed = False
+        self.cleaned = False
+
+    async def get_diff(self, worktree_path, base):
+        return "diff"
+
+    async def get_existing_pr_url(self, worktree_path):
+        return self._existing_pr
+
+    async def push_branch(self, worktree_path):
+        self.pushed = True
+
+    async def create_pr(self, worktree_path, title, body):
+        self.created = True
+        return "https://github.com/o/r/pull/1"
+
+    async def cleanup_worktree(self, repo_path, worktree_path):
+        self.cleaned = True
+
+
+def _delivery_task(tmp_path):
+    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", repo="o/r")
+    task.handler_data = {
+        "worktree_path": str(tmp_path),
+        "repo_path": str(tmp_path),
+        "branch_name": "forge/abc",
+    }
+    return task
+
+
+async def test_deliver_updates_existing_pr_and_keeps_worktree(handler, tmp_path):
+    fake = _FakeGit(existing_pr="https://github.com/o/r/pull/9")
+    handler._git = fake
+    task = _delivery_task(tmp_path)
+    result = await handler.deliver(task, ctx)
+    assert result["pr_url"] == "https://github.com/o/r/pull/9"
+    assert fake.pushed is True
+    assert fake.created is False
+    assert fake.cleaned is False  # worktree is no longer cleaned up at deliver
+
+
+async def test_deliver_creates_pr_when_none_exists(handler, tmp_path):
+    fake = _FakeGit(existing_pr=None)
+    handler._git = fake
+    task = _delivery_task(tmp_path)
+    result = await handler.deliver(task, ctx)
+    assert result["pr_url"] == "https://github.com/o/r/pull/1"
+    assert fake.created is True
+    assert fake.cleaned is False

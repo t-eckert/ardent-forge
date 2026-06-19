@@ -157,16 +157,24 @@ class CodeAgent:
         body_parts.append("\n---\nAutomated by Ardent Forge")
         body = "\n".join(body_parts)
 
-        try:
-            pr_url = await self._git.create_pr(worktree_path, title, body)
-        except RuntimeError as e:
-            logger.error("PR creation failed: %s", e)
-            pr_url = f"PR creation failed: {e}"
+        existing = await self._git.get_existing_pr_url(worktree_path)
+        if existing:
+            try:
+                await self._git.push_branch(worktree_path)
+            except RuntimeError as e:
+                logger.warning("Failed to push follow-up commits for %s: %s", task.id, e)
+            pr_url = existing
+        else:
+            try:
+                pr_url = await self._git.create_pr(worktree_path, title, body)
+            except RuntimeError as e:
+                logger.error("PR creation failed: %s", e)
+                pr_url = f"PR creation failed: {e}"
 
-        try:
-            await self._git.cleanup_worktree(repo_path, worktree_path)
-        except RuntimeError:
-            logger.warning("Failed to cleanup worktree %s", worktree_path)
+        # NB: the worktree is intentionally NOT cleaned up here. Worktrees persist
+        # after delivery so follow-up tasks can `claude --continue` in them; the
+        # coordinator's worktree reaper reclaims them once all referencing tasks
+        # are terminal and past the TTL.
 
         result: dict = {
             "status": "delivered",
