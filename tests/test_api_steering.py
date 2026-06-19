@@ -78,3 +78,54 @@ async def test_cancel_unknown_404(client):
     c, _, _ = client
     resp = await c.post("/api/tasks/nonexistent/cancel")
     assert resp.status_code == 404
+
+
+import os
+
+
+async def test_follow_up_creates_linked_task(client, tmp_path):
+    c, store, _ = client
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r", require_approval=True)
+    await store.save(parent)
+    await store.update_status(parent.id, TaskStatus.COMPLETED)
+    await store.update_handler_data(parent.id, {"worktree_path": str(wt)})
+
+    resp = await c.post(f"/api/tasks/{parent.id}/follow-up", json={"prompt": "also add logging"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["continues_task_id"] == parent.id
+    assert body["repo"] == "o/r"
+    assert body["require_approval"] is True
+    assert body["status"] == "queued"
+
+
+async def test_follow_up_rejects_active_parent(client, tmp_path):
+    c, store, _ = client
+    wt = tmp_path / "wt2"
+    wt.mkdir()
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_status(parent.id, TaskStatus.EXECUTING)
+    await store.update_handler_data(parent.id, {"worktree_path": str(wt)})
+
+    resp = await c.post(f"/api/tasks/{parent.id}/follow-up", json={"prompt": "x"})
+    assert resp.status_code == 409
+
+
+async def test_follow_up_rejects_reaped_worktree(client, tmp_path):
+    c, store, _ = client
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_status(parent.id, TaskStatus.COMPLETED)
+    await store.update_handler_data(parent.id, {"worktree_path": str(tmp_path / "gone")})
+
+    resp = await c.post(f"/api/tasks/{parent.id}/follow-up", json={"prompt": "x"})
+    assert resp.status_code == 409
+
+
+async def test_follow_up_missing_parent_404(client):
+    c, _, _ = client
+    resp = await c.post("/api/tasks/does-not-exist/follow-up", json={"prompt": "x"})
+    assert resp.status_code == 404
