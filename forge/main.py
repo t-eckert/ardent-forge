@@ -303,7 +303,6 @@ def run():
             registry=registry,
             connectors=connectors,
             settings=settings,
-            orchestrator=orchestrator,
             max_concurrent=settings.max_concurrent_tasks,
             poller=poller,
             watchers=watchers,

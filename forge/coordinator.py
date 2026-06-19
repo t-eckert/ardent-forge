@@ -37,7 +37,6 @@ class Coordinator:
         max_concurrent: int = 2,
         poller=None,
         watchers: list | None = None,
-        orchestrator=None,
     ):
         self._store = store
         self._registry = registry
@@ -46,7 +45,6 @@ class Coordinator:
         self._max_concurrent = max_concurrent
         self._poller = poller
         self._watchers = watchers or []
-        self._orchestrator = orchestrator
         # Resilience config — read from settings with safe fallbacks for tests
         # that construct the coordinator without a Settings object.
         self._max_retries = getattr(settings, "max_retries", 3) if settings else 3
@@ -353,21 +351,8 @@ class Coordinator:
                     time.monotonic() - task_start
                 )
 
-                # Post-back resolution to the origin thread, if any. Thread-born
-                # tasks get narrated by Forge in the same thread; cron/watcher
-                # tasks stay silent and reveal themselves via state.
-                reloaded = await self._store.get(task.id)
-                if self._orchestrator is not None and reloaded is not None:
-                    try:
-                        await self._orchestrator.post_resolution(
-                            task=reloaded, result=aggregated
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to post resolution for task %s", task.id
-                        )
-
                 # Post PR link back to Linear for LINEAR-sourced tasks.
+                reloaded = await self._store.get(task.id)
                 if self._poller is not None and reloaded is not None:
                     try:
                         await self._poller.post_result(reloaded)

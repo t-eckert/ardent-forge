@@ -60,10 +60,9 @@ class Agent(Protocol):
         artifact carry that context out of ``execute``.
 
       * ``execute`` and ``deliver`` are **producers**. They return a dict that
-        is merged into the task's aggregated result and handed to
-        ``orchestrator.post_resolution`` as the widget payload for the
-        ``task-resolved`` message. ``execute`` runs first and its dict is the
-        base; ``deliver`` runs last and its dict is merged on top.
+        is merged into the task's aggregated result (surfaced on the task
+        itself). ``execute`` runs first and its dict is the base; ``deliver``
+        runs last and its dict is merged on top.
     """
 
     name: str
