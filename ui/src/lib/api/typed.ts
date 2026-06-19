@@ -117,66 +117,15 @@ const Schedule = z.object({
 const ScheduleList = z.array(Schedule);
 export type Schedule = z.infer<typeof Schedule>;
 
-// Threads respond with snake_case from the backend; view code renames at consumption time.
-const BackendThread = z.object({
-	id: z.string(),
-	title: z.string(),
-	kind: z.string(),
-	last_activity_at: z.string(),
-	unread: z.boolean(),
-	created_at: z.string()
-});
-const BackendThreadList = z.array(BackendThread);
-// Task summary embedded into task-dispatched / task-resolved messages by
-// the backend (see forge/api/threads.py::_enrich_with_tasks).
-const BackendTaskSummary = z.object({
-	id: z.string(),
-	type: z.string(),
-	title: z.string(),
-	status: z.string(),
-	stages: z.array(z.string()),
-	current_stage: z.string().nullable().optional(),
-	result: z.record(z.string(), z.unknown()).nullable().optional(),
-	completed_at: z.string().nullable().optional()
-});
-
-const BackendMessage = z.object({
-	id: z.string(),
-	thread_id: z.string(),
-	role: z.string(),
-	content: z.string(),
-	variant: z.string(),
-	widgets: z.array(z.unknown()),
-	task_id: z.string().nullable().optional(),
-	tool_use_id: z.string().nullable().optional(),
-	task: BackendTaskSummary.nullable().optional(),
-	created_at: z.string()
-});
-const BackendThreadDetail = BackendThread.extend({ messages: z.array(BackendMessage) });
-
 // ─── exports ────────────────────────────────────────────────────────────────
 
 export type Connector = z.infer<typeof Connector>;
 export type MemoryEntry = z.infer<typeof MemoryEntry>;
 export type AgentRoster = z.infer<typeof AgentRoster>;
 export type WeatherCurrent = z.infer<typeof WeatherCurrent>;
-export type BackendThread = z.infer<typeof BackendThread>;
-export type BackendThreadDetail = z.infer<typeof BackendThreadDetail>;
-export type BackendTaskSummary = z.infer<typeof BackendTaskSummary>;
 
 export const api = {
 	health: () => request('/health', z.object({ status: z.string() })),
-
-	/** POST /api/chat — streaming response; returns raw Response. Caller decides
-	 *  whether to consume the stream or just persist and refetch. */
-	chat: {
-		send: (content: string, thread_id?: string) =>
-			fetch(`${API_BASE}/api/chat`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ content, thread_id })
-			})
-	},
 
 	connectors: {
 		list: () => request('/api/connectors', ConnectorList),
@@ -211,16 +160,6 @@ export const api = {
 			request('/api/notebook/checkbox', z.object({ path: z.string(), line: z.number(), marker: z.string() }), {
 				method: 'PATCH',
 				body: JSON.stringify({ path, line, marker })
-			})
-	},
-
-	threads: {
-		list: () => request('/api/threads', BackendThreadList),
-		get: (id: string) => request(`/api/threads/${id}`, BackendThreadDetail),
-		create: (title: string, kind = 'chat') =>
-			request('/api/threads', BackendThread, {
-				method: 'POST',
-				body: JSON.stringify({ title, kind })
 			})
 	},
 

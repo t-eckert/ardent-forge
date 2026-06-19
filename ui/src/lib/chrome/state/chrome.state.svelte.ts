@@ -6,7 +6,7 @@
  * layout level.
  */
 
-export type Spine = 'today' | 'threads' | 'repos' | 'tasks' | 'agents' | 'connectors' | 'schedules' | 'memory' | 'log';
+export type Spine = 'today' | 'repos' | 'tasks' | 'agents' | 'connectors' | 'schedules' | 'memory' | 'log';
 
 export interface BreadcrumbSegment {
 	label: string;
@@ -15,7 +15,6 @@ export interface BreadcrumbSegment {
 
 const spineFromPath = (path: string): Spine | null => {
 	if (path.startsWith('/today')) return 'today';
-	if (path.startsWith('/threads')) return 'threads';
 	if (path.startsWith('/repos')) return 'repos';
 	if (path.startsWith('/tasks')) return 'tasks';
 	if (path.startsWith('/library/agents')) return 'agents';
