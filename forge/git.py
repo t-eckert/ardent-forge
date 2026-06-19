@@ -98,12 +98,19 @@ class GitOps:
         return result.strip()
 
     async def get_existing_pr_url(self, worktree_path: str) -> str | None:
-        """Return the URL of an open PR for the worktree's current branch, or
-        None when there is no PR. `gh pr view` exits non-zero (RuntimeError) when
-        the branch has no associated PR."""
+        """Return the URL of an OPEN PR for the worktree's current branch, or
+        None when there is none. Uses `gh pr list --head <branch> --state open`,
+        which (unlike `gh pr view`) ignores closed/merged PRs — so a follow-up
+        delivering to a branch whose prior PR was merged correctly opens a new
+        one. `gh pr list` exits 0 with empty output when no open PR exists;
+        RuntimeError covers git/gh/auth failures."""
         try:
+            branch = (
+                await self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree_path)
+            ).strip()
             out = await self._run(
-                ["gh", "pr", "view", "--json", "url", "-q", ".url"],
+                ["gh", "pr", "list", "--head", branch, "--state", "open",
+                 "--json", "url", "-q", ".[0].url"],
                 cwd=worktree_path,
             )
         except RuntimeError:
