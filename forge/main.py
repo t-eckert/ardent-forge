@@ -213,6 +213,8 @@ def run():
             )
         )
 
+        app.state.agent_registry = registry
+
         poller = None
         if settings.linear_api_key and settings.linear_team_id:
             from forge.linear.client import LinearClient
