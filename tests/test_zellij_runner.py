@@ -119,11 +119,14 @@ async def test_continue_session_adds_continue_flag(monkeypatch):
 
     # Force the direct path (no zellij) and capture the claude argv.
     monkeypatch.setattr(ZellijRunner, "available", staticmethod(lambda: False))
-    with patch("asyncio.create_subprocess_exec", side_effect=fake_exec):
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec", side_effect=fake_exec):
         runner = ZellijRunner(model="sonnet", timeout=5)
         await runner.run("hi", "/tmp", session_name="agent-x", continue_session=True)
 
-    assert "--continue" in captured["args"]
+    args = list(captured["args"])
+    assert "--continue" in args
+    # claude requires flags before the -p prompt argument.
+    assert args.index("--continue") < args.index("-p")
 
 
 async def test_no_continue_flag_by_default(monkeypatch):
@@ -140,7 +143,7 @@ async def test_no_continue_flag_by_default(monkeypatch):
         return FakeProc()
 
     monkeypatch.setattr(ZellijRunner, "available", staticmethod(lambda: False))
-    with patch("asyncio.create_subprocess_exec", side_effect=fake_exec):
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec", side_effect=fake_exec):
         runner = ZellijRunner(model="sonnet", timeout=5)
         await runner.run("hi", "/tmp", session_name="agent-x")
 
