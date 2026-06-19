@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/sveltekit';
 import type { ComponentProps } from 'svelte';
+import { expect, within } from 'storybook/test';
 import DispatchForm from './dispatch-form.svelte';
 
 const meta = {
@@ -21,4 +22,16 @@ export const Default: Story = {
 
 export const NoRepos: Story = {
 	args: { repos: [] }
+};
+
+export const DisabledWhenEmpty: Story = {
+	args: {
+		repos: [{ name: 't-eckert/x', path: '', default_branch: 'main' }]
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getByText('DISPATCH A TASK')).toBeInTheDocument();
+		await expect(canvas.getByRole('button', { name: /Dispatch/i })).toBeDisabled();
+		await expect(canvas.getByRole('option', { name: 't-eckert/x' })).toBeInTheDocument();
+	}
 };
