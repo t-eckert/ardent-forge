@@ -310,6 +310,7 @@ def run():
         # for near-immediate processing instead of waiting a full tick.
         chat.configure(store=store, coordinator=coordinator)
         app.state.coordinator = coordinator
+        tasks.set_coordinator(coordinator)
 
         # Wire the MCP server's tools to the live services.
         from forge.mcp import configure as mcp_configure
