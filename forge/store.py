@@ -166,12 +166,18 @@ class TaskStore:
         )
         return [Task.from_row(row) for row in rows]
 
-    async def list_tasks_with_worktrees(self) -> list[Task]:
+    async def list_tasks_with_worktrees(self, updated_since: str | None = None) -> list[Task]:
         """Tasks whose handler_data carries a worktree_path — candidates for the
-        worktree reaper. Low-volume single-box system, so a LIKE scan is fine."""
-        rows = await self._db.fetch_all(
-            "SELECT * FROM tasks WHERE handler_data LIKE '%\"worktree_path\"%'"
-        )
+        worktree reaper. Low-volume single-box system, so a LIKE scan is fine.
+        `updated_since` (ISO timestamp) bounds the scan: anything older has
+        already been reaped on a prior tick (the reaper runs every tick), so it
+        need not be reconsidered."""
+        sql = "SELECT * FROM tasks WHERE handler_data LIKE '%\"worktree_path\"%'"
+        params: tuple = ()
+        if updated_since is not None:
+            sql += " AND updated_at >= ?"
+            params = (updated_since,)
+        rows = await self._db.fetch_all(sql, params)
         return [Task.from_row(row) for row in rows]
 
     async def mark_cancelled(self, task_id: str):

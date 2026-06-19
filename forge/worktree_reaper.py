@@ -40,7 +40,7 @@ def reapable_worktrees(
         if now - newest <= ttl:
             continue
         repo_path = next(
-            ((t.handler_data or {}).get("repo_path") for t in group if (t.handler_data or {}).get("repo_path")),
+            (rp for t in group if (rp := (t.handler_data or {}).get("repo_path"))),
             None,
         )
         if repo_path:

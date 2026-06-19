@@ -122,29 +122,58 @@ class _RecordingGit:
         self.pruned.append(repo_path)
 
 
-async def test_reap_old_worktrees_removes_stale(setup):
+async def test_reap_old_worktrees_removes_stale(setup, tmp_path):
     store, coord = setup
     git = _RecordingGit()
     coord._git = git
     coord._worktree_ttl = timedelta(hours=48)
+
+    repo_path = str(tmp_path / "repo")
+    wt = tmp_path / "repo" / ".worktrees" / "forge" / "a"
+    wt.mkdir(parents=True)  # real dir so the isdir guard passes
+    worktree_path = str(wt)
 
     old = datetime.now(timezone.utc) - timedelta(hours=72)
     task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
     task = task.model_copy(update={
         "status": TaskStatus.COMPLETED,
         "updated_at": old,
-        "handler_data": {"worktree_path": "/repo/.worktrees/forge/a", "repo_path": "/repo"},
+        "handler_data": {"worktree_path": worktree_path, "repo_path": repo_path},
     })
     await store.save(task)
-    # Backdate updated_at in the row in case save() stamps its own timestamp.
     await store._db.execute(
         "UPDATE tasks SET updated_at = ? WHERE id = ?", (old.isoformat(), task.id)
     )
 
     n = await coord.reap_old_worktrees()
     assert n == 1
-    assert git.removed == [("/repo", "/repo/.worktrees/forge/a")]
-    assert git.pruned == ["/repo"]
+    assert git.removed == [(repo_path, worktree_path)]
+    assert git.pruned == [repo_path]
+
+
+async def test_reap_old_worktrees_skips_missing_dir(setup, tmp_path):
+    store, coord = setup
+    git = _RecordingGit()
+    coord._git = git
+    coord._worktree_ttl = timedelta(hours=48)
+
+    # worktree_path points at a directory that does not exist (already cleaned up).
+    missing = str(tmp_path / "gone")
+    old = datetime.now(timezone.utc) - timedelta(hours=72)
+    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
+    task = task.model_copy(update={
+        "status": TaskStatus.COMPLETED,
+        "updated_at": old,
+        "handler_data": {"worktree_path": missing, "repo_path": str(tmp_path)},
+    })
+    await store.save(task)
+    await store._db.execute(
+        "UPDATE tasks SET updated_at = ? WHERE id = ?", (old.isoformat(), task.id)
+    )
+
+    n = await coord.reap_old_worktrees()
+    assert n == 0
+    assert git.removed == []  # nothing attempted for an already-gone worktree
 
 
 async def test_reap_old_worktrees_noop_without_git(setup):

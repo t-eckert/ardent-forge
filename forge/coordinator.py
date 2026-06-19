@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -316,15 +317,23 @@ class Coordinator:
     async def reap_old_worktrees(self) -> int:
         """Reclaim Code-task git worktrees that are no longer referenced by any
         active task and whose newest reference is older than the TTL. No-ops when
-        no git helper is wired (tests)."""
+        no git helper is wired (tests). Worktrees whose newest reference predates
+        2x the TTL were already reaped on an earlier tick, so they're excluded
+        from the scan (a >2x-TTL coordinator outage could orphan a worktree, which
+        is acceptable on a nukable box)."""
         if self._git is None:
             return 0
-        tasks = await self._store.list_tasks_with_worktrees()
-        targets = reapable_worktrees(
-            tasks, datetime.now(timezone.utc), self._worktree_ttl
-        )
+        now = datetime.now(timezone.utc)
+        cutoff = (now - 2 * self._worktree_ttl).isoformat()
+        tasks = await self._store.list_tasks_with_worktrees(updated_since=cutoff)
+        targets = reapable_worktrees(tasks, now, self._worktree_ttl)
         removed = 0
         for repo_path, worktree_path in targets:
+            if not os.path.isdir(worktree_path):
+                # Already gone — e.g. the plan agent cleans up its worktree in
+                # deliver, or a previous reap removed it. Nothing to reclaim and
+                # no warning to log; the task record just still carries the path.
+                continue
             try:
                 await self._git.cleanup_worktree(repo_path, worktree_path)
                 await self._git.prune_worktrees(repo_path)

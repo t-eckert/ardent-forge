@@ -56,3 +56,15 @@ def test_shared_worktree_kept_alive_by_recent_followup():
         _task(TaskStatus.COMPLETED, recent, wt),  # follow-up, recent
     ]
     assert reapable_worktrees(tasks, now, timedelta(hours=48)) == []
+
+
+def test_skips_group_without_repo_path():
+    now = datetime(2026, 6, 19, 12, 0, tzinfo=timezone.utc)
+    old = now - timedelta(hours=72)
+    t = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
+    t = t.model_copy(update={
+        "status": TaskStatus.COMPLETED,
+        "updated_at": old,
+        "handler_data": {"worktree_path": "/repo/.worktrees/forge/a"},  # no repo_path
+    })
+    assert reapable_worktrees([t], now, timedelta(hours=48)) == []
