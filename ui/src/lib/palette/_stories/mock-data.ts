@@ -12,15 +12,6 @@ export const MOCK_RESULTS: PaletteResult[] = [
         pinned: true
     },
     {
-        id: 'thread-morning',
-        label: 'Morning briefing',
-        breadcrumb: 'Threads',
-        href: '/threads/morning-briefing',
-        class: 'thread',
-        hint: '06:12',
-        recentBoost: 8
-    },
-    {
         id: 'task-rename',
         label: 'Rename tClient → temporalClient',
         breadcrumb: 'Tasks',

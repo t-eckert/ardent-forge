@@ -27,11 +27,10 @@
 	const classLabels: Record<PaletteResult['class'], string> = {
 		task: 'TASKS',
 		note: 'NOTES',
-		thread: 'THREADS',
 		action: 'ACTIONS'
 	};
 
-	const order: PaletteResult['class'][] = ['task', 'thread', 'note', 'action'];
+	const order: PaletteResult['class'][] = ['task', 'note', 'action'];
 
 	function handleSelect(result: PaletteResult) {
 		palette.hide();
@@ -95,9 +94,6 @@
 							><KeycapHint keys={['↑']} /><KeycapHint keys={['↓']} /> navigate</span
 						>
 						<span class="inline-flex items-center gap-1"><KeycapHint keys={['↵']} /> open</span>
-						<span class="inline-flex items-center gap-1"
-							><KeycapHint keys={['⌘', '↵']} /> open in new thread</span
-						>
 					</div>
 					<Meta size="xs">fuzzy</Meta>
 				</div>

@@ -31,7 +31,7 @@
 
 	const upcoming = [
 		'Notification preferences (which events page NTFY)',
-		'Default agent for new threads',
+		'Default agent for dispatched tasks',
 		'Memory & notebook locations',
 		'Linear team & project defaults',
 		'Connector credentials manager'

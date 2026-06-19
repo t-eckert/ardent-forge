@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Command } from 'bits-ui';
     import type { PaletteResult } from '../types';
-    import { ChatCircle, Code, ListChecks, ArrowRight } from '$lib/icons';
+    import { Code, ListChecks, ArrowRight } from '$lib/icons';
     import { Meta } from '$lib/typography';
 
     interface Props {
@@ -14,7 +14,6 @@
     const classConfig = {
         note: { icon: Code, bg: 'var(--color-signal)' },
         task: { icon: ListChecks, bg: 'var(--color-ink)' },
-        thread: { icon: ChatCircle, bg: 'var(--color-graphite)' },
         action: { icon: ArrowRight, bg: 'var(--color-ink)' }
     } as const;
 
