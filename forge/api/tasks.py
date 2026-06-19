@@ -40,6 +40,7 @@ class CreateTaskRequest(BaseModel):
     description: str = Field(max_length=50_000)
     repo: str | None = Field(default=None, max_length=500)
     source_id: str | None = Field(default=None, max_length=200)
+    require_approval: bool = False
 
 
 @router.post("", status_code=201)
@@ -56,6 +57,7 @@ async def create_task(req: CreateTaskRequest):
         description=req.description,
         repo=req.repo,
         source_id=req.source_id,
+        require_approval=req.require_approval,
     )
     await store.save(task)
 
