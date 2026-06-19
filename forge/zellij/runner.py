@@ -32,6 +32,7 @@ class ZellijRunner:
         work_dir: str,
         session_name: str | None = None,
         extra_env: dict[str, str] | None = None,
+        continue_session: bool = False,
     ) -> str:
         env = {**os.environ, "CLAUDE_NO_TELEMETRY": "1"}
         if "ANTHROPIC_API_KEY" not in env and "FORGE_ANTHROPIC_API_KEY" in env:
@@ -45,19 +46,21 @@ class ZellijRunner:
 
         if session_name and self.available():
             logger.info("Running Claude in Zellij session %s (cwd=%s)", session_name, work_dir)
-            return await self._run_in_zellij(prompt, work_dir, session_name, env)
+            return await self._run_in_zellij(prompt, work_dir, session_name, env, continue_session)
 
         if session_name:
             logger.info("zellij not available; running Claude directly (session=%s)", session_name)
-        return await self._run_direct(prompt, work_dir, env)
+        return await self._run_direct(prompt, work_dir, env, continue_session)
 
-    async def _run_direct(self, prompt: str, work_dir: str, env: dict) -> str:
+    async def _run_direct(
+        self, prompt: str, work_dir: str, env: dict, continue_session: bool = False
+    ) -> str:
+        argv = ["claude", "--print", "--dangerously-skip-permissions", "--model", self._model]
+        if continue_session:
+            argv.append("--continue")
+        argv += ["-p", prompt]
         proc = await asyncio.create_subprocess_exec(
-            "claude",
-            "--print",
-            "--dangerously-skip-permissions",
-            "--model", self._model,
-            "-p", prompt,
+            *argv,
             cwd=work_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -77,7 +80,7 @@ class ZellijRunner:
         return output
 
     async def _run_in_zellij(
-        self, prompt: str, work_dir: str, session_name: str, env: dict
+        self, prompt: str, work_dir: str, session_name: str, env: dict, continue_session: bool = False
     ) -> str:
         session_dir = Path(f"/tmp/ardent-forge-{session_name}")
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -90,6 +93,7 @@ class ZellijRunner:
         prompt_file.write_text(prompt)
 
         # Use a Python runner to avoid shell-quoting issues with the prompt
+        continue_arg = "'--continue', " if continue_session else ""
         runner_code = textwrap.dedent(f"""\
             import subprocess, pathlib, os
 
@@ -102,7 +106,7 @@ class ZellijRunner:
 
             result = subprocess.run(
                 ['claude', '--print', '--dangerously-skip-permissions',
-                 '--model', {self._model!r}, '-p', prompt],
+                 '--model', {self._model!r}, {continue_arg}'-p', prompt],
                 cwd={work_dir!r},
                 capture_output=True,
                 text=True,
