@@ -14,6 +14,8 @@ class TaskStatus(StrEnum):
     DELIVERING = "delivering"
     COMPLETED = "completed"
     FAILED = "failed"
+    AWAITING_APPROVAL = "awaiting_approval"
+    CANCELLED = "cancelled"
 
 
 class TaskType(StrEnum):

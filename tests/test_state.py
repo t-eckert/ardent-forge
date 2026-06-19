@@ -1,7 +1,7 @@
 import pytest
 
 from forge.models import TaskStatus
-from forge.state import InvalidTransition, transition
+from forge.state import InvalidTransition, transition, VALID_TRANSITIONS
 
 
 def test_valid_transitions():
@@ -38,3 +38,33 @@ def test_completed_is_terminal():
 def test_queued_cannot_complete_directly():
     with pytest.raises(InvalidTransition):
         transition(TaskStatus.QUEUED, TaskStatus.COMPLETED)
+
+
+def test_verify_can_pause_for_approval():
+    assert transition(TaskStatus.VERIFYING, TaskStatus.AWAITING_APPROVAL) == TaskStatus.AWAITING_APPROVAL
+
+
+def test_approval_resolves_to_delivering_or_cancelled():
+    assert transition(TaskStatus.AWAITING_APPROVAL, TaskStatus.DELIVERING) == TaskStatus.DELIVERING
+    assert transition(TaskStatus.AWAITING_APPROVAL, TaskStatus.CANCELLED) == TaskStatus.CANCELLED
+
+
+def test_active_states_can_cancel():
+    for s in (
+        TaskStatus.QUEUED, TaskStatus.TRIAGING, TaskStatus.EXECUTING,
+        TaskStatus.VERIFYING, TaskStatus.DELIVERING, TaskStatus.AWAITING_APPROVAL,
+    ):
+        assert transition(s, TaskStatus.CANCELLED) == TaskStatus.CANCELLED
+
+
+def test_cancelled_is_terminal():
+    assert VALID_TRANSITIONS[TaskStatus.CANCELLED] == set()
+
+
+def test_execute_can_pause_for_approval_when_no_verify():
+    assert transition(TaskStatus.EXECUTING, TaskStatus.AWAITING_APPROVAL) == TaskStatus.AWAITING_APPROVAL
+
+
+def test_illegal_transition_still_raises():
+    with pytest.raises(InvalidTransition):
+        transition(TaskStatus.COMPLETED, TaskStatus.DELIVERING)
