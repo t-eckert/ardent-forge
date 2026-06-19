@@ -166,6 +166,22 @@ class TaskStore:
         )
         return [Task.from_row(row) for row in rows]
 
+    async def mark_cancelled(self, task_id: str):
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?",
+            (TaskStatus.CANCELLED.value, now, task_id),
+        )
+
+    async def mark_approved(self, task_id: str):
+        """Flip an awaiting_approval task to delivering so the coordinator's
+        resume pass finishes its deliver stage."""
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?",
+            (TaskStatus.DELIVERING.value, now, task_id),
+        )
+
     async def clear_for_retry(self, task_id: str):
         """Manual retry: reset the retry budget and backoff gate, requeue now."""
         now = datetime.now(timezone.utc).isoformat()
