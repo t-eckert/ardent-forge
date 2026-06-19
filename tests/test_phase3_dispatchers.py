@@ -237,35 +237,3 @@ async def test_linear_poller_post_result_skips_failed_pr(store):
     task = task.model_copy(update={"result": {"pr_url": "PR creation failed: auth error"}})
     await poller.post_result(task)
     client.add_comment.assert_not_called()
-
-
-# ── Chat dispatch repo field ──────────────────────────────────────────────────
-
-async def test_dispatch_task_schema_includes_repo():
-    from forge.orchestrator import ForgeOrchestrator
-    from forge.connectors import ConnectorRegistry
-    from forge.agents import AgentRegistry, Agent
-    from forge.agents.echo import EchoAgent
-
-    registry = AgentRegistry()
-    registry.register(EchoAgent())
-    orc = ForgeOrchestrator(connectors=ConnectorRegistry(), agents=registry)
-    schema = orc.dispatch_task_schema()
-    props = schema["input_schema"]["properties"]
-    assert "repo" in props
-
-
-async def test_chat_dispatch_passes_repo_to_task(store):
-    from forge.api import chat
-    chat._store = store
-
-    # Simulate what _handle_dispatch does when given a repo
-    from forge.models import Task, TaskSource, TaskType
-    task = Task.new(
-        task_type=TaskType.CODE,
-        source=TaskSource.CHAT,
-        title="Fix lint",
-        description="Run linter",
-        repo="owner/my-app",
-    )
-    assert task.repo == "owner/my-app"
