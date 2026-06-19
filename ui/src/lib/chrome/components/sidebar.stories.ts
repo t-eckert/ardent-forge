@@ -14,7 +14,6 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const TodayActive: Story = { args: { active: 'today' } };
-export const ThreadsActive: Story = { args: { active: 'threads' } };
 export const AgentsActive: Story = { args: { active: 'agents' } };
 export const SchedulesActive: Story = { args: { active: 'schedules' } };
 export const TasksActive: Story = { args: { active: 'tasks' } };

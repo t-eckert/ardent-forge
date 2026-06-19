@@ -10,16 +10,12 @@ export const prerender = false;
  * indicators if the backend isn't reachable.
  */
 export const load: LayoutLoad = async () => {
-	const [threads, tasks] = await Promise.all([
-		api.threads.list().catch(() => []),
-		api.tasks.list().catch(() => [])
-	]);
+	const tasks = await api.tasks.list().catch(() => []);
 	const tasksActive = tasks.filter(
 		(t) => !['completed', 'failed'].includes(t.status)
 	).length;
 	return {
 		chrome: {
-			threadCount: threads.length,
 			tasksActive
 		}
 	};

@@ -4,15 +4,14 @@
 
 	interface Props {
 		active: Spine | null;
-		threadCount?: number;
 		tasksActive?: number;
 	}
 
-	let { active, threadCount = 12, tasksActive = 3 }: Props = $props();
+	let { active, tasksActive = 3 }: Props = $props();
 </script>
 
 <div class="flex min-h-screen bg-[var(--color-paper)]">
-	<Sidebar {active} {threadCount} {tasksActive} />
+	<Sidebar {active} {tasksActive} />
 	<main class="flex-1 p-8">
 		<div class="font-mono text-xs tracking-wider text-[var(--color-graphite)]">
 			· content area ·

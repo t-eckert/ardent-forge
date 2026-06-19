@@ -8,7 +8,6 @@
 	import { MOCK_RESULTS } from '$lib/palette/_stories/mock-data';
 
 	interface ChromeCounts {
-		threadCount?: number;
 		tasksActive?: number;
 	}
 
@@ -32,7 +31,6 @@
 <div class="flex min-h-screen bg-[var(--color-paper)]">
 	<Sidebar
 		active={activeSpine}
-		threadCount={chrome.threadCount ?? 0}
 		tasksActive={chrome.tasksActive ?? 0}
 	/>
 	<main class="flex-1 flex flex-col min-w-0">
