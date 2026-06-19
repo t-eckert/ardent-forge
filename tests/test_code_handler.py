@@ -247,3 +247,68 @@ async def test_followup_missing_worktree_raises(db, tmp_path):
     vctx = AgentContext(tools=[], store=store, settings=None)
     with pytest.raises(RuntimeError):
         await h.execute(await store.get(child.id), vctx)
+
+
+async def test_followup_missing_parent_raises(db, tmp_path):
+    store = TaskStore(db)
+    workspace = tmp_path / "ws3"
+    workspace.mkdir()
+    h = CodeAgent(workspace_dir=str(workspace))
+
+    child = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
+        description="x", repo="o/r", continues_task_id="01NONEXISTENT",
+    )
+    await store.save(child)
+
+    vctx = AgentContext(tools=[], store=store, settings=None)
+    with pytest.raises(RuntimeError, match="not found"):
+        await h.execute(await store.get(child.id), vctx)
+
+
+async def test_followup_retry_appends_context_to_prompt(db, tmp_path):
+    store = TaskStore(db)
+    workspace = tmp_path / "ws4"
+    workspace.mkdir()
+    parent_wt = tmp_path / "parent-wt4"
+    parent_wt.mkdir()
+
+    h = CodeAgent(workspace_dir=str(workspace))
+
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    await store.save(parent)
+    await store.update_handler_data(parent.id, {
+        "worktree_path": str(parent_wt),
+        "repo_path": str(tmp_path / "repo"),
+        "branch_name": "forge/parent",
+    })
+
+    child = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
+        description="please refactor", repo="o/r", continues_task_id=parent.id,
+    )
+    await store.save(child)
+
+    prompts = []
+    attempts = {"n": 0}
+
+    async def fake_run(prompt, work_dir, session_name=None, continue_session=False):
+        prompts.append(prompt)
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("first attempt boom")
+        return "done"
+
+    h._zellij.run = fake_run
+
+    vctx = AgentContext(tools=[], store=store, settings=None)
+    await h.execute(await store.get(child.id), vctx)
+
+    assert len(prompts) == 2
+    # First attempt: follow-up prompt, no retry context yet.
+    assert "please refactor" in prompts[0]
+    assert "Previous Attempt Context" not in prompts[0]
+    # Second attempt: follow-up prompt AND retry context.
+    assert "please refactor" in prompts[1]
+    assert "Previous Attempt Context" in prompts[1]
+    assert "first attempt boom" in prompts[1]
