@@ -4,7 +4,6 @@ from httpx import ASGITransport, AsyncClient
 from forge.db import Database
 from forge.main import create_app
 from forge.api import tasks as tasks_api
-from forge.store import TaskStore
 from forge.models import TaskSource, TaskStatus
 
 
@@ -13,8 +12,9 @@ async def client():
     db = Database(":memory:")
     await db.initialize()
     app = create_app(db=db)
-    store = TaskStore(db)
-    tasks_api.set_store(store)
+    # create_app already built a TaskStore and registered it via set_store;
+    # reuse that instance rather than constructing a second one over the same db.
+    store = tasks_api.get_store()
 
     nudged = {"count": 0}
 
@@ -27,6 +27,8 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c, store, nudged
+    # Reset the module-level coordinator so the stub can't leak into other tests.
+    tasks_api.set_coordinator(None)
     await db.close()
 
 
