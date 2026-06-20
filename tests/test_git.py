@@ -1,6 +1,7 @@
 import os
 import pytest
 import asyncio
+from unittest.mock import AsyncMock
 
 from forge.git import GitOps
 
@@ -138,3 +139,43 @@ async def test_get_working_tree_changes_uses_git_status_porcelain(tmp_path):
     git._run = AsyncMock(return_value="")
     await git.get_working_tree_changes("/tmp/wt")
     git._run.assert_awaited_once_with(["git", "status", "--porcelain"], cwd="/tmp/wt")
+
+
+async def test_get_existing_pr_url_returns_open_pr_url():
+    git = GitOps("/tmp")
+    calls = []
+
+    async def fake_run(cmd, cwd=None):
+        calls.append(cmd)
+        if cmd[:2] == ["git", "rev-parse"]:
+            return "forge/abc\n"
+        return "https://github.com/o/r/pull/7\n"
+
+    git._run = fake_run
+    url = await git.get_existing_pr_url("/wt")
+    assert url == "https://github.com/o/r/pull/7"
+    # Must query OPEN PRs for the resolved head branch, not `gh pr view`.
+    assert ["gh", "pr", "list", "--head", "forge/abc", "--state", "open",
+            "--json", "url", "-q", ".[0].url"] in calls
+
+
+async def test_get_existing_pr_url_none_when_no_pr():
+    git = GitOps("/tmp")
+    git._run = AsyncMock(side_effect=RuntimeError("no pull requests found"))
+    url = await git.get_existing_pr_url("/wt")
+    assert url is None
+
+
+async def test_push_branch_pushes_current_branch():
+    git = GitOps("/tmp")
+    calls = []
+
+    async def fake_run(cmd, cwd=None):
+        calls.append(cmd)
+        if cmd[:2] == ["git", "rev-parse"]:
+            return "forge/abc\n"
+        return ""
+
+    git._run = fake_run
+    await git.push_branch("/wt")
+    assert ["git", "push", "-u", "origin", "forge/abc"] in calls

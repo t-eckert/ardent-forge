@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     retry_base_seconds: int = 60
     retry_max_seconds: int = 900
     default_timeout_seconds: int = 1800
+    worktree_ttl_hours: int = 48
 
     # Server
     host: str = "0.0.0.0"

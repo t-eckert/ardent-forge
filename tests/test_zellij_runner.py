@@ -102,3 +102,49 @@ async def test_kill_session_invokes_zellij(monkeypatch):
 
     await runner.kill_session("agent-123")
     assert calls and calls[0][:3] == ("zellij", "kill-session", "agent-123")
+
+
+async def test_continue_session_adds_continue_flag(monkeypatch):
+    captured = {}
+
+    class FakeProc:
+        returncode = 0
+
+        async def communicate(self):
+            return (b"ok", b"")
+
+    async def fake_exec(*args, **kwargs):
+        captured["args"] = args
+        return FakeProc()
+
+    # Force the direct path (no zellij) and capture the claude argv.
+    monkeypatch.setattr(ZellijRunner, "available", staticmethod(lambda: False))
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec", side_effect=fake_exec):
+        runner = ZellijRunner(model="sonnet", timeout=5)
+        await runner.run("hi", "/tmp", session_name="agent-x", continue_session=True)
+
+    args = list(captured["args"])
+    assert "--continue" in args
+    # claude requires flags before the -p prompt argument.
+    assert args.index("--continue") < args.index("-p")
+
+
+async def test_no_continue_flag_by_default(monkeypatch):
+    captured = {}
+
+    class FakeProc:
+        returncode = 0
+
+        async def communicate(self):
+            return (b"ok", b"")
+
+    async def fake_exec(*args, **kwargs):
+        captured["args"] = args
+        return FakeProc()
+
+    monkeypatch.setattr(ZellijRunner, "available", staticmethod(lambda: False))
+    with patch("forge.zellij.runner.asyncio.create_subprocess_exec", side_effect=fake_exec):
+        runner = ZellijRunner(model="sonnet", timeout=5)
+        await runner.run("hi", "/tmp", session_name="agent-x")
+
+    assert "--continue" not in captured["args"]

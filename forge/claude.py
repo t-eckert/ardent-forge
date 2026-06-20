@@ -34,6 +34,22 @@ def build_prompt(
     return "\n".join(parts)
 
 
+def build_followup_prompt(prompt: str) -> str:
+    parts = [
+        "# Follow-up",
+        "\nThis continues your previous session in this repository. The prior "
+        "conversation and your working tree are intact — build on the work "
+        "already done.",
+        f"\n## Request\n{prompt}",
+        "\n## Instructions"
+        "\n- Build on the work already done in this session"
+        "\n- Write or update tests as appropriate"
+        "\n- Run the project's build and test commands to verify your work"
+        "\n- Commit your changes with a clear commit message",
+    ]
+    return "\n".join(parts)
+
+
 class ClaudeRunner:
     def __init__(self, model: str = DEFAULT_MODEL, timeout: int = 300):
         self._model = model

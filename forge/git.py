@@ -97,6 +97,39 @@ class GitOps:
         )
         return result.strip()
 
+    async def get_existing_pr_url(self, worktree_path: str) -> str | None:
+        """Return the URL of an OPEN PR for the worktree's current branch, or
+        None when there is none. Uses `gh pr list --head <branch> --state open`,
+        which (unlike `gh pr view`) ignores closed/merged PRs — so a follow-up
+        delivering to a branch whose prior PR was merged correctly opens a new
+        one. `gh pr list` exits 0 with empty output when no open PR exists;
+        RuntimeError covers git/gh/auth failures."""
+        try:
+            branch = (
+                await self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree_path)
+            ).strip()
+            out = await self._run(
+                ["gh", "pr", "list", "--head", branch, "--state", "open",
+                 "--json", "url", "-q", ".[0].url"],
+                cwd=worktree_path,
+            )
+        except RuntimeError as e:
+            logger.warning("gh pr lookup failed for %s (treating as no PR): %s", worktree_path, e)
+            return None
+        url = out.strip()
+        return url or None
+
+    async def push_branch(self, worktree_path: str) -> None:
+        """Push the worktree's current branch to origin (updates an open PR)."""
+        branch = (
+            await self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree_path)
+        ).strip()
+        await self._run(["git", "push", "-u", "origin", branch], cwd=worktree_path)
+
+    async def prune_worktrees(self, repo_path: str) -> None:
+        """Drop stale worktree registrations after a removal."""
+        await self._run(["git", "worktree", "prune"], cwd=repo_path)
+
     async def _get_default_branch(self, repo_path: str) -> str:
         # Try origin/HEAD first (works for cloned repos with a remote)
         try:

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -21,6 +22,7 @@ from forge.metrics import (
 from forge.models import Task, TaskSource, TaskStatus, TaskType
 from forge.state import transition
 from forge.store import TaskStore
+from forge.worktree_reaper import reapable_worktrees
 from forge import retry
 from forge.zellij import kill_session
 
@@ -37,6 +39,7 @@ class Coordinator:
         max_concurrent: int = 2,
         poller=None,
         watchers: list | None = None,
+        git=None,
     ):
         self._store = store
         self._registry = registry
@@ -45,6 +48,9 @@ class Coordinator:
         self._max_concurrent = max_concurrent
         self._poller = poller
         self._watchers = watchers or []
+        self._git = git
+        ttl_hours = getattr(settings, "worktree_ttl_hours", 48) if settings else 48
+        self._worktree_ttl = timedelta(hours=ttl_hours)
         # Resilience config — read from settings with safe fallbacks for tests
         # that construct the coordinator without a Settings object.
         self._max_retries = getattr(settings, "max_retries", 3) if settings else 3
@@ -122,6 +128,13 @@ class Coordinator:
                 logger.info("Reaped %d stuck tasks", reaped)
         except Exception:
             logger.exception("Error reaping stuck tasks")
+
+        try:
+            reaped_wt = await self.reap_old_worktrees()
+            if reaped_wt > 0:
+                logger.info("Reaped %d old worktrees", reaped_wt)
+        except Exception:
+            logger.exception("Error reaping old worktrees")
 
         try:
             await self.resume_approved_deliveries()
@@ -300,6 +313,34 @@ class Coordinator:
                 )
                 reaped += 1
         return reaped
+
+    async def reap_old_worktrees(self) -> int:
+        """Reclaim Code-task git worktrees that are no longer referenced by any
+        active task and whose newest reference is older than the TTL. No-ops when
+        no git helper is wired (tests). Worktrees whose newest reference predates
+        2x the TTL were already reaped on an earlier tick, so they're excluded
+        from the scan (a >2x-TTL coordinator outage could orphan a worktree, which
+        is acceptable on a nukable box)."""
+        if self._git is None:
+            return 0
+        now = datetime.now(timezone.utc)
+        cutoff = (now - 2 * self._worktree_ttl).isoformat()
+        tasks = await self._store.list_tasks_with_worktrees(updated_since=cutoff)
+        targets = reapable_worktrees(tasks, now, self._worktree_ttl)
+        removed = 0
+        for repo_path, worktree_path in targets:
+            if not os.path.isdir(worktree_path):
+                # Already gone — e.g. the plan agent cleans up its worktree in
+                # deliver, or a previous reap removed it. Nothing to reclaim and
+                # no warning to log; the task record just still carries the path.
+                continue
+            try:
+                await self._git.cleanup_worktree(repo_path, worktree_path)
+                await self._git.prune_worktrees(repo_path)
+                removed += 1
+            except Exception:
+                logger.warning("Failed to reap worktree %s", worktree_path, exc_info=True)
+        return removed
 
     async def process_pending(self) -> int:
         pending = await self._store.list_pending(limit=self._max_concurrent)

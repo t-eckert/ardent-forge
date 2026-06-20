@@ -72,3 +72,25 @@ async def test_task_require_approval_roundtrips(store):
     loaded = await store.get(task.id)
     assert loaded is not None
     assert loaded.require_approval is True
+
+
+async def test_continues_task_id_roundtrip(store):
+    from forge.models import Task, TaskSource, TaskType
+
+    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d")
+    await store.save(parent)
+    child = Task.new(
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="c",
+        description="follow up",
+        continues_task_id=parent.id,
+    )
+    await store.save(child)
+
+    loaded = await store.get(child.id)
+    assert loaded.continues_task_id == parent.id
+
+    # Default is None for a non-follow-up task.
+    loaded_parent = await store.get(parent.id)
+    assert loaded_parent.continues_task_id is None

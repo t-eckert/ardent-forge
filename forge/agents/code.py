@@ -1,7 +1,8 @@
 import logging
+import os
 
 from forge.agents import AgentContext, record_triage_reason
-from forge.claude import build_prompt
+from forge.claude import build_followup_prompt, build_prompt
 from forge.git import GitOps
 from forge.models import Task
 from forge.verify import run_verification
@@ -64,8 +65,6 @@ class CodeAgent:
         return True
 
     async def execute(self, task: Task, ctx: AgentContext) -> dict:
-        repo_url = f"https://github.com/{task.repo}.git"
-        branch_name = f"forge/{task.id[:12]}"
         session_name = f"agent-{task.id}"
 
         # Persist the session name before the long-running Claude run so that a
@@ -73,31 +72,48 @@ class CodeAgent:
         # is only written back to the store *after* execute completes).
         await ctx.store.update_handler_data(task.id, {"zellij_session": session_name})
 
-        repo_path = await self._git.ensure_repo(repo_url, task.repo)
-        worktree_path = await self._git.create_worktree(repo_path, branch_name)
-
-        prompt = build_prompt(
-            title=task.title,
-            description=task.description,
-            repo=task.repo,
-        )
+        if task.continues_task_id:
+            parent = await ctx.store.get(task.continues_task_id)
+            if parent is None:
+                raise RuntimeError(
+                    f"Follow-up parent {task.continues_task_id} not found for task {task.id}"
+                )
+            pdata = parent.handler_data or {}
+            worktree_path = pdata.get("worktree_path")
+            repo_path = pdata.get("repo_path", "")
+            branch_name = pdata.get("branch_name", "")
+            if not worktree_path or not os.path.isdir(worktree_path):
+                raise RuntimeError(
+                    f"Parent worktree unavailable for follow-up {task.id} "
+                    f"(path={worktree_path!r}); it may have been reaped"
+                )
+            base_prompt = build_followup_prompt(task.description)
+            continue_session = True
+        else:
+            repo_url = f"https://github.com/{task.repo}.git"
+            branch_name = f"forge/{task.id[:12]}"
+            repo_path = await self._git.ensure_repo(repo_url, task.repo)
+            worktree_path = await self._git.create_worktree(repo_path, branch_name)
+            base_prompt = build_prompt(
+                title=task.title, description=task.description, repo=task.repo
+            )
+            continue_session = False
 
         retry_context = None
         output = ""
 
         for attempt in range(MAX_RETRIES + 1):
-            if attempt > 0:
+            run_prompt = base_prompt
+            if retry_context:
+                run_prompt = f"{base_prompt}\n\n## Previous Attempt Context\n{retry_context}"
                 logger.info("Retry %d/%d for task %s", attempt, MAX_RETRIES, task.id)
-                prompt = build_prompt(
-                    title=task.title,
-                    description=task.description,
-                    repo=task.repo,
-                    retry_context=retry_context,
-                )
 
             try:
                 output = await self._zellij.run(
-                    prompt, worktree_path, session_name=session_name
+                    run_prompt,
+                    worktree_path,
+                    session_name=session_name,
+                    continue_session=continue_session,
                 )
             except (TimeoutError, RuntimeError) as e:
                 retry_context = f"Attempt {attempt + 1} failed: {e}"
@@ -157,16 +173,26 @@ class CodeAgent:
         body_parts.append("\n---\nAutomated by Ardent Forge")
         body = "\n".join(body_parts)
 
-        try:
-            pr_url = await self._git.create_pr(worktree_path, title, body)
-        except RuntimeError as e:
-            logger.error("PR creation failed: %s", e)
-            pr_url = f"PR creation failed: {e}"
+        push_error = None
+        existing = await self._git.get_existing_pr_url(worktree_path)
+        if existing:
+            try:
+                await self._git.push_branch(worktree_path)
+            except RuntimeError as e:
+                logger.warning("Failed to push follow-up commits for %s: %s", task.id, e)
+                push_error = str(e)
+            pr_url = existing
+        else:
+            try:
+                pr_url = await self._git.create_pr(worktree_path, title, body)
+            except RuntimeError as e:
+                logger.error("PR creation failed: %s", e)
+                pr_url = f"PR creation failed: {e}"
 
-        try:
-            await self._git.cleanup_worktree(repo_path, worktree_path)
-        except RuntimeError:
-            logger.warning("Failed to cleanup worktree %s", worktree_path)
+        # NB: the worktree is intentionally NOT cleaned up here. Worktrees persist
+        # after delivery so follow-up tasks can `claude --continue` in them; the
+        # coordinator's worktree reaper reclaims them once all referencing tasks
+        # are terminal and past the TTL.
 
         result: dict = {
             "status": "delivered",
@@ -175,4 +201,6 @@ class CodeAgent:
         }
         if session_name:
             result["attach_cmd"] = f"ssh box -t zellij attach {session_name}"
+        if push_error:
+            result["push_error"] = push_error
         return result
