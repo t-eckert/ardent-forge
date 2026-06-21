@@ -176,6 +176,15 @@ export const api = {
 			request('/api/tasks', Task, {
 				method: 'POST',
 				body: JSON.stringify(input)
+			}),
+		cancel: (id: string) => request(`/api/tasks/${id}/cancel`, Task, { method: 'POST' }),
+		approve: (id: string) => request(`/api/tasks/${id}/approve`, Task, { method: 'POST' }),
+		reject: (id: string) => request(`/api/tasks/${id}/reject`, Task, { method: 'POST' }),
+		retry: (id: string) => request(`/api/tasks/${id}/retry`, Task, { method: 'POST' }),
+		followUp: (id: string, prompt: string) =>
+			request(`/api/tasks/${id}/follow-up`, Task, {
+				method: 'POST',
+				body: JSON.stringify({ prompt })
 			})
 	},
 

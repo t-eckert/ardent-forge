@@ -15,6 +15,8 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
 		handler_data: {},
 		result: null,
 		retries: 0,
+		require_approval: false,
+		continues_task_id: null,
 		created_at: now,
 		updated_at: now,
 		completed_at: null,

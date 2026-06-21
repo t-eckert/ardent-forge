@@ -11,8 +11,10 @@ import { z } from 'zod';
  * `z.infer<typeof X>` — never hand-written.
  */
 
-/** ISO-8601 UTC timestamp, e.g. "2026-04-12T09:22:18Z" */
-export const IsoDate = z.iso.datetime();
+/** ISO-8601 timestamp, e.g. "2026-04-12T09:22:18Z" or "2026-04-12T09:22:18+00:00".
+ *  Offsets are allowed because the Python backend emits `datetime.isoformat()`,
+ *  which produces a `+00:00` offset rather than a `Z` suffix. */
+export const IsoDate = z.iso.datetime({ offset: true });
 export type IsoDate = z.infer<typeof IsoDate>;
 
 /** ISO-8601 duration, e.g. "PT24M12S". Widget meta often just uses pretty strings,

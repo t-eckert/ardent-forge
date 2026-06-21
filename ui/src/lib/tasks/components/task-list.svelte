@@ -16,7 +16,9 @@
 
 	const activeCount = $derived(
 		tasks.filter((t) =>
-			['queued', 'triaging', 'executing', 'verifying', 'delivering'].includes(t.status)
+			['queued', 'triaging', 'executing', 'verifying', 'delivering', 'awaiting_approval'].includes(
+				t.status
+			)
 		).length
 	);
 
@@ -26,7 +28,8 @@
 			: filter === 'active'
 				? tasks.filter((t) => ['queued', 'triaging', 'executing'].includes(t.status))
 				: filter === 'needs-me'
-					? tasks.filter((t) => ['verifying', 'delivering'].includes(t.status))
+					? // awaiting_approval is the state that actually needs the operator (the gate).
+						tasks.filter((t) => ['awaiting_approval', 'verifying', 'delivering'].includes(t.status))
 					: tasks.filter((t) => t.status === 'failed')
 	);
 
