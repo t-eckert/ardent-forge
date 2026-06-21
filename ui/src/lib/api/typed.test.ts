@@ -85,4 +85,9 @@ describe('api.tasks steer mutations', () => {
 		});
 		await expect(api.tasks.cancel('abc')).rejects.toThrow(ApiError);
 	});
+
+	it('throws ApiError when a 200 body fails Task validation (contract drift)', async () => {
+		mockFetch.mockResolvedValueOnce(ok({ not_a_task: true }));
+		await expect(api.tasks.approve('abc')).rejects.toThrow(ApiError);
+	});
 });
