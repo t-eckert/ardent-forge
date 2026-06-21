@@ -34,6 +34,11 @@ describe('Task schema — phase 2 statuses', () => {
 		expect(t.continues_task_id).toBe('01HZX9MVT0PARENT00000000000');
 	});
 
+	it('accepts continues_task_id as null', () => {
+		const t = Task.parse({ ...base, continues_task_id: null });
+		expect(t.continues_task_id).toBeNull();
+	});
+
 	it('defaults require_approval to false when absent', () => {
 		const t = Task.parse(base);
 		expect(t.require_approval).toBe(false);
