@@ -173,7 +173,9 @@
 		{/if}
 
 		{#if error}
-			<Meta size="xs">{error}</Meta>
+			<div role="alert" aria-live="polite">
+				<Meta size="xs">{error}</Meta>
+			</div>
 		{/if}
 	</div>
 {/if}
