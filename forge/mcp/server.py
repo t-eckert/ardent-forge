@@ -279,6 +279,15 @@ async def read_note(path: str) -> dict:
         return {"error": str(exc)}
 
 
+async def get_weather(location: str | None = None) -> dict:
+    """Get current weather and 8-day daily forecast for a location.
+    Defaults to Ottawa if no location is given."""
+    tool = _connectors.find_tool("get_weather") if _connectors is not None else None
+    if tool is None:
+        return {"error": "weather not configured"}
+    return await tool.execute(location=location)
+
+
 async def web_search(query: str, max_results: int = 5) -> dict:
     """Search the web for current information via Forge's web-search connector."""
     tool = _connectors.find_tool("web_search") if _connectors is not None else None
@@ -310,6 +319,7 @@ def build_mcp_server(settings) -> FastMCP:
     server.add_tool(list_schedules, name="list_schedules")
     server.add_tool(create_schedule, name="create_schedule")
     server.add_tool(delete_schedule, name="delete_schedule")
+    server.add_tool(get_weather, name="get_weather")
 
     if Path(settings.notebook_dir).is_dir():
         server.add_tool(search_notebook, name="search_notebook")

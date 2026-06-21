@@ -249,29 +249,58 @@ async def test_search_notebook_and_read_note():
     assert "error" in missing
 
 
-class _FakeTool:
+class _FakeWebSearchTool:
     async def execute(self, **kwargs):
         return {"query": kwargs.get("query"), "results": []}
 
 
+class _FakeWeatherTool:
+    async def execute(self, **kwargs):
+        location = kwargs.get("location") or "Ottawa, Ontario, CA"
+        return {
+            "location": location,
+            "current": {"temp_c": 22.0, "description": "clear sky"},
+            "daily": [],
+        }
+
+
 class _FakeConnectors:
-    def __init__(self, tool):
-        self._tool = tool
+    def __init__(self, web_search_tool=None, weather_tool=None):
+        self._tools = {"web_search": web_search_tool, "get_weather": weather_tool}
 
     def find_tool(self, name):
-        return self._tool if name == "web_search" else None
+        return self._tools.get(name)
 
 
 async def test_web_search_uses_connector_tool():
-    mcp_server.configure(connectors=_FakeConnectors(_FakeTool()))
+    mcp_server.configure(connectors=_FakeConnectors(web_search_tool=_FakeWebSearchTool()))
     out = await mcp_server.web_search("latest python release")
     assert out["query"] == "latest python release"
 
 
 async def test_web_search_missing_connector():
-    mcp_server.configure(connectors=_FakeConnectors(None))
+    mcp_server.configure(connectors=_FakeConnectors())
     out = await mcp_server.web_search("anything")
     assert out == {"error": "web search not configured"}
+
+
+async def test_get_weather_uses_connector_tool():
+    mcp_server.configure(connectors=_FakeConnectors(weather_tool=_FakeWeatherTool()))
+    out = await mcp_server.get_weather()
+    assert out["location"] == "Ottawa, Ontario, CA"
+    assert "current" in out
+
+
+async def test_get_weather_with_location():
+    mcp_server.configure(connectors=_FakeConnectors(weather_tool=_FakeWeatherTool()))
+    out = await mcp_server.get_weather(location="San Diego")
+    assert out["location"] == "San Diego"
+
+
+async def test_get_weather_missing_connector():
+    mcp_server.configure(connectors=_FakeConnectors())
+    out = await mcp_server.get_weather()
+    assert out == {"error": "weather not configured"}
 
 
 ALWAYS_ON = {
@@ -287,6 +316,7 @@ ALWAYS_ON = {
     "list_schedules",
     "create_schedule",
     "delete_schedule",
+    "get_weather",
 }
 
 
