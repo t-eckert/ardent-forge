@@ -34,6 +34,8 @@
 			case 'delivering': return { label: 'delivering', tone: 'ember' };
 			case 'completed': return { label: 'done', tone: 'moss' };
 			case 'failed': return { label: 'failed', tone: 'ember' };
+			case 'awaiting_approval': return { label: 'awaiting approval', tone: 'neutral' };
+			case 'cancelled': return { label: 'cancelled', tone: 'neutral' };
 		}
 	}
 </script>

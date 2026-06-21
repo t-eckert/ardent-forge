@@ -17,7 +17,9 @@ export const TaskStatus = z.enum([
 	'verifying',
 	'delivering',
 	'completed',
-	'failed'
+	'failed',
+	'awaiting_approval',
+	'cancelled'
 ]);
 export type TaskStatus = z.infer<typeof TaskStatus>;
 
@@ -47,6 +49,8 @@ export const Task = z.object({
 	/** Final aggregated result — available after completed */
 	result: z.record(z.string(), z.unknown()).nullable().optional(),
 	retries: z.number().int().default(0),
+	require_approval: z.boolean().default(false),
+	continues_task_id: z.string().nullable().optional(),
 	created_at: IsoDate,
 	updated_at: IsoDate,
 	completed_at: IsoDate.nullable().optional(),
