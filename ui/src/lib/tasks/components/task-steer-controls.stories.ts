@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/sveltekit';
 import type { ComponentProps } from 'svelte';
-import { expect, within, userEvent, spyOn } from 'storybook/test';
+import { expect, within, userEvent, spyOn, waitFor } from 'storybook/test';
 import TaskSteerControls from './task-steer-controls.svelte';
 
 const baseTask = {
@@ -97,9 +97,11 @@ export const CancelRequiresTwoClicks: Story = {
 			await expect(canvas.getByRole('button', { name: 'Confirm?' })).toBeInTheDocument();
 			await expect(fetchSpy).not.toHaveBeenCalled();
 			await userEvent.click(canvas.getByRole('button', { name: 'Confirm?' }));
-			await expect(fetchSpy).toHaveBeenCalledWith(
-				expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/cancel'),
-				expect.objectContaining({ method: 'POST' })
+			await waitFor(() =>
+				expect(fetchSpy).toHaveBeenCalledWith(
+					expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/cancel'),
+					expect.objectContaining({ method: 'POST' })
+				)
 			);
 		} finally {
 			fetchSpy.mockRestore();
@@ -119,9 +121,11 @@ export const ApproveCallsEndpoint: Story = {
 		} as Response);
 		try {
 			await userEvent.click(canvas.getByRole('button', { name: 'Approve' }));
-			await expect(fetchSpy).toHaveBeenCalledWith(
-				expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/approve'),
-				expect.objectContaining({ method: 'POST' })
+			await waitFor(() =>
+				expect(fetchSpy).toHaveBeenCalledWith(
+					expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/approve'),
+					expect.objectContaining({ method: 'POST' })
+				)
 			);
 		} finally {
 			fetchSpy.mockRestore();

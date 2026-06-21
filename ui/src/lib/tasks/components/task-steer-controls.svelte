@@ -17,15 +17,35 @@
 	const canFollowUp = $derived(
 		isCode && ['completed', 'failed', 'awaiting_approval'].includes(task.status)
 	);
-	const session = $derived((task.handler_data?.zellij_session as string | undefined) ?? undefined);
+	const session = $derived(task.handler_data?.zellij_session as string | undefined);
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let confirming = $state<null | 'cancel' | 'reject'>(null);
 	let confirmTimer: ReturnType<typeof setTimeout> | undefined;
+	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 	let showFollowUp = $state(false);
 	let followUpPrompt = $state('');
 	let copied = $state(false);
+
+	const followUpReady = $derived(followUpPrompt.trim().length > 0);
+
+	$effect(() => {
+		return () => {
+			clearTimeout(confirmTimer);
+			clearTimeout(copiedTimer);
+		};
+	});
+
+	// svelte-ignore state_referenced_locally -- intentional: capture initial id to detect changes
+	let lastTaskId = task.id;
+	$effect(() => {
+		if (task.id !== lastTaskId) {
+			lastTaskId = task.id;
+			confirming = null;
+			clearTimeout(confirmTimer);
+		}
+	});
 
 	async function run(fn: () => Promise<unknown>) {
 		if (busy) return;
@@ -76,7 +96,7 @@
 		try {
 			await navigator.clipboard.writeText(cmd);
 			copied = true;
-			setTimeout(() => (copied = false), 1500);
+			copiedTimer = setTimeout(() => (copied = false), 1500);
 		} catch {
 			error = 'Clipboard unavailable';
 		}
@@ -145,7 +165,7 @@
 					<Button
 						variant="primary"
 						size="sm"
-						disabled={busy || !followUpPrompt.trim()}
+						disabled={busy || !followUpReady}
 						onclick={submitFollowUp}>Send</Button
 					>
 				</div>
