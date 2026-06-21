@@ -18,12 +18,25 @@
 	const resultEntries = $derived(active.result ? Object.entries(active.result) : []);
 
 	// Poll while the open task is active so the stage strip advances and the
-	// approval gate's buttons appear on their own. Stops at a terminal state.
+	// approval gate's buttons appear on their own. The effect re-runs when
+	// active.status changes (each load passes a new value), tearing down the
+	// schedule at a terminal state. A self-scheduling timeout — not setInterval —
+	// so a slow load can't stack overlapping invalidateAll() calls; the next poll
+	// is only queued once the previous one settles.
 	const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
 	$effect(() => {
 		if (TERMINAL.has(active.status)) return;
-		const t = setInterval(() => invalidateAll(), 3000);
-		return () => clearInterval(t);
+		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout>;
+		async function poll() {
+			await invalidateAll();
+			if (!cancelled) timer = setTimeout(poll, 3000);
+		}
+		timer = setTimeout(poll, 3000);
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
 	});
 </script>
 
