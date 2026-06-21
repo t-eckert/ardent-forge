@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import type { Task } from '$lib/schemas/task';
 	import TaskList from '../components/task-list.svelte';
 	import TaskHeader from '../components/task-header.svelte';
 	import TaskStageStrip from '../components/task-stage-strip.svelte';
+	import TaskSteerControls from '../components/task-steer-controls.svelte';
 	import { Body, Eyebrow } from '$lib/typography';
 
 	interface Props {
@@ -14,6 +16,15 @@
 
 	const handlerEntries = $derived(Object.entries(active.handler_data ?? {}));
 	const resultEntries = $derived(active.result ? Object.entries(active.result) : []);
+
+	// Poll while the open task is active so the stage strip advances and the
+	// approval gate's buttons appear on their own. Stops at a terminal state.
+	const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
+	$effect(() => {
+		if (TERMINAL.has(active.status)) return;
+		const t = setInterval(() => invalidateAll(), 3000);
+		return () => clearInterval(t);
+	});
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
@@ -21,6 +32,7 @@
 	<section class="flex-1 min-w-0 overflow-y-auto">
 		<TaskHeader task={active} />
 		<TaskStageStrip task={active} />
+		<TaskSteerControls task={active} />
 
 		<div class="px-10 py-6 flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
