@@ -14,6 +14,7 @@
     ./services/tailscale-portforward.nix
     ./services/marimo.nix
     ./services/workspace-init.nix
+    ./services/thomaseckert-dev.nix
   ];
 
   # ── System ──────────────────────────────────────────────
@@ -48,6 +49,7 @@
     enable = true;
     useRoutingFeatures = "server";
     extraSetFlags = [ "--ssh" ];
+    permitCertUid = "caddy";
   };
 
   # ── Time & Locale ──────────────────────────────────────

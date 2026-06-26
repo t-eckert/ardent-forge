@@ -15,6 +15,7 @@ let
     cs-grafana = { backend = "127.0.0.1:8022"; };  # podman: local_grafana_1
     cs-galley  = { backend = "127.0.0.1:8020"; };  # galley backend
     lab        = { backend = "127.0.0.1:2718"; };  # marimo notebooks
+    te         = { backend = "127.0.0.1:10000"; }; # thomaseckert.dev
   };
 
   csNodeBlock = lib.concatStringsSep "\n  " (lib.mapAttrsToList
