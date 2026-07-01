@@ -31,6 +31,15 @@
     unzip
     lsof
     pyright         # pyright-langserver for Claude Code pyright-lsp plugin
+
+    # The dotfiles home module ships `rustup`, whose profile shim
+    # `bin/rust-analyzer` is just the rustup proxy. The stable toolchain has no
+    # rust-analyzer component installed, so the proxy "falls back" to itself on
+    # PATH and recurses until it exits 1 ("error: infinite recursion detected").
+    # That exit-1 is what crashes Claude Code's rust-analyzer-lsp plugin.
+    # Ship the real nixpkgs binary and hiPrio it so it wins the bin/rust-analyzer
+    # collision against the rustup shim.
+    (lib.hiPrio rust-analyzer)
   ];
 
   # Forge-specific environment variables
@@ -43,7 +52,34 @@
     OPENSSL_DIR = "${pkgs.openssl.dev}";
     OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
     PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+    # Prisma (chillest-subs) can't fetch a NixOS-specific query engine — its
+    # CDN 404s on linux-nixos, so `prisma generate` fails and leaves a
+    # half-written client. Point it at the nixpkgs prisma-engines package
+    # globally so every shell/process (pnpm install, predev, process-compose)
+    # has a valid engine. nix-resolved → no stale /nix/store hash, tracks
+    # `af-rebuild`. Must match @prisma/client's major (currently 6.x).
+    PRISMA_QUERY_ENGINE_LIBRARY = "${pkgs.prisma-engines_6}/lib/libquery_engine.node";
+    PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/schema-engine";
+    PRISMA_QUERY_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/query-engine";
+    PRISMA_FMT_BINARY = "${pkgs.prisma-engines_6}/bin/prisma-fmt";
   };
+
+  # home.sessionVariables above only reach interactive/login shells. The Chill
+  # Subs + Galley dev suite runs under `systemd --user` (cs-galley-suite.service
+  # → process-compose), which does NOT source hm-session-vars.sh, so without this
+  # process-compose and its children (pnpm predev → `prisma generate`) had no
+  # PRISMA_* and fell back to fetching a linux-nixos engine that 404s. The
+  # systemd user manager loads ~/.config/environment.d/*.conf via
+  # 30-systemd-environment-d-generator, so this makes the engine paths available
+  # to every user service. Paths reference pkgs.prisma-engines_6 → gcrooted,
+  # tracks af-rebuild. Apply to a running session without relogin via:
+  #   systemctl --user import-environment   (after a daemon-reexec), or relogin.
+  home.file.".config/environment.d/10-prisma.conf".text = ''
+    PRISMA_QUERY_ENGINE_LIBRARY=${pkgs.prisma-engines_6}/lib/libquery_engine.node
+    PRISMA_SCHEMA_ENGINE_BINARY=${pkgs.prisma-engines_6}/bin/schema-engine
+    PRISMA_QUERY_ENGINE_BINARY=${pkgs.prisma-engines_6}/bin/query-engine
+    PRISMA_FMT_BINARY=${pkgs.prisma-engines_6}/bin/prisma-fmt
+  '';
 
   # Rebuild script — updates flake inputs then switches the system
   home.file.".local/bin/af-rebuild" = {
