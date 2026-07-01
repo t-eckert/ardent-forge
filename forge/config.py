@@ -55,5 +55,10 @@ class Settings(BaseSettings):
     # Set to 0 to disable. Value is in minutes between tests.
     speedtest_interval_minutes: int = 0
 
+    # Locale — timezone used to derive "today" for notebook daily logs and
+    # other wall-clock date logic. The systemd service runs in UTC, so relying
+    # on the process's ambient TZ surfaces the wrong day near midnight local.
+    timezone: str = "America/Toronto"
+
     # Observability
     log_level: str = "INFO"

@@ -163,7 +163,7 @@ def run():
         if notebook_path.is_dir():
             from forge.connectors.notebook import NotebookConnector
 
-            connectors.register(NotebookConnector(notebook_path))
+            connectors.register(NotebookConnector(notebook_path, tz=settings.timezone))
 
         # Speed test — periodic bandwidth measurement.
         from forge.connectors.speedtest import SpeedtestConnector

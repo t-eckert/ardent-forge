@@ -19,6 +19,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from forge.connectors import Connector, Tool
 from forge.notebook import NotebookReader, NotebookWriter
@@ -37,10 +38,23 @@ MAX_LIST_ENTRIES = 200
 class NotebookConnector(Connector):
     name = "notebook"
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, tz: str = "America/Toronto"):
         self._root = root
         self._reader: NotebookReader | None = None
         self._writer: NotebookWriter | None = None
+        try:
+            self._tz: ZoneInfo | None = ZoneInfo(tz)
+        except (ZoneInfoNotFoundError, ValueError):
+            logger.warning(
+                "Unknown timezone %r; falling back to system local time", tz
+            )
+            self._tz = None
+
+    def _now(self) -> datetime:
+        """Current wall-clock time in the configured timezone, as a naive
+        datetime — a drop-in for datetime.now() so "today" tracks the user's
+        local day instead of the server's (UTC) day near midnight."""
+        return datetime.now(self._tz).replace(tzinfo=None)
 
     async def setup(self) -> None:
         # NotebookReader/Writer constructors are sync and validate that the
@@ -361,7 +375,7 @@ class NotebookConnector(Connector):
         if isinstance(r, dict):
             return r
         if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
+            date = self._now().strftime("%Y-%m-%d")
         log_path = f"Log/{date}.md"
         try:
             content = await asyncio.to_thread(r.read, log_path)
@@ -379,7 +393,7 @@ class NotebookConnector(Connector):
         if isinstance(w, dict):
             return w
 
-        target_date = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
+        target_date = datetime.strptime(date, "%Y-%m-%d") if date else self._now()
         date_str = target_date.strftime("%Y-%m-%d")
         log_path = f"Log/{date_str}.md"
 
@@ -478,7 +492,7 @@ class NotebookConnector(Connector):
         if isinstance(r, dict):
             return r
 
-        end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
+        end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else self._now()
         days = max(1, min(days, 90))
 
         all_completed: list[str] = []
@@ -540,7 +554,7 @@ class NotebookConnector(Connector):
             return r
 
         lookback_days = max(1, min(lookback_days, 90))
-        today = datetime.now()
+        today = self._now()
 
         # 1. Find rolling deferrals — tasks that appear as [>] in multiple logs.
         deferral_counts: dict[str, int] = {}
@@ -599,7 +613,7 @@ class NotebookConnector(Connector):
         if isinstance(r, dict):
             return r
         if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
+            date = self._now().strftime("%Y-%m-%d")
         log_path = f"Log/{date}.md"
         try:
             content = await asyncio.to_thread(r.read, log_path)
