@@ -2,6 +2,7 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
@@ -21,9 +22,30 @@ export default defineConfig(({ mode }) => {
   const apiProxyTarget =
     process.env.VITE_API_PROXY ?? fileEnv.VITE_API_PROXY ?? "http://localhost:7030";
 
+  // Optional HTTPS for tailnet access. `.ts.net` is HSTS-preloaded, so browsers
+  // force HTTPS for the MagicDNS name — plain HTTP won't load. If a Tailscale
+  // cert is present (see ui/.certs, gitignored), terminate TLS in Vite so the
+  // dev server is reachable at https://ardent-forge.<tailnet>.ts.net:5173.
+  // Generate with: cd ui/.certs && tailscale cert ardent-forge.<tailnet>.ts.net
+  const certDir = path.join(dirname, ".certs");
+  const certHost = "ardent-forge.feist-gondola.ts.net";
+  const certPath = path.join(certDir, `${certHost}.crt`);
+  const keyPath = path.join(certDir, `${certHost}.key`);
+  const https =
+    fs.existsSync(certPath) && fs.existsSync(keyPath)
+      ? { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) }
+      : undefined;
+
   return {
     plugins: [sveltekit()],
     server: {
+      // Bind to the tailnet interface so the dev server is reachable at
+      // https://ardent-forge.<tailnet>.ts.net:5173 from other tailnet devices.
+      host: true,
+      https,
+      // Vite 6 rejects requests whose Host header isn't loopback; allow the
+      // MagicDNS name so tailnet access isn't blocked.
+      allowedHosts: [".feist-gondola.ts.net"],
       proxy: {
         "/api": { target: apiProxyTarget, changeOrigin: true, secure: true },
         "/health": { target: apiProxyTarget, changeOrigin: true, secure: true }
