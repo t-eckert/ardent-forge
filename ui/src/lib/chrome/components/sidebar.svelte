@@ -31,7 +31,7 @@
 	class="flex flex-col w-[220px] min-h-screen bg-[var(--color-bench)] border-r border-[var(--color-border)] px-3.5 py-5 gap-0.5"
 >
 	<!-- Brand -->
-	<div class="flex items-center gap-2.5 px-1.5 pb-[18px]">
+	<div class="flex items-center gap-2.5 px-1.5 pb-4">
 		<div
 			class="flex items-center justify-center w-6 h-6 bg-[var(--color-ink)] text-[var(--color-paper)] font-display text-[15px] rounded-[3px]"
 		>
@@ -59,7 +59,7 @@
 	</SpineItem>
 
 	<!-- System -->
-	<div class="pt-4 pb-1 px-2.5">
+	<div class="pt-5 pb-1.5 px-2.5">
 		<Eyebrow>SYSTEM</Eyebrow>
 	</div>
 	<SpineItem href="/library/agents" label="Agents" icon={Robot} active={active === 'agents'} />
@@ -76,24 +76,24 @@
 		{#each pinned.items as item (item.id)}
 			<a
 				href={item.href}
-				class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60 rounded"
+				class="flex items-center gap-2.5 px-2.5 py-2 text-[13px] rounded-md border border-transparent text-[var(--color-slate)] transition-colors hover:bg-[var(--color-paper)]/60"
 			>
-				<span class="font-mono text-[var(--color-graphite)]">◆</span>
+				<span class="font-mono text-[11px] text-[var(--color-graphite)]">◆</span>
 				<span class="truncate">{item.label}</span>
 			</a>
 		{/each}
 	{/if}
 
 	<!-- Footer: settings + ⌘K + sync -->
-	<div class="mt-auto pt-2.5 border-t border-[var(--color-border)]">
+	<div class="mt-auto pt-3 border-t border-[var(--color-border)]">
 		<a
 			href="/settings"
-			class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60 rounded"
+			class="flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-[var(--color-slate)] hover:bg-[var(--color-paper)]/60 rounded-md transition-colors"
 		>
 			<Gear size={14} weight="regular" />
 			<span>Settings</span>
 		</a>
-		<div class="flex items-center justify-between px-2.5 py-1">
+		<div class="flex items-center justify-between px-2.5 py-1.5">
 			<Meta size="xs">Quick find</Meta>
 			<KeycapHint keys={['⌘', 'K']} />
 		</div>
