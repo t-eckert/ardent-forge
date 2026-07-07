@@ -59,9 +59,10 @@ class Coordinator:
         self._default_timeout = (
             getattr(settings, "default_timeout_seconds", 1800) if settings else 1800
         )
-        # Wake signal — chat.py sets this after dispatching a task so the
-        # coordinator starts processing within seconds instead of waiting for
-        # the next poll tick. Created lazily on first loop entry so it binds
+        # Wake signal — task dispatchers (REST create/steer endpoints, MCP
+        # dispatch_task) set this after queueing a task so the coordinator
+        # starts processing within seconds instead of waiting for the next
+        # poll tick. Created lazily on first loop entry so it binds
         # to the running event loop.
         self._wake: asyncio.Event | None = None
 
