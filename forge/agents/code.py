@@ -144,9 +144,7 @@ class CodeAgent:
         # Always record the outcome — including NO_TESTS and INCONCLUSIVE — so a
         # task's result shows what was (or wasn't) actually verified instead of
         # an opaque pass/fail.
-        await _record_verification(
-            ctx, task, result.status.value, commands_run=result.commands_run
-        )
+        await _record_verification(ctx, task, result.status.value, commands_run=result.commands_run)
         return result.success
 
     async def deliver(self, task: Task, ctx: AgentContext) -> dict:
@@ -157,11 +155,6 @@ class CodeAgent:
 
         if not worktree_path or not repo_path:
             return {"status": "delivered", "error": "Missing worktree or repo path"}
-
-        try:
-            diff = await self._git.get_diff(worktree_path, "main")
-        except RuntimeError:
-            diff = "(diff unavailable)"
 
         title = f"forge: {task.title}"
         body_parts = [

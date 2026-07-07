@@ -14,9 +14,7 @@ async def client():
     store = TaskStore(db)
     app = create_app(db)
     schedules.set_store(store)
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     await db.close()
 
@@ -65,8 +63,6 @@ async def test_toggle_schedule(client):
         json={"name": "Test", "cron_expr": "* * * * *", "task_type": "echo"},
     )
     schedule_id = resp.json()["id"]
-    resp = await client.patch(
-        f"/api/schedules/{schedule_id}", json={"enabled": False}
-    )
+    resp = await client.patch(f"/api/schedules/{schedule_id}", json={"enabled": False})
     assert resp.status_code == 200
     assert resp.json()["enabled"] == 0

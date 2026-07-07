@@ -46,6 +46,7 @@ def test_task_to_row_and_back():
 
 def test_task_type_includes_plan_and_tickets():
     from forge.models import TaskType
+
     assert TaskType.PLAN == "plan"
     assert TaskType.TICKETS == "tickets"
 
@@ -66,11 +67,13 @@ def test_task_resilience_fields_default_and_roundtrip():
     assert task.failure_kind is None
 
     # Round-trip through to_row/from_row with non-default values
-    task = task.model_copy(update={
-        "max_retries": 5,
-        "available_at": datetime(2026, 6, 17, 12, 0, tzinfo=timezone.utc),
-        "failure_kind": "timeout",
-    })
+    task = task.model_copy(
+        update={
+            "max_retries": 5,
+            "available_at": datetime(2026, 6, 17, 12, 0, tzinfo=timezone.utc),
+            "failure_kind": "timeout",
+        }
+    )
     restored = Task.from_row(task.to_row())
     assert restored.max_retries == 5
     assert restored.available_at == task.available_at

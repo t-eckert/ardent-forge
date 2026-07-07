@@ -32,6 +32,7 @@ async def connectors_health(request: Request):
     result = await registry.health_check()
     try:
         from forge.metrics import CONNECTOR_HEALTH
+
         for name, ok in result.items():
             CONNECTOR_HEALTH.labels(connector=name).set(1 if ok else 0)
     except Exception:

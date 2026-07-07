@@ -1,5 +1,3 @@
-import pytest
-
 from forge.guardrails import check_self_modification
 
 
@@ -16,25 +14,19 @@ def test_allows_ardent_forge_safe_files():
 
 
 def test_blocks_nix_modification():
-    result = check_self_modification(
-        "t-eckert/ardent-forge", ["nix/configuration.nix"]
-    )
+    result = check_self_modification("t-eckert/ardent-forge", ["nix/configuration.nix"])
     assert result is not None
     assert "nix/" in result
 
 
 def test_blocks_guardrails_modification():
-    result = check_self_modification(
-        "t-eckert/ardent-forge", ["forge/guardrails.py"]
-    )
+    result = check_self_modification("t-eckert/ardent-forge", ["forge/guardrails.py"])
     assert result is not None
     assert "guardrails" in result
 
 
 def test_blocks_claude_md_modification():
-    result = check_self_modification(
-        "t-eckert/ardent-forge", ["CLAUDE.md"]
-    )
+    result = check_self_modification("t-eckert/ardent-forge", ["CLAUDE.md"])
     assert result is not None
     assert "CLAUDE.md" in result
 

@@ -1,5 +1,4 @@
 import httpx
-import pytest
 import respx
 
 from forge.linear.client import LinearClient
@@ -11,14 +10,19 @@ async def test_create_project_returns_id():
     respx.post("https://api.linear.app/graphql").mock(
         return_value=httpx.Response(
             200,
-            json={"data": {"projectCreate": {"success": True, "project": {"id": "p1", "url": "https://linear.app/x/project/p1"}}}},
+            json={
+                "data": {
+                    "projectCreate": {
+                        "success": True,
+                        "project": {"id": "p1", "url": "https://linear.app/x/project/p1"},
+                    }
+                }
+            },
         )
     )
     client = LinearClient(api_key="k")
     api = LinearProjectsAPI(client)
-    project_id, url = await api.create_project(
-        team_id="team-1", name="Phase 0", description="desc"
-    )
+    project_id, url = await api.create_project(team_id="team-1", name="Phase 0", description="desc")
     assert project_id == "p1"
     assert url.endswith("/p1")
 
@@ -28,7 +32,14 @@ async def test_create_issue_returns_id_and_identifier():
     respx.post("https://api.linear.app/graphql").mock(
         return_value=httpx.Response(
             200,
-            json={"data": {"issueCreate": {"success": True, "issue": {"id": "i1", "identifier": "FORGE-42", "url": "u"}}}},
+            json={
+                "data": {
+                    "issueCreate": {
+                        "success": True,
+                        "issue": {"id": "i1", "identifier": "FORGE-42", "url": "u"},
+                    }
+                }
+            },
         )
     )
     client = LinearClient(api_key="k")

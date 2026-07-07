@@ -2,7 +2,7 @@
 
 import pytest
 
-from forge.agents import Agent, AgentContext, AgentRegistry, validate_stages
+from forge.agents import Agent, AgentRegistry, validate_stages
 
 
 class _Exec:

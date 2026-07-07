@@ -92,7 +92,19 @@ class GitOps:
         await self._run(["git", "push", "-u", "origin", branch], cwd=worktree_path)
         base = base_branch or await self._get_default_branch(worktree_path)
         result = await self._run(
-            ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title, "--body", body],
+            [
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                base,
+                "--head",
+                branch,
+                "--title",
+                title,
+                "--body",
+                body,
+            ],
             cwd=worktree_path,
         )
         return result.strip()
@@ -109,8 +121,19 @@ class GitOps:
                 await self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=worktree_path)
             ).strip()
             out = await self._run(
-                ["gh", "pr", "list", "--head", branch, "--state", "open",
-                 "--json", "url", "-q", ".[0].url"],
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--head",
+                    branch,
+                    "--state",
+                    "open",
+                    "--json",
+                    "url",
+                    "-q",
+                    ".[0].url",
+                ],
                 cwd=worktree_path,
             )
         except RuntimeError as e:

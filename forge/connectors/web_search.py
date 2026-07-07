@@ -85,11 +85,13 @@ class WebSearchConnector(Connector):
 
         results = []
         for r in data.get("results", []):
-            results.append({
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "content": r.get("content", ""),
-            })
+            results.append(
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "content": r.get("content", ""),
+                }
+            )
 
         return {
             "query": query,

@@ -34,7 +34,16 @@ async def client():
 
 async def test_create_task_with_require_approval(client):
     c, store, nudged = client
-    resp = await c.post("/api/tasks", json={"type": "code", "title": "gated", "description": "needs sign-off", "repo": "t-eckert/x", "require_approval": True})
+    resp = await c.post(
+        "/api/tasks",
+        json={
+            "type": "code",
+            "title": "gated",
+            "description": "needs sign-off",
+            "repo": "t-eckert/x",
+            "require_approval": True,
+        },
+    )
     assert resp.status_code == 201
     saved = await store.get(resp.json()["id"])
     assert saved is not None and saved.require_approval is True
@@ -44,7 +53,12 @@ async def test_create_task_uses_manual_source_and_nudges(client):
     c, store, nudged = client
     resp = await c.post(
         "/api/tasks",
-        json={"type": "code", "title": "do a thing", "description": "the details", "repo": "t-eckert/x"},
+        json={
+            "type": "code",
+            "title": "do a thing",
+            "description": "the details",
+            "repo": "t-eckert/x",
+        },
     )
     assert resp.status_code == 201
     body = resp.json()

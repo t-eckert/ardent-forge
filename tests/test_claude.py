@@ -1,5 +1,3 @@
-import pytest
-
 from forge.claude import build_prompt, ClaudeRunner
 
 
@@ -48,6 +46,7 @@ def test_claude_runner_default_model():
 
 def test_build_followup_prompt_contains_request():
     from forge.claude import build_followup_prompt
+
     prompt = build_followup_prompt("also add logging")
     assert "also add logging" in prompt
     assert "Follow-up" in prompt

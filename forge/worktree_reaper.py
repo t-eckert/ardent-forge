@@ -22,9 +22,7 @@ ACTIVE_STATES = {
 }
 
 
-def reapable_worktrees(
-    tasks: list[Task], now: datetime, ttl: timedelta
-) -> list[tuple[str, str]]:
+def reapable_worktrees(tasks: list[Task], now: datetime, ttl: timedelta) -> list[tuple[str, str]]:
     """Return (repo_path, worktree_path) pairs whose worktree can be removed."""
     groups: dict[str, list[Task]] = {}
     for task in tasks:

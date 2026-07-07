@@ -77,9 +77,7 @@ class ClaudeRunner:
             env=env,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=self._timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.communicate()

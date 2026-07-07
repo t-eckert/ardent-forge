@@ -49,13 +49,14 @@ async def list_directory(request: Request, path: str = ""):
 
 
 @router.get("/search")
-async def search(request: Request, q: str = Query(max_length=1000), path: str | None = Query(default=None, max_length=500)):
+async def search(
+    request: Request,
+    q: str = Query(max_length=1000),
+    path: str | None = Query(default=None, max_length=500),
+):
     reader = _reader(request)
     hits = reader.search(q, path_prefix=path)
-    return [
-        {"path": h.path, "line_number": h.line_number, "line": h.line}
-        for h in hits
-    ]
+    return [{"path": h.path, "line_number": h.line_number, "line": h.line} for h in hits]
 
 
 @router.get("/counts")

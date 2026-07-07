@@ -160,7 +160,6 @@ class SlowAgent:
     timeout_seconds = 60
 
     async def execute(self, task, ctx):
-        import asyncio
         await asyncio.sleep(5)
         return {}
 
@@ -181,10 +180,10 @@ async def test_transient_exception_requeues_with_backoff(store):
     await coord.process_pending()
 
     loaded = await store.get(task.id)
-    assert loaded.status == TaskStatus.QUEUED       # requeued, not failed
+    assert loaded.status == TaskStatus.QUEUED  # requeued, not failed
     assert loaded.retries == 1
     assert loaded.failure_kind == "transient"
-    assert loaded.available_at is not None          # backoff gate set
+    assert loaded.available_at is not None  # backoff gate set
 
 
 async def test_retries_exhaust_to_terminal_failure(store):
@@ -200,9 +199,7 @@ async def test_retries_exhaust_to_terminal_failure(store):
         current = await store.get(task.id)
         if current.status == TaskStatus.FAILED:
             break
-        await store._db.execute(
-            "UPDATE tasks SET available_at = NULL WHERE id = ?", (task.id,)
-        )
+        await store._db.execute("UPDATE tasks SET available_at = NULL WHERE id = ?", (task.id,))
         await coord.process_pending()
 
     loaded = await store.get(task.id)
@@ -260,7 +257,7 @@ async def test_session_persisted_mid_stage_is_killed_on_failure(store):
     reg.register(SessionMidStageAgent())
     coord = Coordinator(store=store, registry=reg, max_concurrent=2)
 
-    task = await _save(store, "midsession")  # dequeued object has no session yet
+    await _save(store, "midsession")  # dequeued object has no session yet
 
     with patch("forge.coordinator.kill_session") as mock_kill:
         await coord.process_pending()
@@ -276,9 +273,7 @@ async def test_reaper_requeues_task_past_timeout(store):
     await store.update_status(task.id, TaskStatus.EXECUTING)
     # Backdate updated_at well past the 60s echo timeout.
     old = "2000-01-01T00:00:00+00:00"
-    await store._db.execute(
-        "UPDATE tasks SET updated_at = ? WHERE id = ?", (old, task.id)
-    )
+    await store._db.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (old, task.id))
 
     reaped = await coord.reap_stuck_tasks()
     assert reaped == 1

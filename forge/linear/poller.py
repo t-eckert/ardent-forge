@@ -37,7 +37,11 @@ class LinearPoller:
             if await self._store.find_by_source_id(issue_id) is not None:
                 continue
             task_type = self._detect_type(issue)
-            repo = self._parse_repo(issue.get("description", "")) if task_type == TaskType.CODE else None
+            repo = (
+                self._parse_repo(issue.get("description", ""))
+                if task_type == TaskType.CODE
+                else None
+            )
             task = Task.new(
                 task_type=task_type,
                 source=TaskSource.LINEAR,
@@ -70,7 +74,7 @@ class LinearPoller:
         logger.info("Posted result comment to Linear issue %s", task.source_id)
 
     def _detect_type(self, issue: dict) -> TaskType:
-        labels = [l["name"].lower() for l in issue.get("labels", {}).get("nodes", [])]
+        labels = [node["name"].lower() for node in issue.get("labels", {}).get("nodes", [])]
         for label, task_type in LABEL_TO_TYPE.items():
             if label in labels:
                 return task_type

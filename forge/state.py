@@ -4,10 +4,28 @@ from forge.models import TaskStatus
 # skips stages not declared and transitions directly through. Every forward
 # transition is legal here as long as it respects pipeline ordering.
 VALID_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
-    TaskStatus.QUEUED: {TaskStatus.TRIAGING, TaskStatus.EXECUTING, TaskStatus.FAILED, TaskStatus.CANCELLED},
+    TaskStatus.QUEUED: {
+        TaskStatus.TRIAGING,
+        TaskStatus.EXECUTING,
+        TaskStatus.FAILED,
+        TaskStatus.CANCELLED,
+    },
     TaskStatus.TRIAGING: {TaskStatus.EXECUTING, TaskStatus.FAILED, TaskStatus.CANCELLED},
-    TaskStatus.EXECUTING: {TaskStatus.VERIFYING, TaskStatus.DELIVERING, TaskStatus.COMPLETED, TaskStatus.AWAITING_APPROVAL, TaskStatus.FAILED, TaskStatus.CANCELLED},
-    TaskStatus.VERIFYING: {TaskStatus.DELIVERING, TaskStatus.COMPLETED, TaskStatus.AWAITING_APPROVAL, TaskStatus.FAILED, TaskStatus.CANCELLED},
+    TaskStatus.EXECUTING: {
+        TaskStatus.VERIFYING,
+        TaskStatus.DELIVERING,
+        TaskStatus.COMPLETED,
+        TaskStatus.AWAITING_APPROVAL,
+        TaskStatus.FAILED,
+        TaskStatus.CANCELLED,
+    },
+    TaskStatus.VERIFYING: {
+        TaskStatus.DELIVERING,
+        TaskStatus.COMPLETED,
+        TaskStatus.AWAITING_APPROVAL,
+        TaskStatus.FAILED,
+        TaskStatus.CANCELLED,
+    },
     TaskStatus.DELIVERING: {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED},
     TaskStatus.AWAITING_APPROVAL: {TaskStatus.DELIVERING, TaskStatus.CANCELLED},
     TaskStatus.COMPLETED: set(),

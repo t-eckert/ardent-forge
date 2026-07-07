@@ -5,11 +5,11 @@ should be retried and how long to wait before the next attempt.
 """
 
 # Failure kinds. Recorded on Task.failure_kind and used to decide retry-ability.
-TRANSIENT = "transient"        # unexpected exception in a producing stage
-TIMEOUT = "timeout"            # stage exceeded its timeout (in-process or reaper)
-DECLINED = "declined"          # triage gate returned False — deliberate
+TRANSIENT = "transient"  # unexpected exception in a producing stage
+TIMEOUT = "timeout"  # stage exceeded its timeout (in-process or reaper)
+DECLINED = "declined"  # triage gate returned False — deliberate
 VERIFICATION = "verification"  # verify gate returned False — deliberate
-TERMINAL = "terminal"          # generic non-retryable failure
+TERMINAL = "terminal"  # generic non-retryable failure
 
 _RETRYABLE = frozenset({TRANSIENT, TIMEOUT})
 

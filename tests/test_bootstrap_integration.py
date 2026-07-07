@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 
 from forge.frontmatter import SpecStatus, read_spec, update_spec_status
 from forge.agents.tickets import TicketsAgent
@@ -38,12 +37,8 @@ async def test_full_bootstrap_loop(tmp_path: Path):
 
     store = InMemStore()
 
-    spec_watcher = SpecWatcher(
-        store=store, repo_path=str(repo), fetch_fn=AsyncMock()
-    )
-    plan_merge_watcher = PlanMergeWatcher(
-        store=store, repo_path=str(repo), fetch_fn=AsyncMock()
-    )
+    spec_watcher = SpecWatcher(store=store, repo_path=str(repo), fetch_fn=AsyncMock())
+    plan_merge_watcher = PlanMergeWatcher(store=store, repo_path=str(repo), fetch_fn=AsyncMock())
 
     # 1. Spec watcher sees ready-to-plan, enqueues plan task
     assert await spec_watcher.poll() == 1
@@ -63,10 +58,12 @@ async def test_full_bootstrap_loop(tmp_path: Path):
     linear = AsyncMock()
     linear.create_project = AsyncMock(return_value=("p1", "url"))
     linear.get_label_id = AsyncMock(return_value="lab")
-    linear.create_issue = AsyncMock(side_effect=[
-        ("i1", "FORGE-1", "u1"),
-        ("i2", "FORGE-2", "u2"),
-    ])
+    linear.create_issue = AsyncMock(
+        side_effect=[
+            ("i1", "FORGE-1", "u1"),
+            ("i2", "FORGE-2", "u2"),
+        ]
+    )
     handler = TicketsAgent(
         workspace_dir=str(tmp_path / "ws"),
         linear=linear,

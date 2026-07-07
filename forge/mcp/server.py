@@ -51,9 +51,7 @@ def configure(
         _notebook_reader = notebook_reader
 
 
-async def dispatch_task(
-    type: str, title: str, description: str, repo: str | None = None
-) -> dict:
+async def dispatch_task(type: str, title: str, description: str, repo: str | None = None) -> dict:
     """Queue a task for Forge's agent pipeline and start it processing now.
 
     Hands work off to a Forge agent (e.g. the Code agent runs Claude Code in a

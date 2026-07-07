@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 
 from forge.db import Database
 from forge.linear.poller import LinearPoller
-from forge.models import TaskSource, TaskStatus
 from forge.store import TaskStore
 
 
@@ -32,8 +31,20 @@ def poller(mock_client, store):
 
 async def test_poll_creates_tasks(poller, store, mock_client):
     mock_client.get_labeled_issues.return_value = [
-        {"id": "issue-1", "identifier": "AF-1", "title": "Fix the bug", "description": "Bug in login", "labels": {"nodes": [{"name": "ardent-forge"}]}},
-        {"id": "issue-2", "identifier": "AF-2", "title": "Add feature", "description": "New feature", "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "research"}]}},
+        {
+            "id": "issue-1",
+            "identifier": "AF-1",
+            "title": "Fix the bug",
+            "description": "Bug in login",
+            "labels": {"nodes": [{"name": "ardent-forge"}]},
+        },
+        {
+            "id": "issue-2",
+            "identifier": "AF-2",
+            "title": "Add feature",
+            "description": "New feature",
+            "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "research"}]},
+        },
     ]
     created = await poller.poll()
     assert created == 2
@@ -43,7 +54,13 @@ async def test_poll_creates_tasks(poller, store, mock_client):
 
 async def test_poll_skips_existing(poller, store, mock_client):
     mock_client.get_labeled_issues.return_value = [
-        {"id": "issue-1", "identifier": "AF-1", "title": "Fix the bug", "description": "Already exists", "labels": {"nodes": [{"name": "ardent-forge"}]}},
+        {
+            "id": "issue-1",
+            "identifier": "AF-1",
+            "title": "Fix the bug",
+            "description": "Already exists",
+            "labels": {"nodes": [{"name": "ardent-forge"}]},
+        },
     ]
     await poller.poll()
     created = await poller.poll()
@@ -54,7 +71,13 @@ async def test_poll_skips_existing(poller, store, mock_client):
 
 async def test_poll_detects_task_type_from_labels(poller, store, mock_client):
     mock_client.get_labeled_issues.return_value = [
-        {"id": "issue-r", "identifier": "AF-R", "title": "Research topic", "description": "Research something", "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "research"}]}},
+        {
+            "id": "issue-r",
+            "identifier": "AF-R",
+            "title": "Research topic",
+            "description": "Research something",
+            "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "research"}]},
+        },
     ]
     await poller.poll()
     all_tasks = await store.list_all()

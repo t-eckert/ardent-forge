@@ -43,9 +43,7 @@ async def test_dispatch_task_saves_and_nudges(store):
     spy = _NudgeSpy()
     mcp_server.configure(store=store, coordinator=spy)
 
-    out = await mcp_server.dispatch_task(
-        type="echo", title="Hello", description="Do the thing"
-    )
+    out = await mcp_server.dispatch_task(type="echo", title="Hello", description="Do the thing")
 
     assert "id" in out
     assert out["status"] == TaskStatus.QUEUED.value
@@ -57,17 +55,13 @@ async def test_dispatch_task_saves_and_nudges(store):
 
 async def test_dispatch_task_rejects_oversize_title(store):
     mcp_server.configure(store=store)
-    out = await mcp_server.dispatch_task(
-        type="echo", title="x" * 501, description="d"
-    )
+    out = await mcp_server.dispatch_task(type="echo", title="x" * 501, description="d")
     assert "error" in out
 
 
 async def test_get_task_round_trip(store):
     mcp_server.configure(store=store)
-    created = await mcp_server.dispatch_task(
-        type="echo", title="T", description="D"
-    )
+    created = await mcp_server.dispatch_task(type="echo", title="T", description="D")
     got = await mcp_server.get_task(created["id"])
     assert got["id"] == created["id"]
     assert got["title"] == "T"
@@ -106,17 +100,13 @@ async def test_list_tasks_filters_by_type(store):
 
 async def test_dispatch_task_rejects_oversize_description(store):
     mcp_server.configure(store=store)
-    out = await mcp_server.dispatch_task(
-        type="echo", title="t", description="x" * 50_001
-    )
+    out = await mcp_server.dispatch_task(type="echo", title="t", description="x" * 50_001)
     assert "error" in out
 
 
 async def test_dispatch_task_rejects_oversize_type(store):
     mcp_server.configure(store=store)
-    out = await mcp_server.dispatch_task(
-        type="x" * 65, title="t", description="d"
-    )
+    out = await mcp_server.dispatch_task(type="x" * 65, title="t", description="d")
     assert "error" in out
 
 
@@ -145,23 +135,22 @@ async def test_memory_write_read_list_delete(memory):
 
     deleted = await mcp_server.delete_memory(fname)
     assert deleted == {"deleted": fname}
-    assert (await mcp_server.read_memory(fname)) == {
-        "error": f"No memory: {fname}"
-    }
+    assert (await mcp_server.read_memory(fname)) == {"error": f"No memory: {fname}"}
 
 
 async def test_memory_write_rejects_bad_type(memory):
     mcp_server.configure(memory=memory)
-    out = await mcp_server.write_memory(
-        name="x", description="y", type="bogus", body="z"
-    )
+    out = await mcp_server.write_memory(name="x", description="y", type="bogus", body="z")
     assert "error" in out
 
 
 async def test_write_memory_rejects_path_traversal(memory):
     mcp_server.configure(memory=memory)
     out = await mcp_server.write_memory(
-        name="x", description="y", type="user", body="z",
+        name="x",
+        description="y",
+        type="user",
+        body="z",
         filename="../../etc/passwd",
     )
     assert "error" in out
@@ -349,9 +338,7 @@ async def test_web_search_registered_when_tavily_set(tmp_path):
 
 async def test_create_schedule_rejects_bad_cron(store):
     mcp_server.configure(store=store)
-    out = await mcp_server.create_schedule(
-        name="Bad", cron_expr="not a cron", task_type="code"
-    )
+    out = await mcp_server.create_schedule(name="Bad", cron_expr="not a cron", task_type="code")
     assert "error" in out
 
 

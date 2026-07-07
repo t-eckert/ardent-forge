@@ -97,7 +97,6 @@ async def test_list_tasks_filter_by_status(client):
     assert len(resp.json()) == 0
 
 
-
 async def test_manual_retry_requeues_failed_task(client):
     from forge.api.tasks import get_store
     from forge.models import TaskStatus

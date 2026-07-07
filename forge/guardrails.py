@@ -34,9 +34,7 @@ def check_self_modification(repo: str, changed_files: list[str]) -> str | None:
     return None
 
 
-def check_handler_allowlist(
-    handler: str, repo: str, changed_files: list[str]
-) -> str | None:
+def check_handler_allowlist(handler: str, repo: str, changed_files: list[str]) -> str | None:
     """For handlers with a narrow write scope, reject files outside the allowlist.
 
     Only enforced for the AF self-repo; other repos are unrestricted.

@@ -16,9 +16,7 @@ import pytest
 from forge.connectors.notebook import NotebookConnector
 
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("rg") is None, reason="ripgrep not installed"
-)
+pytestmark = pytest.mark.skipif(shutil.which("rg") is None, reason="ripgrep not installed")
 
 
 @pytest.fixture
@@ -186,7 +184,7 @@ async def test_draft_log_creates_from_template(connector: NotebookConnector, not
     """Draft log uses the template when available."""
     (notebook / "+Templates").mkdir(exist_ok=True)
     (notebook / "+Templates" / "Daily Note.md").write_text(
-        "---\naliases:\n  - \"{{date:D MMMM YYYY}}\"\n---\n"
+        '---\naliases:\n  - "{{date:D MMMM YYYY}}"\n---\n'
         "# {{date:ddd D MMMM YYYY}}\n\n## Work\n\n## Personal\n"
     )
     result = await connector._draft_log(date="2026-04-20")
@@ -328,7 +326,9 @@ async def test_stalled_work_detects_rolling_deferrals(connector: NotebookConnect
     assert result["rolling_deferrals"][0]["times_deferred"] == 5
 
 
-async def test_stalled_work_detects_unmentioned_projects(connector: NotebookConnector, notebook: Path):
+async def test_stalled_work_detects_unmentioned_projects(
+    connector: NotebookConnector, notebook: Path
+):
     """Projects not mentioned in any recent log should be flagged."""
     today = datetime.now()
     (notebook / "Projects").mkdir(exist_ok=True)

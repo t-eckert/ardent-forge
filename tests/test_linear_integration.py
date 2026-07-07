@@ -6,7 +6,7 @@ from forge.db import Database
 from forge.agents import AgentRegistry
 from forge.agents.echo import EchoAgent
 from forge.linear.poller import LinearPoller
-from forge.models import TaskSource, TaskStatus
+from forge.models import TaskSource
 from forge.store import TaskStore
 
 

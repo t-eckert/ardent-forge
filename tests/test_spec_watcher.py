@@ -1,9 +1,7 @@
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 
-from forge.frontmatter import SpecStatus
 from forge.models import TaskSource, TaskType
 from forge.watchers.spec_watcher import SpecWatcher
 
@@ -26,9 +24,7 @@ async def test_spec_watcher_enqueues_ready_specs(tmp_path: Path):
     (specs_dir / "2026-04-15-a.md").write_text(
         "---\nstatus: ready-to-plan\ntitle: A\n---\n\nBody\n"
     )
-    (specs_dir / "2026-04-15-b.md").write_text(
-        "---\nstatus: draft\n---\n\nBody\n"
-    )
+    (specs_dir / "2026-04-15-b.md").write_text("---\nstatus: draft\n---\n\nBody\n")
 
     store = FakeStore()
     fetch = AsyncMock()
@@ -53,9 +49,7 @@ async def test_spec_watcher_enqueues_ready_specs(tmp_path: Path):
 async def test_spec_watcher_deduplicates(tmp_path: Path):
     specs_dir = tmp_path / "repo" / "docs" / "superpowers" / "specs"
     specs_dir.mkdir(parents=True)
-    (specs_dir / "2026-04-15-a.md").write_text(
-        "---\nstatus: ready-to-plan\n---\n\nBody\n"
-    )
+    (specs_dir / "2026-04-15-a.md").write_text("---\nstatus: ready-to-plan\n---\n\nBody\n")
     store = FakeStore()
     store.existing_ids.add("spec:docs/superpowers/specs/2026-04-15-a.md")
 

@@ -47,9 +47,7 @@ def signal_handler(signum, _):
 
     global shutdown_requested
     signal_name = signal.Signals(signum).name
-    logging.info(
-        f"Received {signal_name}. Finishing current sync and shutting down gracefully..."
-    )
+    logging.info(f"Received {signal_name}. Finishing current sync and shutting down gracefully...")
     shutdown_requested = True
 
 
@@ -181,9 +179,7 @@ if __name__ == "__main__":
     Processes arguments and starts the sync process by calling `main`.
     """
 
-    parser = argparse.ArgumentParser(
-        description="Syncshot: Keep your git repository in sync."
-    )
+    parser = argparse.ArgumentParser(description="Syncshot: Keep your git repository in sync.")
     parser.add_argument(
         "--period",
         type=int,

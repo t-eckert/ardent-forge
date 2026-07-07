@@ -14,9 +14,8 @@ import asyncio
 import logging
 import os
 import shutil
-from typing import Any
 
-from forge.connectors import Connector, Tool
+from forge.connectors import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +79,9 @@ class OPConnector:
 
     async def _read(self, ref: str) -> str:
         proc = await asyncio.create_subprocess_exec(
-            "op", "read", ref,
+            "op",
+            "read",
+            ref,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

@@ -1,15 +1,16 @@
 """Phase 3 dispatcher tests — cron schedules, Linear dispatch, chat repo field."""
-import json
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone, timedelta
 
 from forge.db import Database
 from forge.store import TaskStore
-from forge.models import Task, TaskSource, TaskStatus, TaskType
+from forge.models import Task, TaskSource, TaskType
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 async def store(tmp_path):
@@ -21,6 +22,7 @@ async def store(tmp_path):
 
 
 # ── Cron schedule store ───────────────────────────────────────────────────────
+
 
 async def test_save_schedule_sets_next_run_from_cron(store):
     sid = await store.save_schedule(
@@ -61,7 +63,9 @@ async def test_list_due_schedules_skips_future(store):
 async def test_list_due_schedules_skips_disabled(store):
     sid = await store.save_schedule(name="dis", cron_expr="* * * * *", task_type="code")
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    await store._db.execute("UPDATE schedules SET next_run = ?, enabled = 0 WHERE id = ?", (past, sid))
+    await store._db.execute(
+        "UPDATE schedules SET next_run = ?, enabled = 0 WHERE id = ?", (past, sid)
+    )
     await store._db._conn.commit()
     due = await store.list_due_schedules(datetime.now(timezone.utc).isoformat())
     assert due == []
@@ -78,6 +82,7 @@ async def test_update_schedule_after_run(store):
 
 
 # ── Coordinator schedule firing ───────────────────────────────────────────────
+
 
 async def test_coordinator_fires_due_schedule(store):
     from forge.coordinator import Coordinator
@@ -127,8 +132,10 @@ async def test_coordinator_skips_unknown_task_type(store):
 
 # ── Schedule API ──────────────────────────────────────────────────────────────
 
+
 async def test_create_schedule_with_repo_and_prompt(store):
     from forge.api.schedules import _build_template, CreateScheduleRequest
+
     req = CreateScheduleRequest(
         name="nightly lint",
         cron_expr="0 2 * * *",
@@ -146,18 +153,23 @@ async def test_create_schedule_with_repo_and_prompt(store):
 
 # ── Linear poller dispatch ────────────────────────────────────────────────────
 
+
 async def test_linear_poller_detects_claude_label(store):
     from forge.linear.poller import LinearPoller
     from forge.linear.client import LinearClient
 
     client = MagicMock(spec=LinearClient)
-    client.get_labeled_issues = AsyncMock(return_value=[{
-        "id": "issue-1",
-        "identifier": "ENG-42",
-        "title": "Fix the bug",
-        "description": "Repo: owner/my-app\n\nThere is a bug.",
-        "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "claude"}]},
-    }])
+    client.get_labeled_issues = AsyncMock(
+        return_value=[
+            {
+                "id": "issue-1",
+                "identifier": "ENG-42",
+                "title": "Fix the bug",
+                "description": "Repo: owner/my-app\n\nThere is a bug.",
+                "labels": {"nodes": [{"name": "ardent-forge"}, {"name": "claude"}]},
+            }
+        ]
+    )
 
     poller = LinearPoller(client=client, store=store, team_id="team-1")
     created = await poller.poll()

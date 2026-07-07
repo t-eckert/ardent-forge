@@ -5,12 +5,11 @@ the interactive dispatch loop to feel responsive.
 
 import asyncio
 
-import pytest
 
 from forge.agents import AgentContext, AgentRegistry
 from forge.coordinator import Coordinator
 from forge.db import Database
-from forge.models import Task, TaskSource, TaskType
+from forge.models import Task, TaskSource
 from forge.store import TaskStore
 
 

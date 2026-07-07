@@ -87,7 +87,7 @@ async def test_get_changed_files_parses_git_output(tmp_path):
 
 
 async def test_commit_all_stages_and_commits(tmp_path):
-    from unittest.mock import AsyncMock, call
+    from unittest.mock import AsyncMock
     from forge.git import GitOps
 
     git = GitOps(str(tmp_path))
@@ -132,7 +132,7 @@ async def test_get_working_tree_changes_skips_blank_lines(tmp_path):
 
 
 async def test_get_working_tree_changes_uses_git_status_porcelain(tmp_path):
-    from unittest.mock import AsyncMock, call
+    from unittest.mock import AsyncMock
     from forge.git import GitOps
 
     git = GitOps(str(tmp_path))
@@ -155,8 +155,19 @@ async def test_get_existing_pr_url_returns_open_pr_url():
     url = await git.get_existing_pr_url("/wt")
     assert url == "https://github.com/o/r/pull/7"
     # Must query OPEN PRs for the resolved head branch, not `gh pr view`.
-    assert ["gh", "pr", "list", "--head", "forge/abc", "--state", "open",
-            "--json", "url", "-q", ".[0].url"] in calls
+    assert [
+        "gh",
+        "pr",
+        "list",
+        "--head",
+        "forge/abc",
+        "--state",
+        "open",
+        "--json",
+        "url",
+        "-q",
+        ".[0].url",
+    ] in calls
 
 
 async def test_get_existing_pr_url_none_when_no_pr():

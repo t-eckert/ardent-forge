@@ -25,9 +25,7 @@ class NotebookWriter:
         if path.startswith("/"):
             raise NotebookWriteError(f"Absolute paths not allowed: {path}")
         if not any(path.startswith(prefix) for prefix in ALLOWED_WRITE_PREFIXES):
-            raise NotebookWriteError(
-                f"Path not in allowlist {ALLOWED_WRITE_PREFIXES}: {path}"
-            )
+            raise NotebookWriteError(f"Path not in allowlist {ALLOWED_WRITE_PREFIXES}: {path}")
         if path.endswith(".base"):
             raise NotebookWriteError(f"Cannot write .base files: {path}")
         candidate = (self._root / path).resolve()
@@ -64,7 +62,7 @@ class NotebookWriter:
         m = re.match(r"^(\s*- \[)[x\->!~ ](\] )", line)
         if not m:
             raise ValueError(f"Line {line_index} is not a checkbox item: {line!r}")
-        lines[line_index] = m.group(1) + marker + m.group(2) + line[m.end():]
+        lines[line_index] = m.group(1) + marker + m.group(2) + line[m.end() :]
         self.write(path, "\n".join(lines))
 
     def append(self, path: str, content: str) -> None:

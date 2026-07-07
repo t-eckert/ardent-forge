@@ -98,17 +98,13 @@ class Task(BaseModel):
             "result": json.dumps(self.result) if self.result else None,
             "retries": self.retries,
             "max_retries": self.max_retries,
-            "available_at": (
-                self.available_at.isoformat() if self.available_at else None
-            ),
+            "available_at": (self.available_at.isoformat() if self.available_at else None),
             "failure_kind": self.failure_kind,
             "require_approval": int(self.require_approval),
             "continues_task_id": self.continues_task_id,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
         }
 
     @classmethod
@@ -131,9 +127,7 @@ class Task(BaseModel):
             retries=row["retries"],
             max_retries=row.get("max_retries", 3),
             available_at=(
-                datetime.fromisoformat(row["available_at"])
-                if row.get("available_at")
-                else None
+                datetime.fromisoformat(row["available_at"]) if row.get("available_at") else None
             ),
             failure_kind=row.get("failure_kind"),
             require_approval=bool(row.get("require_approval", 0)),
@@ -141,8 +135,6 @@ class Task(BaseModel):
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             completed_at=(
-                datetime.fromisoformat(row["completed_at"])
-                if row.get("completed_at")
-                else None
+                datetime.fromisoformat(row["completed_at"]) if row.get("completed_at") else None
             ),
         )

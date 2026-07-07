@@ -53,11 +53,7 @@ class FollowUpRequest(BaseModel):
 async def create_task(req: CreateTaskRequest):
     store = get_store()
     task = Task.new(
-        task_type=(
-            TaskType(req.type)
-            if req.type in TaskType.__members__.values()
-            else req.type
-        ),
+        task_type=(TaskType(req.type) if req.type in TaskType.__members__.values() else req.type),
         source=TaskSource.MANUAL,
         title=req.title,
         description=req.description,
@@ -127,7 +123,10 @@ async def approve_task(task_id: str):
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.status != TaskStatus.AWAITING_APPROVAL:
-        raise HTTPException(status_code=409, detail=f"Only awaiting_approval tasks can be approved (status={task.status.value})")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only awaiting_approval tasks can be approved (status={task.status.value})",
+        )
     await store.mark_approved(task_id)
     if _coordinator is not None and hasattr(_coordinator, "nudge"):
         _coordinator.nudge()
@@ -141,7 +140,10 @@ async def reject_task(task_id: str):
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.status != TaskStatus.AWAITING_APPROVAL:
-        raise HTTPException(status_code=409, detail=f"Only awaiting_approval tasks can be rejected (status={task.status.value})")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only awaiting_approval tasks can be rejected (status={task.status.value})",
+        )
     await _kill_session_if_any(task)
     await store.mark_cancelled(task_id)
     return _task_dict(await store.get(task_id))
@@ -185,9 +187,7 @@ async def follow_up_task(task_id: str, req: FollowUpRequest):
     # still resolves the worktree from the parent at execute time.
     pdata = parent.handler_data or {}
     follow_up.handler_data = {
-        k: pdata[k]
-        for k in ("worktree_path", "repo_path", "branch_name")
-        if k in pdata
+        k: pdata[k] for k in ("worktree_path", "repo_path", "branch_name") if k in pdata
     }
     await store.save(follow_up)
 

@@ -1,11 +1,6 @@
-from pathlib import Path
-
-import pytest
-
 from forge.agents.plan import PlanAgent, build_plan_prompt, extract_spec_path
 from forge.agents import AgentContext
 from forge.models import Task, TaskSource, TaskType
-
 
 
 ctx = AgentContext(tools=[], store=None, settings=None)
@@ -41,7 +36,10 @@ def test_build_plan_prompt_mentions_spec_and_format():
 
 
 def test_extract_spec_path_pulls_spec_from_description():
-    assert extract_spec_path("spec: docs/superpowers/specs/2026-04-15-foo.md") == "docs/superpowers/specs/2026-04-15-foo.md"
+    assert (
+        extract_spec_path("spec: docs/superpowers/specs/2026-04-15-foo.md")
+        == "docs/superpowers/specs/2026-04-15-foo.md"
+    )
     assert extract_spec_path("no spec") is None
 
 
@@ -80,10 +78,12 @@ async def test_execute_clones_creates_worktree_and_invokes_claude(tmp_path):
 
 async def test_verify_passes_when_diff_is_plan_and_spec_only():
     handler = PlanAgent(workspace_dir="/tmp/wsp")
-    handler._git.get_working_tree_changes = AsyncMock(return_value=[
-        "docs/superpowers/plans/2026-04-15-foo.md",
-        "docs/superpowers/specs/2026-04-15-foo.md",
-    ])
+    handler._git.get_working_tree_changes = AsyncMock(
+        return_value=[
+            "docs/superpowers/plans/2026-04-15-foo.md",
+            "docs/superpowers/specs/2026-04-15-foo.md",
+        ]
+    )
     task = _task()
     task.handler_data = {"worktree_path": "/tmp/wt"}
     assert await handler.verify(task, ctx) is True
@@ -91,10 +91,12 @@ async def test_verify_passes_when_diff_is_plan_and_spec_only():
 
 async def test_verify_fails_when_diff_touches_code():
     handler = PlanAgent(workspace_dir="/tmp/wsp")
-    handler._git.get_working_tree_changes = AsyncMock(return_value=[
-        "docs/superpowers/plans/2026-04-15-foo.md",
-        "forge/main.py",
-    ])
+    handler._git.get_working_tree_changes = AsyncMock(
+        return_value=[
+            "docs/superpowers/plans/2026-04-15-foo.md",
+            "forge/main.py",
+        ]
+    )
     task = _task()
     task.handler_data = {"worktree_path": "/tmp/wt"}
     assert await handler.verify(task, ctx) is False

@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 
 from forge.models import TaskType
 from forge.watchers.plan_merge_watcher import PlanMergeWatcher

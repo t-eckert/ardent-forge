@@ -112,6 +112,7 @@ def run():
 
         from pathlib import Path
         from forge.uploads import UploadService
+
         upload_service = UploadService(Path(settings.upload_dir).expanduser())
         upload_service.ensure_dir()
         uploads_api.set_service(upload_service)
@@ -138,9 +139,7 @@ def run():
             except Exception as e:
                 import logging
 
-                logging.getLogger(__name__).warning(
-                    f"Notebook disabled: {e}"
-                )
+                logging.getLogger(__name__).warning(f"Notebook disabled: {e}")
         else:
             import logging
 
@@ -154,6 +153,7 @@ def run():
         connectors = ConnectorRegistry()
         from forge.connectors.onepassword import OPConnector
         from forge.connectors.weather import WeatherConnector
+
         connectors.register(OPConnector())
         connectors.register(WeatherConnector())
         if settings.tavily_api_key:
@@ -228,7 +228,6 @@ def run():
             )
 
         # Self-building watchers
-        from forge.git import GitOps
         from forge.watchers.spec_watcher import SpecWatcher
 
         watchers: list = [speedtest_connector]
@@ -253,6 +252,7 @@ def run():
             )
         except Exception:
             import logging as _logging
+
             _logging.getLogger(__name__).exception(
                 "self-building watchers disabled: could not clone AF repo"
             )

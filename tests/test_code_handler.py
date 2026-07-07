@@ -9,7 +9,6 @@ from forge.store import TaskStore
 from forge.verify import VerificationResult, VerificationStatus
 
 
-
 ctx = AgentContext(tools=[], store=None, settings=None)
 
 
@@ -141,7 +140,9 @@ class _FakeGit:
 
 
 def _delivery_task(tmp_path):
-    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", repo="o/r")
+    task = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", repo="o/r"
+    )
     task.handler_data = {
         "worktree_path": str(tmp_path),
         "repo_path": str(tmp_path),
@@ -195,17 +196,26 @@ async def test_followup_reuses_parent_worktree_and_continues(db, tmp_path):
 
     h = CodeAgent(workspace_dir=str(workspace))
 
-    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    parent = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r"
+    )
     await store.save(parent)
-    await store.update_handler_data(parent.id, {
-        "worktree_path": str(parent_wt),
-        "repo_path": str(tmp_path / "repo"),
-        "branch_name": "forge/parent",
-    })
+    await store.update_handler_data(
+        parent.id,
+        {
+            "worktree_path": str(parent_wt),
+            "repo_path": str(tmp_path / "repo"),
+            "branch_name": "forge/parent",
+        },
+    )
 
     child = Task.new(
-        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
-        description="also add logging", repo="o/r", continues_task_id=parent.id,
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="c",
+        description="also add logging",
+        repo="o/r",
+        continues_task_id=parent.id,
     )
     await store.save(child)
 
@@ -217,7 +227,9 @@ async def test_followup_reuses_parent_worktree_and_continues(db, tmp_path):
         return "done"
 
     h._zellij.run = fake_run
-    h._git.create_worktree = AsyncMock(side_effect=AssertionError("must not create a worktree for a follow-up"))
+    h._git.create_worktree = AsyncMock(
+        side_effect=AssertionError("must not create a worktree for a follow-up")
+    )
 
     vctx = AgentContext(tools=[], store=store, settings=None)
     result = await h.execute(await store.get(child.id), vctx)
@@ -234,13 +246,19 @@ async def test_followup_missing_worktree_raises(db, tmp_path):
     workspace.mkdir()
     h = CodeAgent(workspace_dir=str(workspace))
 
-    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    parent = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r"
+    )
     await store.save(parent)
     await store.update_handler_data(parent.id, {"worktree_path": str(tmp_path / "gone")})
 
     child = Task.new(
-        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
-        description="x", repo="o/r", continues_task_id=parent.id,
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="c",
+        description="x",
+        repo="o/r",
+        continues_task_id=parent.id,
     )
     await store.save(child)
 
@@ -256,8 +274,12 @@ async def test_followup_missing_parent_raises(db, tmp_path):
     h = CodeAgent(workspace_dir=str(workspace))
 
     child = Task.new(
-        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
-        description="x", repo="o/r", continues_task_id="01NONEXISTENT",
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="c",
+        description="x",
+        repo="o/r",
+        continues_task_id="01NONEXISTENT",
     )
     await store.save(child)
 
@@ -275,17 +297,26 @@ async def test_followup_retry_appends_context_to_prompt(db, tmp_path):
 
     h = CodeAgent(workspace_dir=str(workspace))
 
-    parent = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r")
+    parent = Task.new(
+        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="p", description="d", repo="o/r"
+    )
     await store.save(parent)
-    await store.update_handler_data(parent.id, {
-        "worktree_path": str(parent_wt),
-        "repo_path": str(tmp_path / "repo"),
-        "branch_name": "forge/parent",
-    })
+    await store.update_handler_data(
+        parent.id,
+        {
+            "worktree_path": str(parent_wt),
+            "repo_path": str(tmp_path / "repo"),
+            "branch_name": "forge/parent",
+        },
+    )
 
     child = Task.new(
-        task_type=TaskType.CODE, source=TaskSource.MANUAL, title="c",
-        description="please refactor", repo="o/r", continues_task_id=parent.id,
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="c",
+        description="please refactor",
+        repo="o/r",
+        continues_task_id=parent.id,
     )
     await store.save(child)
 

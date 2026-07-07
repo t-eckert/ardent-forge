@@ -13,7 +13,12 @@ def test_valid_transitions():
 
 
 def test_any_active_state_can_fail():
-    for status in [TaskStatus.TRIAGING, TaskStatus.EXECUTING, TaskStatus.VERIFYING, TaskStatus.DELIVERING]:
+    for status in [
+        TaskStatus.TRIAGING,
+        TaskStatus.EXECUTING,
+        TaskStatus.VERIFYING,
+        TaskStatus.DELIVERING,
+    ]:
         assert transition(status, TaskStatus.FAILED) == TaskStatus.FAILED
 
 
@@ -41,7 +46,10 @@ def test_queued_cannot_complete_directly():
 
 
 def test_verify_can_pause_for_approval():
-    assert transition(TaskStatus.VERIFYING, TaskStatus.AWAITING_APPROVAL) == TaskStatus.AWAITING_APPROVAL
+    assert (
+        transition(TaskStatus.VERIFYING, TaskStatus.AWAITING_APPROVAL)
+        == TaskStatus.AWAITING_APPROVAL
+    )
 
 
 def test_approval_resolves_to_delivering_or_cancelled():
@@ -51,8 +59,12 @@ def test_approval_resolves_to_delivering_or_cancelled():
 
 def test_active_states_can_cancel():
     for s in (
-        TaskStatus.QUEUED, TaskStatus.TRIAGING, TaskStatus.EXECUTING,
-        TaskStatus.VERIFYING, TaskStatus.DELIVERING, TaskStatus.AWAITING_APPROVAL,
+        TaskStatus.QUEUED,
+        TaskStatus.TRIAGING,
+        TaskStatus.EXECUTING,
+        TaskStatus.VERIFYING,
+        TaskStatus.DELIVERING,
+        TaskStatus.AWAITING_APPROVAL,
     ):
         assert transition(s, TaskStatus.CANCELLED) == TaskStatus.CANCELLED
 
@@ -62,7 +74,10 @@ def test_cancelled_is_terminal():
 
 
 def test_execute_can_pause_for_approval_when_no_verify():
-    assert transition(TaskStatus.EXECUTING, TaskStatus.AWAITING_APPROVAL) == TaskStatus.AWAITING_APPROVAL
+    assert (
+        transition(TaskStatus.EXECUTING, TaskStatus.AWAITING_APPROVAL)
+        == TaskStatus.AWAITING_APPROVAL
+    )
 
 
 def test_illegal_transition_still_raises():

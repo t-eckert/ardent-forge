@@ -129,9 +129,7 @@ async def test_mark_failed(store):
 
 
 def _new_task() -> Task:
-    return Task.new(
-        task_type=TaskType.ECHO, source=TaskSource.CHAT, title="t", description="d"
-    )
+    return Task.new(task_type=TaskType.ECHO, source=TaskSource.CHAT, title="t", description="d")
 
 
 async def test_mark_failed_records_kind(store):
@@ -166,9 +164,7 @@ async def test_list_pending_excludes_future_available_at(store):
 async def test_requeue_sets_status_retries_and_kind(store):
     task = _new_task()
     await store.save(task)
-    await store.requeue(
-        task.id, retries=2, available_at=None, error="e", kind="timeout"
-    )
+    await store.requeue(task.id, retries=2, available_at=None, error="e", kind="timeout")
     loaded = await store.get(task.id)
     assert loaded.status == TaskStatus.QUEUED
     assert loaded.retries == 2

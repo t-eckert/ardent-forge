@@ -9,9 +9,7 @@ class LinearProjectsAPI:
     def __init__(self, client: LinearClient):
         self._client = client
 
-    async def create_project(
-        self, team_id: str, name: str, description: str
-    ) -> tuple[str, str]:
+    async def create_project(self, team_id: str, name: str, description: str) -> tuple[str, str]:
         query = """
         mutation ProjectCreate($teamIds: [String!]!, $name: String!, $description: String!) {
             projectCreate(input: { teamIds: $teamIds, name: $name, description: $description }) {

@@ -28,7 +28,6 @@ PLAN_SAMPLE = """# Foo Plan
 """
 
 
-
 ctx = AgentContext(tools=[], store=None, settings=None)
 
 
@@ -51,9 +50,12 @@ def test_parse_plan_tasks_empty_when_no_headers():
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import pytest
 
-from forge.agents.tickets import TicketsAgent, extract_plan_path, extract_spec_path_from_tickets_task
+from forge.agents.tickets import (
+    TicketsAgent,
+    extract_plan_path,
+    extract_spec_path_from_tickets_task,
+)
 from forge.agents import AgentContext
 from forge.models import Task, TaskSource, TaskType
 
@@ -69,19 +71,23 @@ def _ticket_task(desc: str) -> Task:
 
 
 def test_extract_plan_path():
-    assert extract_plan_path("plan: docs/superpowers/plans/2026-04-15-foo.md") == "docs/superpowers/plans/2026-04-15-foo.md"
+    assert (
+        extract_plan_path("plan: docs/superpowers/plans/2026-04-15-foo.md")
+        == "docs/superpowers/plans/2026-04-15-foo.md"
+    )
     assert extract_plan_path("nothing") is None
 
 
 def test_extract_spec_path_from_tickets_task():
-    assert extract_spec_path_from_tickets_task("spec: docs/superpowers/specs/2026-04-15-foo.md") == "docs/superpowers/specs/2026-04-15-foo.md"
+    assert (
+        extract_spec_path_from_tickets_task("spec: docs/superpowers/specs/2026-04-15-foo.md")
+        == "docs/superpowers/specs/2026-04-15-foo.md"
+    )
     assert extract_spec_path_from_tickets_task("none") is None
 
 
 async def test_tickets_triage_requires_plan_path():
-    handler = TicketsAgent(
-        workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1"
-    )
+    handler = TicketsAgent(workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1")
     assert await handler.triage(_ticket_task("plan: docs/superpowers/plans/x.md"), ctx) is True
     assert await handler.triage(_ticket_task("no"), ctx) is False
 
@@ -95,20 +101,22 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
     (plans / "2026-04-15-foo.md").write_text(
         "# Foo Plan\n\n## Task 1: One\n\nbody1\n\n## Task 2: Two\n\nbody2\n"
     )
-    (specs / "2026-04-15-foo.md").write_text(
-        "---\nstatus: planned\ntitle: Foo\n---\n\nbody\n"
-    )
+    (specs / "2026-04-15-foo.md").write_text("---\nstatus: planned\ntitle: Foo\n---\n\nbody\n")
 
     linear = AsyncMock()
     linear.create_project = AsyncMock(return_value=("p1", "https://linear.app/x/p1"))
     linear.get_label_id = AsyncMock(return_value="lab-devagent")
-    linear.create_issue = AsyncMock(side_effect=[
-        ("i1", "FORGE-1", "u1"),
-        ("i2", "FORGE-2", "u2"),
-    ])
+    linear.create_issue = AsyncMock(
+        side_effect=[
+            ("i1", "FORGE-1", "u1"),
+            ("i2", "FORGE-2", "u2"),
+        ]
+    )
 
     handler = TicketsAgent(
-        workspace_dir="/tmp/w", linear=linear, team_id="t1",
+        workspace_dir="/tmp/w",
+        linear=linear,
+        team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
     handler._git.ensure_repo = AsyncMock(return_value=str(repo))
@@ -124,6 +132,7 @@ async def test_tickets_execute_creates_project_and_issues(tmp_path: Path):
     linear.create_project.assert_awaited_once()
     assert linear.create_issue.await_count == 2
     from forge.frontmatter import read_spec, SpecStatus
+
     parsed = read_spec(specs / "2026-04-15-foo.md")
     assert parsed.status == SpecStatus.EXECUTING
 
@@ -135,12 +144,8 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
     specs = repo / "docs" / "superpowers" / "specs"
     plans.mkdir(parents=True)
     specs.mkdir(parents=True)
-    (plans / "2026-04-15-foo.md").write_text(
-        "# Foo Plan\n\n## Task 1: One\n\nbody1\n"
-    )
-    (specs / "2026-04-15-foo.md").write_text(
-        "---\nstatus: planned\ntitle: Foo\n---\n\nbody\n"
-    )
+    (plans / "2026-04-15-foo.md").write_text("# Foo Plan\n\n## Task 1: One\n\nbody1\n")
+    (specs / "2026-04-15-foo.md").write_text("---\nstatus: planned\ntitle: Foo\n---\n\nbody\n")
 
     linear = AsyncMock()
     linear.create_project = AsyncMock(return_value=("p1", "https://linear.app/x/p1"))
@@ -148,7 +153,9 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
     linear.create_issue = AsyncMock(return_value=("i1", "FORGE-1", "u1"))
 
     handler = TicketsAgent(
-        workspace_dir="/tmp/w", linear=linear, team_id="t1",
+        workspace_dir="/tmp/w",
+        linear=linear,
+        team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
     handler._git.ensure_repo = AsyncMock(return_value=str(repo))
@@ -162,7 +169,9 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
     run_calls = [call[0][0] for call in handler._git._run.call_args_list]
     assert any("fetch origin main" in c for c in run_calls), "missing: git fetch origin main"
     assert any("checkout main" in c for c in run_calls), "missing: git checkout main"
-    assert any("reset --hard origin/main" in c for c in run_calls), "missing: git reset --hard origin/main"
+    assert any("reset --hard origin/main" in c for c in run_calls), (
+        "missing: git reset --hard origin/main"
+    )
 
     # Verify the fetch/checkout/reset appear before any subsequent file-reading step
     fetch_idx = next(i for i, c in enumerate(run_calls) if "fetch origin main" in c)
@@ -174,10 +183,14 @@ async def test_tickets_execute_resets_to_origin_main_before_reading(tmp_path: Pa
 async def test_tickets_deliver_uses_working_tree_changes():
     """deliver() must call get_working_tree_changes, not get_changed_files."""
     handler = TicketsAgent(
-        workspace_dir="/tmp/w", linear=AsyncMock(), team_id="t1",
+        workspace_dir="/tmp/w",
+        linear=AsyncMock(),
+        team_id="t1",
         self_repo="t-eckert/ardent-forge",
     )
-    handler._git.get_working_tree_changes = AsyncMock(return_value=["docs/superpowers/specs/2026-04-15-foo.md"])
+    handler._git.get_working_tree_changes = AsyncMock(
+        return_value=["docs/superpowers/specs/2026-04-15-foo.md"]
+    )
     handler._git.commit_all = AsyncMock(return_value=None)
     handler._git._run = AsyncMock(return_value="")
 

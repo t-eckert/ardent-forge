@@ -56,7 +56,9 @@ async def test_get_latest_returns_404_when_no_uploads(client):
 
 async def test_get_latest_returns_most_recent(client):
     await client.post("/api/uploads", files={"file": ("a.png", b"first", "image/png")})
-    import time; time.sleep(0.05)
+    import time
+
+    time.sleep(0.05)
     await client.post("/api/uploads", files={"file": ("b.png", b"second", "image/png")})
 
     resp = await client.get("/api/uploads/latest")

@@ -24,9 +24,9 @@ class CreateScheduleRequest(BaseModel):
     cron_expr: str = Field(max_length=100)
     task_type: str = Field(max_length=64)
     # Code-task specifics
-    repo: str | None = None          # GitHub owner/name
-    prompt_template: str | None = None   # becomes task description on each fire
-    label: str | None = None         # optional tag surfaced in task title
+    repo: str | None = None  # GitHub owner/name
+    prompt_template: str | None = None  # becomes task description on each fire
+    label: str | None = None  # optional tag surfaced in task title
     # Fallback for custom task types
     task_template: dict | None = None
 

@@ -80,7 +80,12 @@ class ZellijRunner:
         return output
 
     async def _run_in_zellij(
-        self, prompt: str, work_dir: str, session_name: str, env: dict, continue_session: bool = False
+        self,
+        prompt: str,
+        work_dir: str,
+        session_name: str,
+        env: dict,
+        continue_session: bool = False,
     ) -> str:
         session_dir = Path(f"/tmp/ardent-forge-{session_name}")
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -122,10 +127,13 @@ class ZellijRunner:
         runner_file.write_text(runner_code)
 
         proc = await asyncio.create_subprocess_exec(
-            "zellij", "run",
-            "--session", session_name,
+            "zellij",
+            "run",
+            "--session",
+            session_name,
             "--",
-            "python3", str(runner_file),
+            "python3",
+            str(runner_file),
             env=env,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,

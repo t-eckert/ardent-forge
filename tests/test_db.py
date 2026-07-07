@@ -67,7 +67,14 @@ async def test_tasks_table_has_resilience_columns():
 
 async def test_task_require_approval_roundtrips(store):
     from forge.models import Task, TaskType, TaskSource
-    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="gated", description="needs approval", require_approval=True)
+
+    task = Task.new(
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="gated",
+        description="needs approval",
+        require_approval=True,
+    )
     await store.save(task)
     loaded = await store.get(task.id)
     assert loaded is not None

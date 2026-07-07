@@ -30,14 +30,22 @@ async def setup():
     store = TaskStore(db)
     registry = AgentRegistry()
     registry.register(FullAgent())
-    coord = Coordinator(store=store, registry=registry, connectors=None, settings=None, max_concurrent=2)
+    coord = Coordinator(
+        store=store, registry=registry, connectors=None, settings=None, max_concurrent=2
+    )
     yield store, coord
     await db.close()
 
 
 async def test_require_approval_parks_before_deliver(setup):
     store, coord = setup
-    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", require_approval=True)
+    task = Task.new(
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="t",
+        description="d",
+        require_approval=True,
+    )
     await store.save(task)
     await coord.process_pending()
     loaded = await store.get(task.id)
@@ -56,7 +64,13 @@ async def test_no_approval_completes_normally(setup):
 
 async def test_resume_delivers_approved_task(setup):
     store, coord = setup
-    task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", require_approval=True)
+    task = Task.new(
+        task_type=TaskType.CODE,
+        source=TaskSource.MANUAL,
+        title="t",
+        description="d",
+        require_approval=True,
+    )
     await store.save(task)
     await coord.process_pending()  # parks
     assert (await store.get(task.id)).status == TaskStatus.AWAITING_APPROVAL
@@ -69,6 +83,7 @@ async def test_resume_delivers_approved_task(setup):
 
 class FailDeliverAgent:
     """execute+verify ok, deliver raises — to exercise resume error handling."""
+
     name = "faildeliver"
     task_type = "code"
     stages = ["execute", "verify", "deliver"]
@@ -93,9 +108,17 @@ async def test_resume_deliver_failure_retries_not_terminal():
     store = TaskStore(db)
     registry = AgentRegistry()
     registry.register(FailDeliverAgent())
-    coord = Coordinator(store=store, registry=registry, connectors=None, settings=None, max_concurrent=2)
+    coord = Coordinator(
+        store=store, registry=registry, connectors=None, settings=None, max_concurrent=2
+    )
     try:
-        task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d", require_approval=True)
+        task = Task.new(
+            task_type=TaskType.CODE,
+            source=TaskSource.MANUAL,
+            title="t",
+            description="d",
+            require_approval=True,
+        )
         await store.save(task)
         await coord.process_pending()  # parks at awaiting_approval
         await store.mark_approved(task.id)  # -> delivering
@@ -135,11 +158,13 @@ async def test_reap_old_worktrees_removes_stale(setup, tmp_path):
 
     old = datetime.now(timezone.utc) - timedelta(hours=72)
     task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
-    task = task.model_copy(update={
-        "status": TaskStatus.COMPLETED,
-        "updated_at": old,
-        "handler_data": {"worktree_path": worktree_path, "repo_path": repo_path},
-    })
+    task = task.model_copy(
+        update={
+            "status": TaskStatus.COMPLETED,
+            "updated_at": old,
+            "handler_data": {"worktree_path": worktree_path, "repo_path": repo_path},
+        }
+    )
     await store.save(task)
     await store._db.execute(
         "UPDATE tasks SET updated_at = ? WHERE id = ?", (old.isoformat(), task.id)
@@ -161,11 +186,13 @@ async def test_reap_old_worktrees_skips_missing_dir(setup, tmp_path):
     missing = str(tmp_path / "gone")
     old = datetime.now(timezone.utc) - timedelta(hours=72)
     task = Task.new(task_type=TaskType.CODE, source=TaskSource.MANUAL, title="t", description="d")
-    task = task.model_copy(update={
-        "status": TaskStatus.COMPLETED,
-        "updated_at": old,
-        "handler_data": {"worktree_path": missing, "repo_path": str(tmp_path)},
-    })
+    task = task.model_copy(
+        update={
+            "status": TaskStatus.COMPLETED,
+            "updated_at": old,
+            "handler_data": {"worktree_path": missing, "repo_path": str(tmp_path)},
+        }
+    )
     await store.save(task)
     await store._db.execute(
         "UPDATE tasks SET updated_at = ? WHERE id = ?", (old.isoformat(), task.id)

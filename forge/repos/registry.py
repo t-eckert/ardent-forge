@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Matches https://host/owner/repo[.git] and git@host:owner/repo[.git]
 _HTTPS_RE = re.compile(r"https?://([^/]+)/([^/]+)/([^/]+?)(?:\.git)?$")
-_SSH_RE   = re.compile(r"git@([^:]+):([^/]+)/([^/]+?)(?:\.git)?$")
+_SSH_RE = re.compile(r"git@([^:]+):([^/]+)/([^/]+?)(?:\.git)?$")
 
 
 def parse_clone_url(url: str) -> tuple[str, str, str, str]:
@@ -52,7 +52,9 @@ class RepoRegistry:
     async def scan(self) -> list[Repo]:
         repos: list[Repo] = []
         if not self._workspace_dir.exists():
-            logger.warning("Workspace directory %s does not exist; no repos loaded", self._workspace_dir)
+            logger.warning(
+                "Workspace directory %s does not exist; no repos loaded", self._workspace_dir
+            )
             return repos
         for entry in sorted(self._find_repos(self._workspace_dir)):
             try:
@@ -163,7 +165,10 @@ class RepoRegistry:
 
     async def _git_clone(self, clone_url: str, dest: Path) -> None:
         proc = await asyncio.create_subprocess_exec(
-            "git", "clone", clone_url, str(dest),
+            "git",
+            "clone",
+            clone_url,
+            str(dest),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -174,7 +179,9 @@ class RepoRegistry:
     async def _get_default_branch(self, path: Path) -> str:
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "symbolic-ref", "refs/remotes/origin/HEAD",
+                "git",
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(path),

@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 from forge.connectors.onepassword import OPConnector
 
@@ -48,8 +47,10 @@ async def test_resolve_refs_skips_when_op_unavailable():
 
 async def test_resolve_refs_leaves_non_op_values():
     c = OPConnector()
-    with patch.object(c, "_read", new=AsyncMock(return_value="secret")), \
-         patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"):
+    with (
+        patch.object(c, "_read", new=AsyncMock(return_value="secret")),
+        patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"),
+    ):
         result = await c.resolve_refs({"PLAIN": "value", "KEY": "op://V/I/f"})
     assert result["PLAIN"] == "value"
     assert result["KEY"] == "secret"
@@ -61,8 +62,10 @@ async def test_resolve_refs_respects_allowlist():
         "ALLOWED": "op://Vault/Item/allowed",
         "BLOCKED": "op://Vault/Item/blocked",
     }
-    with patch.object(c, "_read", new=AsyncMock(return_value="resolved")), \
-         patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"):
+    with (
+        patch.object(c, "_read", new=AsyncMock(return_value="resolved")),
+        patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"),
+    ):
         result = await c.resolve_refs(env, allowed_paths=["op://Vault/Item/allowed"])
     assert result["ALLOWED"] == "resolved"
     assert result["BLOCKED"] == "op://Vault/Item/blocked"
@@ -71,16 +74,20 @@ async def test_resolve_refs_respects_allowlist():
 async def test_resolve_refs_none_allowlist_resolves_all():
     c = OPConnector()
     env = {"A": "op://V/I/a", "B": "op://V/I/b"}
-    with patch.object(c, "_read", new=AsyncMock(return_value="val")), \
-         patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"):
+    with (
+        patch.object(c, "_read", new=AsyncMock(return_value="val")),
+        patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"),
+    ):
         result = await c.resolve_refs(env, allowed_paths=None)
     assert result == {"A": "val", "B": "val"}
 
 
 async def test_resolve_refs_logs_error_on_read_failure():
     c = OPConnector()
-    with patch.object(c, "_read", new=AsyncMock(side_effect=RuntimeError("auth error"))), \
-         patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"):
+    with (
+        patch.object(c, "_read", new=AsyncMock(side_effect=RuntimeError("auth error"))),
+        patch("forge.connectors.onepassword.shutil.which", return_value="/usr/bin/op"),
+    ):
         result = await c.resolve_refs({"KEY": "op://V/I/f"})
     # leaves unresolved rather than raising
     assert result["KEY"] == "op://V/I/f"

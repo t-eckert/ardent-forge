@@ -99,9 +99,7 @@ class TaskStore:
         )
 
     async def find_by_source_id(self, source_id: str) -> Task | None:
-        row = await self._db.fetch_one(
-            "SELECT * FROM tasks WHERE source_id = ?", (source_id,)
-        )
+        row = await self._db.fetch_one("SELECT * FROM tasks WHERE source_id = ?", (source_id,))
         if row is None:
             return None
         return Task.from_row(row)
@@ -235,19 +233,13 @@ class TaskStore:
         return schedule_id
 
     async def list_schedules(self) -> list[dict]:
-        return await self._db.fetch_all(
-            "SELECT * FROM schedules ORDER BY name ASC"
-        )
+        return await self._db.fetch_all("SELECT * FROM schedules ORDER BY name ASC")
 
     async def get_schedule(self, schedule_id: str) -> dict | None:
-        return await self._db.fetch_one(
-            "SELECT * FROM schedules WHERE id = ?", (schedule_id,)
-        )
+        return await self._db.fetch_one("SELECT * FROM schedules WHERE id = ?", (schedule_id,))
 
     async def delete_schedule(self, schedule_id: str):
-        await self._db.execute(
-            "DELETE FROM schedules WHERE id = ?", (schedule_id,)
-        )
+        await self._db.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
 
     async def update_schedule_enabled(self, schedule_id: str, enabled: bool):
         await self._db.execute(

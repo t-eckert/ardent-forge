@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +157,7 @@ class MemoryStore:
         self._regenerate_index()
         try:
             from forge.metrics import MEMORY_WRITES_TOTAL
+
             MEMORY_WRITES_TOTAL.labels(type=type).inc()
         except Exception:
             pass  # Metrics are best-effort; never block a memory write.

@@ -25,6 +25,7 @@ class VerificationResult:
 def _taskfile_has_test(repo_path: str) -> bool:
     """Return True only if a 'test' task is defined in the repo's Taskfile."""
     import subprocess
+
     try:
         result = subprocess.run(
             ["task", "--list-all"],
@@ -74,9 +75,7 @@ def detect_verify_commands(repo_path: str) -> list[str]:
     return commands
 
 
-async def run_verification(
-    repo_path: str, commands: list[str] | None = None
-) -> VerificationResult:
+async def run_verification(repo_path: str, commands: list[str] | None = None) -> VerificationResult:
     if commands is None:
         commands = detect_verify_commands(repo_path)
     if not commands:

@@ -1,6 +1,3 @@
-import os
-import pytest
-
 from forge.verify import (
     detect_verify_commands,
     run_verification,
@@ -96,17 +93,13 @@ async def test_failing_command_is_failed(tmp_path):
 async def test_all_tools_missing_is_inconclusive(tmp_path):
     # A detected command whose tool isn't installed exits 127. If nothing else
     # runs, verification couldn't actually happen — must NOT silently pass.
-    result = await run_verification(
-        str(tmp_path), commands=["forge-no-such-tool-zzz --version"]
-    )
+    result = await run_verification(str(tmp_path), commands=["forge-no-such-tool-zzz --version"])
     assert result.status == VerificationStatus.INCONCLUSIVE
     assert result.success is False
 
 
 async def test_missing_tool_plus_passing_command_is_passed(tmp_path):
     # If at least one command actually ran and passed, verification happened.
-    result = await run_verification(
-        str(tmp_path), commands=["forge-no-such-tool-zzz", "true"]
-    )
+    result = await run_verification(str(tmp_path), commands=["forge-no-such-tool-zzz", "true"])
     assert result.status == VerificationStatus.PASSED
     assert result.success is True
