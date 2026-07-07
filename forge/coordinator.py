@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from forge.agents import AgentContext, AgentRegistry
+from forge.config import Settings
 from forge.connectors import ConnectorRegistry
 from forge.metrics import (
     ACTIVE_TASKS,
@@ -44,21 +45,18 @@ class Coordinator:
         self._store = store
         self._registry = registry
         self._connectors = connectors
-        self._settings = settings
+        # Callers that don't care about settings (tests) get real defaults from
+        # Settings() rather than a parallel set of fallbacks that can drift.
+        self._settings = settings if settings is not None else Settings()
         self._max_concurrent = max_concurrent
         self._poller = poller
         self._watchers = watchers or []
         self._git = git
-        ttl_hours = getattr(settings, "worktree_ttl_hours", 48) if settings else 48
-        self._worktree_ttl = timedelta(hours=ttl_hours)
-        # Resilience config — read from settings with safe fallbacks for tests
-        # that construct the coordinator without a Settings object.
-        self._max_retries = getattr(settings, "max_retries", 3) if settings else 3
-        self._retry_base = getattr(settings, "retry_base_seconds", 60) if settings else 60
-        self._retry_cap = getattr(settings, "retry_max_seconds", 900) if settings else 900
-        self._default_timeout = (
-            getattr(settings, "default_timeout_seconds", 1800) if settings else 1800
-        )
+        self._worktree_ttl = timedelta(hours=self._settings.worktree_ttl_hours)
+        self._max_retries = self._settings.max_retries
+        self._retry_base = self._settings.retry_base_seconds
+        self._retry_cap = self._settings.retry_max_seconds
+        self._default_timeout = self._settings.default_timeout_seconds
         # Wake signal — task dispatchers (REST create/steer endpoints, MCP
         # dispatch_task) set this after queueing a task so the coordinator
         # starts processing within seconds instead of waiting for the next
@@ -160,7 +158,9 @@ class Coordinator:
             try:
                 task_type = TaskType(sched["task_type"])
             except ValueError:
-                logger.warning("Unknown task_type in schedule %r: %r", sched["id"], sched["task_type"])
+                logger.warning(
+                    "Unknown task_type in schedule %r: %r", sched["id"], sched["task_type"]
+                )
                 continue
             task = Task.new(
                 task_type=task_type,
@@ -210,9 +210,7 @@ class Coordinator:
         if retry.is_retryable(kind) and task.retries < self._max_retries:
             next_attempt = task.retries + 1
             delay = retry.backoff(next_attempt, self._retry_base, self._retry_cap)
-            available_at = (
-                datetime.now(timezone.utc) + timedelta(seconds=delay)
-            ).isoformat()
+            available_at = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat()
             await self._store.requeue(
                 task.id,
                 retries=next_attempt,
@@ -222,13 +220,19 @@ class Coordinator:
             )
             logger.info(
                 "Requeued task %s (attempt %d/%d, kind=%s, backoff=%ss)",
-                task.id, next_attempt, self._max_retries, kind, delay,
+                task.id,
+                next_attempt,
+                self._max_retries,
+                kind,
+                delay,
             )
         else:
             await self._store.mark_failed(task.id, error=error, kind=kind)
             TASKS_TOTAL.labels(type=task.type, status="failed").inc()
 
-    async def _deliver_and_complete(self, task: Task, agent, ctx: AgentContext, aggregated: dict) -> None:
+    async def _deliver_and_complete(
+        self, task: Task, agent, ctx: AgentContext, aggregated: dict
+    ) -> None:
         """Run the deliver stage (if any), mark completed, post to Linear.
         Shared by the normal pipeline and the post-approval resume pass."""
         stages = agent.stages
@@ -300,16 +304,13 @@ class Coordinator:
         for task in await self._store.list_active_tasks():
             agent = self._registry.get(task.type)
             timeout = (
-                self._effective_timeout(task, agent)
-                if agent is not None
-                else self._default_timeout
+                self._effective_timeout(task, agent) if agent is not None else self._default_timeout
             )
             age = (now - task.updated_at).total_seconds()
             if age > timeout:
                 await self._fail_or_retry(
                     task,
-                    error=f"Task stuck in {task.status} for {int(age)}s "
-                    f"(timeout {int(timeout)}s)",
+                    error=f"Task stuck in {task.status} for {int(age)}s (timeout {int(timeout)}s)",
                     kind=retry.TIMEOUT,
                 )
                 reaped += 1
@@ -353,9 +354,7 @@ class Coordinator:
         for task in pending:
             agent = self._registry.get(task.type)
             if agent is None:
-                logger.warning(
-                    f"No agent for task type '{task.type}', failing task {task.id}"
-                )
+                logger.warning(f"No agent for task type '{task.type}', failing task {task.id}")
                 await self._fail_or_retry(
                     task,
                     error=f"No agent registered for type '{task.type}'",
@@ -416,9 +415,7 @@ class Coordinator:
                 await self._store.update_handler_data(task.id, aggregated)
                 refreshed = await self._store.get(task.id)
                 if refreshed is None:
-                    logger.error(
-                        "Task %s vanished from DB after execute; skipping", task.id
-                    )
+                    logger.error("Task %s vanished from DB after execute; skipping", task.id)
                     continue
                 task = refreshed
 
@@ -457,9 +454,7 @@ class Coordinator:
                     )
 
                 await self._deliver_and_complete(task, agent, ctx, aggregated)
-                TASK_DURATION_SECONDS.labels(type=task.type).observe(
-                    time.monotonic() - task_start
-                )
+                TASK_DURATION_SECONDS.labels(type=task.type).observe(time.monotonic() - task_start)
 
             except TimeoutError as e:
                 logger.warning("Task %s timed out: %s", task.id, e)
