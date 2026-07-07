@@ -3,9 +3,11 @@ import { expect, test } from '@playwright/test';
 /**
  * Visual regression — full-page screenshots of every key surface.
  *
- * Runs against the Vite dev server with mock fallbacks, so the output is
- * deterministic (modulo font hinting + platform rasterisation). Baselines
- * are committed under e2e/__screenshots__/ and produced on first run.
+ * Deliberately runs against mock fallbacks (unlike smoke.spec, which
+ * annotates its api-mode) so the output is deterministic (modulo font
+ * hinting + platform rasterisation). Baselines are committed next to this
+ * spec and produced on first run; they're platform-suffixed, so generate
+ * them on the machine you'll compare on.
  *
  * Regenerate after an intentional design change:
  *     pnpm test:e2e --update-snapshots
@@ -17,12 +19,13 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 const PAGES: Array<{ path: string; name: string; waitFor?: string }> = [
 	{ path: '/today', name: 'today' },
-	{ path: '/threads', name: 'threads-list' },
 	{ path: '/tasks', name: 'tasks-list' },
+	{ path: '/repos', name: 'repos' },
+	{ path: '/settings', name: 'settings' },
 	{ path: '/library/agents', name: 'library-agents' },
 	{ path: '/library/connectors', name: 'library-connectors' },
 	{ path: '/library/memory', name: 'library-memory' },
-	{ path: '/library/fields', name: 'library-fields' }
+	{ path: '/library/schedules', name: 'library-schedules' }
 ];
 
 for (const p of PAGES) {

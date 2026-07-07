@@ -132,3 +132,98 @@ export const ApproveCallsEndpoint: Story = {
 		}
 	}
 };
+
+export const RejectRequiresTwoClicks: Story = {
+	args: { task: { ...baseTask, status: 'awaiting_approval' } },
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const fetchSpy = spyOn(window, 'fetch').mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: () => Promise.resolve({ ...baseTask, status: 'cancelled' }),
+			text: () => Promise.resolve('{}')
+		} as Response);
+		try {
+			await userEvent.click(canvas.getByRole('button', { name: 'Reject' }));
+			await expect(canvas.getByRole('button', { name: 'Confirm?' })).toBeInTheDocument();
+			// Approve stays put — only the reject button arms.
+			await expect(canvas.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+			await expect(fetchSpy).not.toHaveBeenCalled();
+			await userEvent.click(canvas.getByRole('button', { name: 'Confirm?' }));
+			await waitFor(() =>
+				expect(fetchSpy).toHaveBeenCalledWith(
+					expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/reject'),
+					expect.objectContaining({ method: 'POST' })
+				)
+			);
+		} finally {
+			fetchSpy.mockRestore();
+		}
+	}
+};
+
+export const FollowUpSendDisabledUntilPrompt: Story = {
+	args: { task: { ...baseTask, status: 'completed' } },
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole('button', { name: 'Follow up' }));
+		const send = canvas.getByRole('button', { name: 'Send' });
+		await expect(send).toBeDisabled();
+		await userEvent.type(canvas.getByRole('textbox', { name: 'Follow-up prompt' }), '  ');
+		await expect(send).toBeDisabled();
+		await userEvent.type(canvas.getByRole('textbox', { name: 'Follow-up prompt' }), 'do more');
+		await expect(send).toBeEnabled();
+	}
+};
+
+export const FollowUpSubmitsPrompt: Story = {
+	args: { task: { ...baseTask, status: 'completed' } },
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const fetchSpy = spyOn(window, 'fetch').mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: () => Promise.resolve({ ...baseTask, id: '01HZX9MVT0EXAMPLE0000000001' }),
+			text: () => Promise.resolve('{}')
+		} as Response);
+		try {
+			await userEvent.click(canvas.getByRole('button', { name: 'Follow up' }));
+			await userEvent.type(
+				canvas.getByRole('textbox', { name: 'Follow-up prompt' }),
+				'also update the docs'
+			);
+			await userEvent.click(canvas.getByRole('button', { name: 'Send' }));
+			await waitFor(() =>
+				expect(fetchSpy).toHaveBeenCalledWith(
+					expect.stringContaining('/api/tasks/01HZX9MVT0EXAMPLE0000000000/follow-up'),
+					expect.objectContaining({
+						method: 'POST',
+						body: JSON.stringify({ prompt: 'also update the docs' })
+					})
+				)
+			);
+		} finally {
+			fetchSpy.mockRestore();
+		}
+	}
+};
+
+export const FailedActionSurfacesAlert: Story = {
+	args: { task: { ...baseTask, status: 'failed' } },
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const fetchSpy = spyOn(window, 'fetch').mockResolvedValue({
+			ok: false,
+			status: 500,
+			json: () => Promise.resolve({}),
+			text: () => Promise.resolve('boom')
+		} as Response);
+		try {
+			await userEvent.click(canvas.getByRole('button', { name: 'Retry' }));
+			await waitFor(() => expect(canvas.getByRole('alert')).toBeInTheDocument());
+			await expect(canvas.getByRole('alert')).toHaveTextContent(/500/);
+		} finally {
+			fetchSpy.mockRestore();
+		}
+	}
+};

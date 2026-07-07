@@ -1,10 +1,13 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Golden-path smoke tests. Every route loader falls back to mock data when
  * the backend is unreachable, so these tests don't require a running forge
  * instance. They assert that the SPA loads, client-side routing works, and
  * the key surfaces render identifiable chrome.
+ *
+ * Each test is annotated with the api-mode it ran in (live/mocked); set
+ * E2E_REQUIRE_API=1 to fail instead of falling back to mocks.
  */
 
 test.describe('smoke', () => {

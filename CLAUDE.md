@@ -14,6 +14,8 @@ uv run forge                          # Start server (port 7030)
 uv run pytest -q                      # All tests
 uv run pytest tests/test_api.py       # Single file
 uv run pytest -k test_nudge           # Single test by name
+uv run ruff check forge tests scripts # Lint
+uv run ruff format forge tests scripts# Format (line-length 100)
 ```
 
 ```bash
@@ -35,7 +37,7 @@ pnpm test:e2e                         # Playwright smoke tests
 pnpm storybook                        # Storybook dev (port 6006)
 ```
 
-There is no CI — run `uv run pytest -q` and `pnpm check` before pushing. Pushing to `main` triggers autodeploy on the box (`nix/services/autodeploy.nix` polls every 5 min, then `nixos-rebuild switch` + service restart) with no test gate. Some tests create real git commits, so git identity must be configured. The notebook tests require `ripgrep`.
+There is no CI — run `uv run pytest -q`, `uv run ruff check`, and `pnpm check` before pushing. Pushing to `main` triggers autodeploy on the box (`nix/services/autodeploy.nix` polls every 5 min, then `nixos-rebuild switch` + service restart) with no test gate. Some tests create real git commits, so git identity must be configured. The notebook tests require `ripgrep`.
 
 ## Architecture
 
@@ -87,7 +89,7 @@ Active connectors: OPConnector (1Password secret resolution, no chat tools), Wea
 
 SvelteKit 2 + Svelte 5 + Tailwind CSS 4 + TypeScript. Static adapter. Component library uses `bits-ui`, `phosphor-svelte` icons, `cva` for variants, `tailwind-merge`+`clsx` for class merging.
 
-Routes: `today/` (dashboard), `tasks/` (list + `[id]` detail with steer controls: cancel/approve/reject/retry/follow-up, polling while active), `repos/`, `library/` (agents, connectors, memory, schedules, log), `settings/`. Shared code in `ui/src/lib/`; API responses are schema-validated (Zod) in `ui/src/lib/schemas`. Storybook for component development. Playwright E2E tests fall back to mock data when API is unreachable.
+Routes: `today/` (dashboard), `tasks/` (list + `[id]` detail with steer controls: cancel/approve/reject/retry/follow-up, polling while active), `repos/`, `library/` (agents, connectors, memory, schedules, log), `settings/`. Shared code in `ui/src/lib/`; API responses are schema-validated (Zod) in `ui/src/lib/schemas`. Storybook for component development; story `play` functions run as interaction tests under `pnpm test`. Playwright E2E smoke tests fall back to mock data when the API is unreachable — each test is annotated with its `api-mode`, and `E2E_REQUIRE_API=1` fails the run instead of falling back. Visual regression baselines are platform-suffixed; regenerate on the machine you compare on.
 
 API proxy configured via `VITE_API_PROXY` env var (defaults to `http://localhost:7030`). For hybrid dev — running the UI on another machine (e.g. a Mac, for design tools like Paper) against the live Forge on the box — copy `ui/.env.local.example` to `ui/.env.local`; `vite.config.ts` resolves the target via `loadEnv`, so plain `pnpm dev` then proxies `/api` and `/health` to the box over Tailscale. An inline `VITE_API_PROXY=... pnpm dev` still overrides the file.
 
