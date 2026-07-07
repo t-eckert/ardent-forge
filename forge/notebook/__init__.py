@@ -1,3 +1,4 @@
+from forge.notebook import analysis
 from forge.notebook.errors import NotebookWriteError
 from forge.notebook.reader import NotebookReader, SearchHit
 from forge.notebook.writer import ALLOWED_WRITE_PREFIXES, NotebookWriter
@@ -8,4 +9,5 @@ __all__ = [
     "NotebookWriteError",
     "NotebookWriter",
     "SearchHit",
+    "analysis",
 ]
