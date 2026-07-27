@@ -4,6 +4,14 @@
 let
   labDir = "/home/${locals.username}/Repos/lab";
 in {
+  # Ensure the lab dir exists BEFORE the service's mount namespace is set up.
+  # ReadWritePaths/WorkingDirectory bind-mount labDir at namespace-setup time,
+  # which happens before ExecStartPre — and ProtectHome=read-only would block
+  # creating it inside the sandbox anyway. tmpfiles runs outside the sandbox.
+  systemd.tmpfiles.rules = [
+    "d ${labDir} 0755 ${locals.username} users -"
+  ];
+
   systemd.services.marimo = {
     description = "Marimo — interactive Python notebooks (lab.*)";
     wantedBy = [ "multi-user.target" ];
