@@ -11,7 +11,6 @@
   imports = [
     ./services/postgresql.nix
     ./services/monitoring.nix
-    ./services/ollama.nix
     ./services/caddy.nix
     ./services/ntfy.nix
     ./services/the-weather.nix

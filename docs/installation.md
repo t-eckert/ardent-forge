@@ -144,7 +144,6 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     systemctl status prometheus
     systemctl status grafana
     systemctl status loki
-    systemctl status ollama
     systemctl status podman-ntfy
     systemctl status the-weather
     systemctl status tailscaled
@@ -159,9 +158,6 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
 
     # Test NTFY
     curl -d "Ardent Forge is alive" http://127.0.0.1:8090/test
-
-    # Test Ollama
-    curl http://127.0.0.1:11434/api/tags
 
     # Check Prometheus targets
     curl http://127.0.0.1:9090/api/v1/targets | jq '.data.activeTargets[].health'

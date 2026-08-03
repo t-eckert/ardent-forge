@@ -140,7 +140,7 @@
       },
       "targets": [
         {
-          "expr": "node_systemd_unit_state{state=\"active\", name=~\"ardent-forge.*|grafana.*|prometheus.*|loki.*|postgresql.*|caddy.*|ollama.*|alloy.*\"}",
+          "expr": "node_systemd_unit_state{state=\"active\", name=~\"ardent-forge.*|grafana.*|prometheus.*|loki.*|postgresql.*|caddy.*|alloy.*\"}",
           "legendFormat": "{{name}}",
           "format": "table",
           "instant": true

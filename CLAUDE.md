@@ -50,7 +50,6 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 | `caddy` | Tailnet front door. Serves a generated landing page at the bare domain, `/svc/{grafana,prometheus,ntfy}`, and one tsnet node per entry in `csApps` plus the `drop` WebDAV share |
 | `postgresql` | Postgres 17 at `/data/postgresql`; `grafana` DB + exporter on :9187 |
 | `prometheus` / `grafana` / `loki` / `alloy` | Metrics, dashboards, logs (`nix/services/monitoring.nix`) |
-| `ollama` | CPU-only local inference on :11434. No models are pulled declaratively — `ollama pull <model>` as needed |
 | `ntfy` | Push notifications, podman container on :8090 |
 | `the-weather` | `ghcr.io/t-eckert/the-weather` container on :8091 |
 | `marimo` | Headless marimo on :2718 against `~/Repos/lab`, exposed as `lab.<tailnet>` |
