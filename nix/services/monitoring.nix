@@ -120,6 +120,12 @@
       server = {
         http_listen_port = 3100;
         grpc_listen_port = 9096;
+
+        # Alloy ships the whole journal to Loki, including Loki's own logs, so
+        # anything Loki logs is amplified back into itself. At info level its
+        # per-table compaction chatter was ~550k journal lines a week — the
+        # largest log producer on the box by an order of magnitude.
+        log_level = "warn";
       };
 
       common = {
@@ -159,14 +165,22 @@
     enable = true;
   };
 
+  # The `__journal_*` fields are internal labels: they are dropped when an entry
+  # leaves loki.source.journal, so a downstream loki.relabel component never
+  # sees them. The rules have to be handed to the source itself via
+  # `relabel_rules`, which is why loki.relabel here has an empty forward_to —
+  # it exists only to export `.rules`.
   environment.etc."alloy/config.alloy".text = ''
     loki.source.journal "journal" {
-      max_age    = "12h"
-      labels     = { job = "systemd-journal", host = "ardent-forge" }
-      forward_to = [loki.relabel.journal.receiver]
+      max_age       = "12h"
+      labels        = { job = "systemd-journal", host = "ardent-forge" }
+      relabel_rules = loki.relabel.journal.rules
+      forward_to    = [loki.write.local.receiver]
     }
 
     loki.relabel "journal" {
+      forward_to = []
+
       rule {
         source_labels = ["__journal__systemd_unit"]
         target_label  = "unit"
@@ -175,7 +189,6 @@
         source_labels = ["__journal_priority_keyword"]
         target_label  = "level"
       }
-      forward_to = [loki.write.local.receiver]
     }
 
     loki.write "local" {
