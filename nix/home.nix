@@ -66,6 +66,10 @@
 
   # Forge-specific environment variables
   home.sessionVariables = {
+    # mosh forwards TERM but not COLORTERM, so apps downgrade to the 256-color
+    # palette. mosh 1.4+ carries 24-bit color fine — it just needs the hint.
+    COLORTERM = "truecolor";
+
     FORGE_DB_PATH = "/data/ardent-forge/forge.db";
     FORGE_WORKSPACE_DIR = "/home/${locals.username}/Repos";
     # openssl-sys (pulled in by async-stripe and others) requires both the dev
