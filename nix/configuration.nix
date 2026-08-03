@@ -88,6 +88,14 @@
     };
   };
 
+  # ── Mosh ────────────────────────────────────────────────
+  # Roaming terminal sessions that survive sleep and network changes.
+  # System-level rather than a home package: this also installs the setgid
+  # libutempter wrapper (so sessions show in `who`) and opens UDP 60000-61000.
+  # The Tailscale path is already covered by trustedInterfaces; the firewall
+  # ports matter for reaching the Forge over LAN.
+  programs.mosh.enable = true;
+
   # ── Podman (for NTFY and The Weather containers) ───────
   virtualisation.podman = {
     enable = true;
