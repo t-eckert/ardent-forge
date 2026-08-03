@@ -11,6 +11,6 @@ It's built for me, so it's full of my particular choices. But you're welcome to 
 A few habits keep the machine itself simple, and these are the bits I'd most recommend borrowing:
 
 - **The box is nukable.** Nothing precious lives on it. Repos clone fresh from GitHub, and a rebuild doesn't cost me anything.
-- **Secrets stay in 1Password.** Decrypted values never touch the disk — they're resolved right when a task starts, and each repo only gets to see the secrets it's declared.
-- **Zellij so I can watch.** Because code work runs in a named session, I can SSH in and watch an agent work in real time. I can also just grab the controls and do my own development.
+- **Secrets stay in 1Password.** Decrypted values never touch the disk. What's committed is a set of `op://` references; the values only get resolved into the environment at the moment a service starts.
+- **Sessions outlive the connection.** Work happens in a named Zellij session over mosh, so closing the laptop doesn't end anything. I can pick a long-running Claude Code session back up later from a different machine.
 - **Tailscale is the front door.** The whole thing lives on my tailnet, so there's no auth layer to build and nothing sitting out on the public internet, but I can also open a funnel to particular ports if I need to.

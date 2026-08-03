@@ -4,13 +4,14 @@
 # ~/Repos/github.com/owner/repo. Runs once at boot as a oneshot; re-run
 # manually with `systemctl start workspace-init` after adding a new repo.
 #
-# Credentials come from the same op-token + forge.env path as ardent-forge,
-# so GH_TOKEN is resolved by `op run` at start time — no secrets in the Nix
-# store.
+# GH_TOKEN is resolved by `op run` from workspace-init.env at start time, so
+# no secret ever lands in the Nix store. The op service-account token itself
+# comes from /etc/ardent-forge/op-token, which is placed by hand on the box.
 { pkgs, lib, locals, ... }:
 
 let
   workspaceDir = "/home/${locals.username}/Repos/github.com";
+  envFile = "/data/ardent-forge/repo/nix/services/workspace-init.env";
   repos = locals.workspaceRepos or [];
 
   cloneScript = pkgs.writeShellScript "workspace-init" ''
@@ -53,7 +54,7 @@ in {
 
       ExecStart = pkgs.writeShellScript "workspace-init-start" ''
         exec ${pkgs._1password-cli}/bin/op run \
-          --env-file /data/ardent-forge/forge.env \
+          --env-file ${envFile} \
           -- ${cloneScript}
       '';
 

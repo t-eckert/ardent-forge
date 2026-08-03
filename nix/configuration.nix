@@ -9,7 +9,6 @@
 
 {
   imports = [
-    ./services/ardent-forge.nix
     ./services/postgresql.nix
     ./services/monitoring.nix
     ./services/ollama.nix
@@ -17,7 +16,6 @@
     ./services/ntfy.nix
     ./services/the-weather.nix
     ./services/notebook-sync.nix
-    ./services/tailscale-portforward.nix
     ./services/marimo.nix
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
@@ -82,29 +80,6 @@
   # Let Grafana read git-managed dashboard JSON files from the repo
   users.users.grafana.extraGroups = [ "users" ];
   programs.zsh.enable = true;
-
-  # ── Sudo ────────────────────────────────────────────────
-  # Let the main user restart Ardent Forge without a password so that
-  # Claude Code (and autodeploy) can bounce the service after changes.
-  security.sudo.extraRules = [
-    {
-      users = [ locals.username ];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/systemctl restart ardent-forge";
-          options = [ "NOPASSWD" ];
-        }
-        {
-          command = "/run/current-system/sw/bin/systemctl stop ardent-forge";
-          options = [ "NOPASSWD" ];
-        }
-        {
-          command = "/run/current-system/sw/bin/systemctl start ardent-forge";
-          options = [ "NOPASSWD" ];
-        }
-      ];
-    }
-  ];
 
   # ── SSH ─────────────────────────────────────────────────
   services.openssh = {

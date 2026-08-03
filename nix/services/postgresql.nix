@@ -43,15 +43,10 @@
 
     # Create databases for services
     ensureDatabases = [
-      "ardent_forge"
       "grafana"
     ];
 
     ensureUsers = [
-      {
-        name = "ardent_forge";
-        ensureDBOwnership = true;
-      }
       {
         name = "grafana";
         ensureDBOwnership = true;

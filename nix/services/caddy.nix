@@ -15,13 +15,17 @@ let
   # Per-app tsnet nodes registered via the caddy-tailscale plugin. Each
   # shows up as its own machine in the tailnet admin console with an
   # auto-issued cert at <name>.<tailnet>.
+  #
+  # `label` is the human-readable name on the landing page below, which is
+  # generated from this same attrset — adding a host here is all it takes to
+  # get it listed.
   csApps = {
-    cs         = { backend = "127.0.0.1:8000"; };  # chillest-subs
-    cs-editor  = { backend = "127.0.0.1:8010"; };  # chill-subs editor
-    cs-grafana = { backend = "127.0.0.1:8022"; };  # podman: local_grafana_1
-    cs-galley  = { backend = "127.0.0.1:8020"; };  # galley backend
-    lab        = { backend = "127.0.0.1:2718"; };  # marimo notebooks
-    te         = { backend = "127.0.0.1:10000"; }; # thomaseckert.dev
+    cs         = { backend = "127.0.0.1:8000";  label = "chillest-subs"; };
+    cs-editor  = { backend = "127.0.0.1:8010";  label = "chill-subs editor"; };
+    cs-grafana = { backend = "127.0.0.1:8022";  label = "chill-subs Grafana"; };
+    cs-galley  = { backend = "127.0.0.1:8020";  label = "Galley backend"; };
+    lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
+    te         = { backend = "127.0.0.1:10000"; label = "thomaseckert.dev"; };
   };
 
   csNodeBlock = lib.concatStringsSep "\n  " (lib.mapAttrsToList
@@ -34,6 +38,91 @@ let
         ${attrs.routes or "reverse_proxy ${attrs.backend}"}
       '';
     }) csApps;
+
+  # Landing page for the bare tailnet domain. This used to reverse-proxy the
+  # Ardent Forge web UI on :7030; with that gone, the root is just a directory
+  # of what the box is running, generated from the definitions above so it
+  # can't drift out of sync.
+  appRows = lib.concatStringsSep "\n" (lib.mapAttrsToList (name: attrs: ''
+            <li><a href="https://${name}.${tailnet}"><b>${name}</b><span>${attrs.label}</span></a></li>'') csApps);
+
+  landingPage = pkgs.writeTextDir "index.html" ''
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>ardent forge</title>
+      <style>
+        :root {
+          --bg: #fbfaf8; --fg: #17150f; --dim: #6d675c;
+          --line: #e3ded4; --card: #ffffff; --accent: #9a3412;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #14130f; --fg: #ece7dd; --dim: #8d8677;
+            --line: #2b2822; --card: #1c1a15; --accent: #f0a068;
+          }
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0; padding: 3rem 1.5rem 5rem; background: var(--bg); color: var(--fg);
+          font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        main { max-width: 46rem; margin: 0 auto; }
+        h1 {
+          margin: 0; font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em;
+        }
+        .sub { margin: 0.35rem 0 2.75rem; color: var(--dim); font-size: 0.875rem; }
+        .sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        h2 {
+          margin: 2.25rem 0 0.75rem; font-size: 0.7rem; font-weight: 600;
+          letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim);
+        }
+        ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+        a {
+          display: flex; align-items: baseline; gap: 0.75rem; padding: 0.7rem 0.9rem;
+          background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+          text-decoration: none; color: inherit;
+        }
+        a:hover { border-color: var(--accent); }
+        a b {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-weight: 500; font-size: 0.875rem;
+        }
+        a span { color: var(--dim); font-size: 0.8125rem; margin-left: auto; text-align: right; }
+        footer { margin-top: 3.5rem; color: var(--dim); font-size: 0.8125rem; }
+      </style>
+    </head>
+    <body>
+      <main>
+        <h1>ardent forge</h1>
+        <p class="sub">NixOS box on <code>${tailnet}</code>. Config lives at
+          <code>/data/ardent-forge/repo</code>.</p>
+
+        <h2>Apps</h2>
+        <ul>
+    ${appRows}
+        </ul>
+
+        <h2>Services</h2>
+        <ul>
+          <li><a href="/svc/grafana/"><b>grafana</b><span>dashboards &amp; logs</span></a></li>
+          <li><a href="/svc/prometheus/"><b>prometheus</b><span>metrics</span></a></li>
+          <li><a href="/svc/ntfy/"><b>ntfy</b><span>push notifications</span></a></li>
+        </ul>
+
+        <h2>Files</h2>
+        <ul>
+          <li><a href="https://${shareName}.${tailnet}"><b>${shareName}</b><span>WebDAV share — mount from Finder with &#8984;K</span></a></li>
+        </ul>
+
+        <footer>Everything here is tailnet-only. Nothing is exposed publicly.</footer>
+      </main>
+    </body>
+    </html>
+  '';
 in {
   services.caddy = {
     enable = true;
@@ -73,9 +162,9 @@ in {
     '';
 
     virtualHosts = {
-      # Existing: Ardent Forge UI + path-based service exposure. Binds to
-      # the host's tailscale0 interface and uses certs fetched via tailscaled
-      # (caddy is in the tailscale-cert group, below).
+      # Landing page + path-based service exposure. Binds to the host's
+      # tailscale0 interface and uses certs fetched via tailscaled (caddy is
+      # in the tailscale-cert group, below).
       "https://${tsDomain}" = {
         extraConfig = ''
           handle /svc/grafana* {
@@ -89,7 +178,8 @@ in {
           }
 
           handle {
-            reverse_proxy 127.0.0.1:7030
+            root * ${landingPage}
+            file_server
           }
         '';
       };

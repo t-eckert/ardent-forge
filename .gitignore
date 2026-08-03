@@ -1,32 +1,4 @@
 .claude/settings.local.json
 
-.worktrees/
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-.pytest_cache/
-dist/
-*.egg-info/
-forge.db
-
 # NixOS local config (contains tailnet domain, SSH keys)
 nix/locals.nix
-
-# SvelteKit
-ui/node_modules/
-ui/.svelte-kit/
-ui/build/
-
-*storybook.log
-storybook-static
-
-# Playwright run artifacts (baselines under e2e/*-snapshots are committed)
-ui/test-results/
-ui/playwright-report/
-ui/blob-report/
-ui/playwright/.cache/
-
-# Per-machine UI dev config (e.g. VITE_API_PROXY pointing at the box)
-ui/.env.local
-ui/.env.*.local

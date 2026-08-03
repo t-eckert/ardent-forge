@@ -29,13 +29,6 @@
         }];
       }
       {
-        job_name = "ardent-forge";
-        static_configs = [{
-          targets = [ "127.0.0.1:7030" ];
-        }];
-        metrics_path = "/metrics";
-      }
-      {
         job_name = "loki";
         static_configs = [{
           targets = [ "127.0.0.1:3100" ];

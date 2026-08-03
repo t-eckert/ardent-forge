@@ -5,12 +5,11 @@
 - Bee Link mini PC (Intel N150, 16GB RAM, 1TB NVMe)
 - USB drive (8GB+)
 - Monitor + keyboard (for initial install only)
-- 1Password account with "ArdentForge" vault containing:
-  - `anthropic-api-key`
-  - `github-pat`
-  - `linear-api-key`
-  - `linear-team-id`
-  - `open-weather-api-key`
+- 1Password account with an "Ardent Forge" vault containing:
+  - `github-pat` — clones the workspace repos and pushes the notebook
+  - `open-weather-api-key` — for the-weather
+- A 1Password **service account** token, for the box to resolve those
+  non-interactively
 
 ## Phase 1: Create NixOS USB Installer
 
@@ -96,38 +95,51 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     git clone https://github.com/t-eckert/ardent-forge.git /data/ardent-forge/repo
     cd /data/ardent-forge/repo
 
-    # Copy the real hardware config from the bootstrap install
-    cp /etc/nixos/hardware-configuration.nix nix/hardware.nix
+    # Reconcile the generated hardware config into nix/hardware.nix.
+    # Don't paste the generated file in wholesale: the committed version
+    # mounts by LABEL (set by the mkfs commands above) rather than by UUID,
+    # so it survives a reinstall onto fresh disks. Copy across anything new
+    # in availableKernelModules and leave the fileSystems blocks alone.
+    diff /etc/nixos/hardware-configuration.nix nix/hardware.nix
 
     # Create locals.nix from the example (gitignored — stays on this machine)
     cp nix/locals.example.nix nix/locals.nix
-    # Edit with your real tailnet domain and SSH public key:
+    # Edit with your real tailnet domain, SSH public key, and workspace repos:
     vim nix/locals.nix
 
-    # Apply the full NixOS configuration
-    sudo nixos-rebuild switch --flake ./nix#ardent-forge
+    # Apply the full NixOS configuration. --impure is required: flake.nix
+    # imports locals.nix by absolute path.
+    sudo nixos-rebuild switch --flake ./nix#ardent-forge --impure
 
     # Set up Tailscale
     sudo tailscale up
 
-    # Sign into 1Password CLI
-    eval $(op signin)
+    # Place the 1Password service account token. This is the one secret that
+    # is NOT managed by Nix — every service that needs credentials reads it
+    # to resolve the op:// references in its committed env file.
+    sudo install -d -m 0755 /etc/ardent-forge
+    printf 'OP_SERVICE_ACCOUNT_TOKEN=%s\n' "<token>" | sudo tee /etc/ardent-forge/op-token
+    sudo chmod 0640 /etc/ardent-forge/op-token
 
-    # Run the first-boot setup script
-    ~/.local/bin/forge-setup
+    # Caddy needs a Tailscale OAuth client secret to mint per-node keys
+    # for the tsnet hosts
+    printf 'TS_AUTHKEY=%s\n' "<oauth-secret>" | sudo tee /etc/caddy/tailscale-auth
+    sudo chown root:caddy /etc/caddy/tailscale-auth && sudo chmod 0640 /etc/caddy/tailscale-auth
 
     # Copy NTFY config
     sudo cp /etc/ardent-forge/ntfy-server.yml.example /data/ntfy/etc/server.yml
     # Edit the base-url to match your tailnet hostname:
     sudo vim /data/ntfy/etc/server.yml
 
-    # Start all services
-    sudo systemctl start ardent-forge
+    # Clone the workspace repos now rather than waiting for the next boot
+    sudo systemctl start workspace-init
 
 ## Phase 4: Validate
 
+    # Nothing should be failed
+    systemctl list-units --failed
+
     # Check all services are running
-    systemctl status ardent-forge
     systemctl status postgresql
     systemctl status prometheus
     systemctl status grafana
@@ -137,12 +149,10 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     systemctl status the-weather
     systemctl status tailscaled
     systemctl status caddy
+    systemctl status ardent-forge-notebook-sync
 
-    # Test Ardent Forge API
-    curl http://127.0.0.1:7030/health
-
-    # Test via Tailscale (from Mac)
-    curl https://<your-tailnet-domain>/health
+    # Test the landing page via Tailscale (from Mac)
+    curl https://<your-tailnet-domain>/
 
     # Test Grafana
     curl -s http://127.0.0.1:3000/api/health | jq .
@@ -167,7 +177,9 @@ After validation, commit the real hardware config back to the repo:
 
 ## Post-Install
 
-- Bookmark Grafana: `https://grafana.ardent-forge.<tailnet>.ts.net`
-- Bookmark Ardent Forge: `https://ardent-forge.<tailnet>.ts.net`
-- Set up Grafana dashboards for system metrics and Ardent Forge tasks
-- Create a Linear issue to test the full pipeline end-to-end
+- Bookmark the landing page: `https://ardent-forge.<tailnet>.ts.net` — it links
+  everything else, including Grafana at `/svc/grafana`
+- Confirm the `system` and `logs` dashboards render in Grafana; they're read
+  live out of `grafana/dashboards/` in this checkout
+- Mount the `drop` WebDAV share from Finder (⌘K → `https://drop.<tailnet>.ts.net`)
+- SSH or mosh in and start a Claude Code session — that's what the box is for

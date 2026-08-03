@@ -1,6 +1,8 @@
 # nix/home.nix
 #
-# Pulls in the full dotfiles dev environment and adds forge-specific extras.
+# Pulls in the full dotfiles dev environment, then adds the packages and
+# environment that only this box needs — mostly the toolchains for the
+# projects that get worked on here.
 { config, pkgs, lib, dotfiles, locals, ... }:
 
 {
@@ -22,7 +24,7 @@
     recursive = true;
   };
 
-  # Forge-specific packages not covered by dotfiles
+  # Packages not covered by dotfiles
   home.packages = with pkgs; [
     uv              # Python package manager
     openssl.dev
@@ -64,14 +66,12 @@
     cargo-watch
   ];
 
-  # Forge-specific environment variables
+  # Environment for the toolchains that live on this box
   home.sessionVariables = {
     # mosh forwards TERM but not COLORTERM, so apps downgrade to the 256-color
     # palette. mosh 1.4+ carries 24-bit color fine — it just needs the hint.
     COLORTERM = "truecolor";
 
-    FORGE_DB_PATH = "/data/ardent-forge/forge.db";
-    FORGE_WORKSPACE_DIR = "/home/${locals.username}/Repos";
     # openssl-sys (pulled in by async-stripe and others) requires both the dev
     # headers and the runtime libs. NixOS splits these across two outputs so
     # cargo can't find them via standard paths — set them explicitly.
@@ -139,52 +139,4 @@
     '';
   };
 
-  # Manual test runner — run the backend suite on demand (no CI gate).
-  # Usage: af-test                 # full suite
-  #        af-test -k test_nudge   # filter
-  #        af-test tests/test_api.py
-  home.file.".local/bin/af-test" = {
-    executable = true;
-    text = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      REPO_DIR="/data/ardent-forge/repo"
-      cd "$REPO_DIR"
-
-      echo "Running backend test suite (uv run pytest)..."
-      exec uv run pytest "$@"
-    '';
-  };
-
-  # First-boot setup script
-  home.file.".local/bin/forge-setup" = {
-    executable = true;
-    text = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      REPO_DIR="/data/ardent-forge/repo"
-      if [ ! -d "$REPO_DIR/.git" ]; then
-        echo "Cloning ardent-forge repo..."
-        git clone https://github.com/t-eckert/ardent-forge.git "$REPO_DIR"
-        cd "$REPO_DIR"
-        uv sync
-        echo "Done. Repo at $REPO_DIR, venv ready."
-      else
-        echo "Repo already exists at $REPO_DIR"
-      fi
-
-      # Create 1Password env files from examples
-      for f in /etc/ardent-forge/*.env.example; do
-        target="/data/ardent-forge/$(basename "$f" .example)"
-        if [ ! -f "$target" ]; then
-          cp "$f" "$target"
-          echo "Created $target from example — edit op:// URIs if needed"
-        fi
-      done
-
-      echo "Setup complete. Run: sudo systemctl start ardent-forge"
-    '';
-  };
 }
