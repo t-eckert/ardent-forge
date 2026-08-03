@@ -1,4 +1,11 @@
-{ config, pkgs, lib, dotfiles, locals, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  dotfiles,
+  locals,
+  ...
+}:
 
 {
   imports = [
@@ -9,7 +16,6 @@
     ./services/caddy.nix
     ./services/ntfy.nix
     ./services/the-weather.nix
-    ./services/autodeploy.nix
     ./services/notebook-sync.nix
     ./services/tailscale-portforward.nix
     ./services/marimo.nix
@@ -21,7 +27,10 @@
   # ── System ──────────────────────────────────────────────
   system.stateVersion = "24.11";
   nixpkgs.config.allowUnfree = true;
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   # ── Boot ────────────────────────────────────────────────
   boot.loader.systemd-boot.enable = true;
@@ -33,7 +42,10 @@
   networking = {
     hostName = "ardent-forge";
     interfaces.enp1s0.useDHCP = true;
-    nameservers = [ "1.1.1.1" "8.8.8.8" ];
+    nameservers = [
+      "1.1.1.1"
+      "8.8.8.8"
+    ];
 
     firewall = {
       enable = true;
@@ -60,7 +72,10 @@
   # ── Users ───────────────────────────────────────────────
   users.users.${locals.username} = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "podman" ];
+    extraGroups = [
+      "wheel"
+      "podman"
+    ];
     openssh.authorizedKeys.keys = locals.sshKeys;
     shell = pkgs.zsh;
   };
@@ -71,14 +86,25 @@
   # ── Sudo ────────────────────────────────────────────────
   # Let the main user restart Ardent Forge without a password so that
   # Claude Code (and autodeploy) can bounce the service after changes.
-  security.sudo.extraRules = [{
-    users = [ locals.username ];
-    commands = [
-      { command = "/run/current-system/sw/bin/systemctl restart ardent-forge"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/systemctl stop ardent-forge"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/systemctl start ardent-forge"; options = [ "NOPASSWD" ]; }
-    ];
-  }];
+  security.sudo.extraRules = [
+    {
+      users = [ locals.username ];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl restart ardent-forge";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl stop ardent-forge";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl start ardent-forge";
+          options = [ "NOPASSWD" ];
+        }
+      ];
+    }
+  ];
 
   # ── SSH ─────────────────────────────────────────────────
   services.openssh = {
