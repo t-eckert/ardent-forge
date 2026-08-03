@@ -1,0 +1,330 @@
+{
+  "uid": "cs-galley-suite-health",
+  "title": "Chill Subs + Galley — Suite Health",
+  "tags": ["chill-subs", "galley", "dev-suite"],
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "process",
+        "label": "Process",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "label": "process", "refId": "LokiVariableQueryEditor-VariableQuery", "type": 1 },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Processes logging",
+      "description": "Distinct process labels seen in the selected range. The suite defines 9 process-compose processes; a number below that means something is silent, which for an always-chatty process like typesense-indexer means it is stuck rather than idle.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "green", "value": 8 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "count(count by (process) (count_over_time({job=\"chill-subs-dev\"} [$__range])))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Errors in range",
+      "description": "Lines matching error/panic/fatal across every process in the suite.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 25 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"chill-subs-dev\", process=~\"$process\"} |~ `(?i)(error|panic|fatal)` [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Reindex cycles OK",
+      "description": "Successful Mongo -> Typesense reindex passes. typesense-reindex.sh loops every REINDEX_INTERVAL (60s by default), so in a healthy hour this should be roughly 60.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"chill-subs-dev\", process=\"typesense-indexer\"} |= `[reindex] ok` [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Reindex cycles FAILED",
+      "description": "Failed reindex passes. Any non-zero value means the submitter's search index is drifting from Mongo — listings created in the editor will not appear in chillest-subs search.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"chill-subs-dev\", process=\"typesense-indexer\"} |= `[reindex] FAILED` [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Log volume by process",
+      "description": "Lines per second per process. Useful as a liveness signal: a process that flatlines to zero has stopped doing work, and a process that spikes is usually looping on an error.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "logs",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (process) (rate({job=\"chill-subs-dev\", process=~\"$process\"} [$__rate_interval]))",
+          "queryType": "range",
+          "legendFormat": "{{process}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors and warnings by process",
+      "description": "Rate of lines matching error/panic/fatal (solid) and warn (dashed by series name). Spikes here are the first place to look when the stack misbehaves.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "logs",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "auto" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (process) (rate({job=\"chill-subs-dev\", process=~\"$process\"} |~ `(?i)(error|panic|fatal)` [$__rate_interval]))",
+          "queryType": "range",
+          "legendFormat": "error: {{process}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (process) (rate({job=\"chill-subs-dev\", process=~\"$process\"} |~ `(?i)warn` [$__rate_interval]))",
+          "queryType": "range",
+          "legendFormat": "warn: {{process}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Reindex cycles over time",
+      "description": "Mongo -> Typesense sync passes, split by outcome. A healthy line sits flat at the loop rate; gaps mean the indexer stalled, and any FAILED series means search results are going stale.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "ok" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"chill-subs-dev\", process=\"typesense-indexer\"} |= `[reindex] ok` [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "ok"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"chill-subs-dev\", process=\"typesense-indexer\"} |= `[reindex] FAILED` [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "failed"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Live errors and warnings",
+      "description": "Every error/panic/fatal/warn line from the suite, newest first. Filtered by the Process variable above.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 21 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"chill-subs-dev\", process=~\"$process\"} |~ `(?i)(error|panic|fatal|warn)`",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Process lifecycle events",
+      "description": "Restart, exit and termination lines from process-compose. A process cycling here is usually crash-looping — check its own log for the cause.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"chill-subs-dev\"} |~ `(?i)(restarting|restart|exited|terminated|shutting down)`",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "uid": "cs-galley-app-perf",
+  "title": "Chill Subs + Galley — App Performance",
+  "tags": ["chill-subs", "galley", "dev-suite"],
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "row",
+      "title": "chillest-subs (submitter)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "tRPC procedure latency (p95)",
+      "description": "95th percentile execution time per tRPC procedure, parsed from the app's own \"[TRPC] <procedure> took <n>ms to execute\" lines. This is the submitter's main path to Mongo, so it is the earliest signal that a query has regressed.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 1 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "auto" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 500 },
+              { "color": "red", "value": 2000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "quantile_over_time(0.95, {job=\"chill-subs-dev\", process=\"chillest-subs\"} | regexp `\\[TRPC\\] (?P<proc>[^ ]+) took (?P<ms>[0-9]+)ms` | unwrap ms [$__rate_interval]) by (proc)",
+          "queryType": "range",
+          "legendFormat": "{{proc}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "tRPC call rate by procedure",
+      "description": "Calls per second per procedure. Read alongside the latency panel: a procedure that is both hot and slow is the one worth optimising.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 1 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (proc) (rate({job=\"chill-subs-dev\", process=\"chillest-subs\"} | regexp `\\[TRPC\\] (?P<proc>[^ ]+) took (?P<ms>[0-9]+)ms` | proc != `` [$__rate_interval]))",
+          "queryType": "range",
+          "legendFormat": "{{proc}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP responses by status",
+      "description": "Next.js request log for the submitter, parsed from \"GET /path 200 in 123ms\". The label filter after the regexp is deliberate: without it every non-request line would be counted too.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "^5.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^4.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^2.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (status) (rate({job=\"chill-subs-dev\", process=\"chillest-subs\"} | regexp `(?P<method>GET|POST|PUT|PATCH|DELETE) (?P<path>[^ ]+) (?P<status>[0-9]{3}) in (?P<ms>[0-9]+)ms` | status =~ `[0-9]+` [$__rate_interval]))",
+          "queryType": "range",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP request duration",
+      "description": "End-to-end request time as Next.js reports it, p95 and max. In dev this includes on-demand compilation, so first hits on a cold route are expected to be slow.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "auto" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "quantile_over_time(0.95, {job=\"chill-subs-dev\", process=\"chillest-subs\"} | regexp `(?P<method>GET|POST|PUT|PATCH|DELETE) (?P<path>[^ ]+) (?P<status>[0-9]{3}) in (?P<ms>[0-9]+)ms` | status =~ `[0-9]+` | unwrap ms [$__rate_interval]) by ()",
+          "queryType": "range",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "max_over_time({job=\"chill-subs-dev\", process=\"chillest-subs\"} | regexp `(?P<method>GET|POST|PUT|PATCH|DELETE) (?P<path>[^ ]+) (?P<status>[0-9]{3}) in (?P<ms>[0-9]+)ms` | status =~ `[0-9]+` | unwrap ms [$__rate_interval]) by ()",
+          "queryType": "range",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "editor · typesense-indexer · galley",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "editor route compile time",
+      "description": "Next.js dev compilation per route, from \"✓ Compiled /route in 882ms\". Climbing numbers here are what a slow edit-refresh loop actually feels like.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "points", "lineWidth": 1, "fillOpacity": 0, "showPoints": "always", "pointSize": 6 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "max_over_time({job=\"chill-subs-dev\", process=\"editor\"} | regexp `Compiled (?P<route>[^ ]+) in (?P<ms>[0-9]+)ms` | unwrap ms [$__rate_interval]) by (route)",
+          "queryType": "range",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Typesense index size by collection",
+      "description": "Documents pulled from Mongo per reindex pass, per collection, from \"<collection> fetched <n>, attempted <n>\". This is the Mongo -> Typesense pipeline that makes editor listings searchable in the submitter; a collection dropping to zero means the submitter has stopped finding those records.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "max_over_time({job=\"chill-subs-dev\", process=\"typesense-indexer\"} | regexp `\\] (?P<collection>[a-z ]+) fetched (?P<docs>[0-9]+), attempted` | unwrap docs [$__rate_interval]) by (collection)",
+          "queryType": "range",
+          "legendFormat": "{{collection}}"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Slowest calls and requests",
+      "description": "Raw tRPC and HTTP timing lines from the submitter, newest first — the detail behind the latency panels. Galley's backend is absent by design: it exposes no /metrics endpoint and logs nothing at its default level, so set RUST_LOG to get request telemetry from it.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 27 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"chill-subs-dev\", process=~\"chillest-subs|editor|backend\"} |~ `took [0-9]+ms|in [0-9]+ms`",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}
