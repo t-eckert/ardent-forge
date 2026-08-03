@@ -40,6 +40,28 @@
     # Ship the real nixpkgs binary and hiPrio it so it wins the bin/rust-analyzer
     # collision against the rustup shim.
     (lib.hiPrio rust-analyzer)
+
+    # Playwright for headless browser automation — lets Claude drive the Chill
+    # Subs dev-suite UIs (chillest-subs :8000, editor :8010) to develop and test
+    # features on its own. NixOS-correct by construction: browsers come from the
+    # store, never a `~/.cache/ms-playwright` download (those won't run under the
+    # NixOS dynamic linker), and the npm package is pinned to nixpkgs so driver
+    # and store browsers always agree (playwright 1.61.1 → chromium build 1228).
+    playwright-mcp   # `playwright-mcp` MCP server; wrapper bakes in the store
+                     # browsers path, so the server is self-contained.
+    playwright-test  # `playwright` CLI 1.61.1 — for scripts, `playwright test`,
+                     # and capturing an authenticated storageState.
+
+    # The Chill Subs dev-suite's `backend` process runs `cargo watch -x run`
+    # (csg/dev-suite/process-compose.yml). This was dropped once because the
+    # watcher was eating machine resources — but dropping the binary didn't
+    # disable the watcher, it just made the process exit 127 in a restart loop,
+    # and the :8020 backend silently became a hand-started detached binary that
+    # never rebuilt on a source change. Keep it here so the suite's own config
+    # is the thing that decides; if resource use bites again, narrow the watch
+    # in process-compose.yml (`-w crates`, `--ignore target`) rather than
+    # removing the package.
+    cargo-watch
   ];
 
   # Forge-specific environment variables
@@ -62,6 +84,15 @@
     PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/schema-engine";
     PRISMA_QUERY_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/query-engine";
     PRISMA_FMT_BINARY = "${pkgs.prisma-engines_6}/bin/prisma-fmt";
+
+    # Playwright: resolve browsers from the Nix store (chromium-1228, matching the
+    # pinned playwright 1.61.1) instead of a downloaded binary that can't run on
+    # NixOS. Needed by the `playwright` CLI and any `npx playwright` script; the
+    # playwright-mcp wrapper already sets this for the MCP server itself.
+    PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+    # NixOS's ldd-style host probe false-negatives on the wrapped browser libs
+    # (they resolve fine at run time) — skip the check so the CLI doesn't refuse.
+    PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
   };
 
   # home.sessionVariables above only reach interactive/login shells. The Chill

@@ -6,6 +6,12 @@ let
   # "ardent-forge.feist-gondola.ts.net" -> "feist-gondola.ts.net"
   tailnet = lib.concatStringsSep "." (builtins.tail (lib.splitString "." tsDomain));
 
+  # WebDAV drop folder, its own tsnet node at <shareName>.<tailnet>. Mount it
+  # from a Mac via Finder (⌘K -> https://drop.<tailnet>) to drag files onto the
+  # box; Claude Code sessions read them out of shareDir via the screenshots skill.
+  shareName = "drop";
+  shareDir = "/var/lib/shared";
+
   # Per-app tsnet nodes registered via the caddy-tailscale plugin. Each
   # shows up as its own machine in the tailnet admin console with an
   # auto-issued cert at <name>.<tailnet>.
@@ -21,11 +27,11 @@ let
   csNodeBlock = lib.concatStringsSep "\n  " (lib.mapAttrsToList
     (name: _: "${name} { hostname ${name} }") csApps);
 
-  csVirtualHosts = lib.mapAttrs' (name: { backend, ... }:
+  csVirtualHosts = lib.mapAttrs' (name: attrs:
     lib.nameValuePair "${name}.${tailnet}" {
       extraConfig = ''
         bind tailscale/${name}
-        reverse_proxy ${backend}
+        ${attrs.routes or "reverse_proxy ${attrs.backend}"}
       '';
     }) csApps;
 in {
@@ -38,8 +44,12 @@ in {
     package = pkgs.caddy.withPlugins {
       plugins = [
         "github.com/tailscale/caddy-tailscale@v0.0.0-20260106222316-bb080c4414ac"
+        "github.com/mholt/caddy-webdav@v0.0.0-20260127042217-fa2f366b0d75"
       ];
-      hash = "sha256-XBdYjtuPVu/beIgFgFcVp6ln4r9kq0B6+4xJ8+WWYn0=";
+      # Combined module hash for the tailscale + webdav plugin set. If you add
+      # or bump a plugin, set this to lib.fakeHash, rebuild, and paste the
+      # suggested sha256 the build prints.
+      hash = "sha256-UMo8iRQ2trovzSfnb0a2bEGwse32FCN+hpR6kHTyo7c=";
     };
 
     # Tailscale credential lives in /etc/caddy/tailscale-auth (root:caddy
@@ -54,7 +64,12 @@ in {
         tags tag:cs-caddy
 
         ${csNodeBlock}
+        ${shareName} { hostname ${shareName} }
       }
+
+      # webdav isn't a standard directive, so it needs an explicit slot in the
+      # handler order. Pair it with file_server for the drop share.
+      order webdav before file_server
     '';
 
     virtualHosts = {
@@ -78,6 +93,15 @@ in {
           }
         '';
       };
+      # WebDAV drop folder as its own tsnet node. No auth — reachable only
+      # from the tailnet. Mount from a Mac via Finder (⌘K).
+      "${shareName}.${tailnet}" = {
+        extraConfig = ''
+          bind tailscale/${shareName}
+          root * ${shareDir}
+          webdav
+        '';
+      };
     } // csVirtualHosts;
 
     # NixOS default is `level ERROR`, which swallows the tsnet startup logs
@@ -95,4 +119,12 @@ in {
   # Allow Caddy to read Tailscale certs (still needed for the ardent-forge
   # host; the cs* hosts get their certs through tsnet directly).
   users.users.caddy.extraGroups = [ "tailscale-cert" ];
+
+  # Shared drop folder that Caddy's WebDAV handler writes into. Owned by
+  # caddy but group `users` + setgid (2775) so files land group-readable and
+  # thomaseckert (member of `users`) can read them from Claude Code sessions.
+  # /var/lib is writable under ProtectSystem=full, so no ReadWritePaths tweak.
+  systemd.tmpfiles.rules = [
+    "d ${shareDir} 2775 caddy users -"
+  ];
 }

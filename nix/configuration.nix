@@ -15,6 +15,7 @@
     ./services/marimo.nix
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
+    ./services/memory-limits.nix
   ];
 
   # ── System ──────────────────────────────────────────────

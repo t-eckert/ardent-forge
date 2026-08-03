@@ -36,6 +36,7 @@
             extraSpecialArgs = {
               inherit dotfiles locals;
               self = dotfiles;  # allows packages.nix to resolve dotfiles-tools
+              hunk = dotfiles.inputs.hunk;  # dotfiles' packages.nix pulls hunk from its own inputs
               isDarwin = false;
               isLinux = true;
             };
