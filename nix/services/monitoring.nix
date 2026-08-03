@@ -217,15 +217,21 @@
         replacement   = "chill-subs-dev"
       }
 
-      // The suite's containers log to the journal themselves, tagged by podman
-      // as <project>_<service>_<n>. Capture the service, not the project: the
-      // infra compose file runs postgres, redis and s3proxy all under project
-      // "local", so keying on the project would collapse the three into one.
-      // Keyed on the user unit too, so `process` stays a dev-suite-only label.
+      // Every container in the suite is logged twice: podman's journald driver
+      // writes it directly, tagged <project>_<service>_<n>, and process-compose
+      // relays the same stream on its own stdout because it runs `podman
+      // compose up` in the foreground. Drop the direct copy and keep the relay,
+      // which is the one that carries the process name and has no blank-line
+      // padding. Scoped to the suite's unit so system containers — ntfy,
+      // the-weather — are untouched.
+      //
+      // Mongo also sets `logging.driver: none` in its compose file, which stops
+      // the duplicate at the source. This rule is what covers the containers
+      // whose compose files live in shared repos and are not ours to change.
       rule {
         source_labels = ["__journal__systemd_user_unit", "__journal_syslog_identifier"]
-        regex         = `cs-galley-suite\.service;[a-z0-9-]+_([a-z0-9-]+)_[0-9]+`
-        target_label  = "process"
+        regex         = `cs-galley-suite\.service;[a-z0-9-]+_[a-z0-9-]+_[0-9]+`
+        action        = "drop"
       }
     }
 
