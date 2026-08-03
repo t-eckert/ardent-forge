@@ -173,9 +173,9 @@
   environment.etc."alloy/config.alloy".text = ''
     loki.source.journal "journal" {
       max_age       = "12h"
-      labels        = { job = "systemd-journal", host = "ardent-forge" }
+      labels        = { host = "ardent-forge" }
       relabel_rules = loki.relabel.journal.rules
-      forward_to    = [loki.write.local.receiver]
+      forward_to    = [loki.process.dev_suite.receiver]
     }
 
     loki.relabel "journal" {
@@ -185,9 +185,67 @@
         source_labels = ["__journal__systemd_unit"]
         target_label  = "unit"
       }
+
+      // Anything the user manager starts reports _SYSTEMD_UNIT=user@1000.service,
+      // which says nothing about what actually logged. The real name is in
+      // _SYSTEMD_USER_UNIT. Match on (.+) rather than the default (.*) so this
+      // only fires for user units instead of blanking `unit` for system ones.
+      rule {
+        source_labels = ["__journal__systemd_user_unit"]
+        regex         = "(.+)"
+        target_label  = "unit"
+      }
+
       rule {
         source_labels = ["__journal_priority_keyword"]
         target_label  = "level"
+      }
+
+      // Default; overridden for the dev suite below.
+      rule {
+        target_label = "job"
+        replacement  = "systemd-journal"
+      }
+
+      // The Chill Subs dev suite out-logs the entire rest of the box and is not
+      // system state — it is one developer's stack running in the foreground.
+      // Give it its own job so it can be read, and ignored, on its own.
+      rule {
+        source_labels = ["__journal__systemd_user_unit"]
+        regex         = `cs-galley-suite\.service`
+        target_label  = "job"
+        replacement   = "chill-subs-dev"
+      }
+
+      // The suite's containers log to the journal themselves, tagged by podman
+      // as <project>_<service>_<n>. Capture the service, not the project: the
+      // infra compose file runs postgres, redis and s3proxy all under project
+      // "local", so keying on the project would collapse the three into one.
+      // Keyed on the user unit too, so `process` stays a dev-suite-only label.
+      rule {
+        source_labels = ["__journal__systemd_user_unit", "__journal_syslog_identifier"]
+        regex         = `cs-galley-suite\.service;[a-z0-9-]+_([a-z0-9-]+)_[0-9]+`
+        target_label  = "process"
+      }
+    }
+
+    // Everything else from the suite arrives on process-compose's own stdout,
+    // which relays each child prefixed with "[name<TAB>]" — on those lines the
+    // prefix is the only thing identifying the process. The trailing whitespace
+    // is what keeps this off ordinary log lines that merely start with "[".
+    loki.process "dev_suite" {
+      forward_to = [loki.write.local.receiver]
+
+      stage.match {
+        selector = `{job="chill-subs-dev"}`
+
+        stage.regex {
+          expression = `^\[(?P<process>[a-z][a-z0-9-]*)\s+\]`
+        }
+
+        stage.labels {
+          values = { process = "" }
+        }
       }
     }
 
