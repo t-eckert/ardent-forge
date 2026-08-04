@@ -29,9 +29,33 @@
     "flakes"
   ];
 
+  # ── Nix store upkeep ────────────────────────────────────
+  # Nothing reclaimed the store before this: it had reached 155GB across 107
+  # system generations, more than half the disk in use. Every rebuild adds a
+  # generation and each one is a GC root, so old toolchains never leave.
+  #
+  # 30d of generations is still a long rollback window on a box that is
+  # rebuilt by hand, and boot.loader.systemd-boot.configurationLimit keeps the
+  # boot menu from growing to match.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+
+  # Hard-links identical files in the store. Typically reclaims 25-35% and is
+  # independent of GC — it deduplicates what is kept rather than deleting.
+  nix.optimise = {
+    automatic = true;
+    dates = [ "03:45" ];
+  };
+
   # ── Boot ────────────────────────────────────────────────
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  # Without this the boot menu accumulates an entry per generation — there were
+  # 107. GC prunes the store; this prunes what you have to scroll past at boot.
+  boot.loader.systemd-boot.configurationLimit = 20;
 
   # ── Networking ──────────────────────────────────────────
   networking.nftables.enable = true;

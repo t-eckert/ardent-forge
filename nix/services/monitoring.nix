@@ -165,11 +165,25 @@
       limits_config = {
         ingestion_rate_mb = 10;
         ingestion_burst_size_mb = 20;
+
+        # Loki deletes nothing by default. The compactor below was already
+        # running, but compaction and retention are separate jobs — without
+        # this the chunks under /data/loki were being tidied and then kept
+        # forever. Prometheus has had retentionTime = "30d" all along; this is
+        # the missing equivalent.
+        retention_period = "30d";
       };
 
       compactor = {
         working_directory = "/data/loki/compactor";
         compaction_interval = "10m";
+
+        # Retention is a compactor job and has to be switched on explicitly.
+        # It also requires the index period to be 24h, which schema_config
+        # above already sets, and a delete_request_store once enabled.
+        retention_enabled = true;
+        retention_delete_delay = "2h";
+        delete_request_store = "filesystem";
       };
     };
   };
