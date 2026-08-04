@@ -34,6 +34,20 @@
           targets = [ "127.0.0.1:3100" ];
         }];
       }
+      {
+        # Galley's backend runs a second server purely for metrics, on
+        # METRICS_PORT from dev-suite/env/backend.env — not on the API port,
+        # which is why /metrics on :8020 returns 404.
+        #
+        # This is a dev-suite process, not a system service: it is only up when
+        # the suite is running, so `up{job="galley"}` is expected to be 0 much
+        # of the time. That is a useful signal rather than a fault, and the
+        # dashboards treat it as one.
+        job_name = "galley";
+        static_configs = [{
+          targets = [ "127.0.0.1:8021" ];
+        }];
+      }
     ];
   };
 
