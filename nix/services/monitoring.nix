@@ -35,6 +35,29 @@
         }];
       }
       {
+        # Caddy's admin API doubles as its metrics endpoint. Worth scraping
+        # less for the metrics than for `up`: Caddy is the only way anything
+        # on the tailnet is reachable, and nothing was watching it.
+        job_name = "caddy";
+        static_configs = [{
+          targets = [ "127.0.0.1:2019" ];
+        }];
+      }
+      {
+        # Grafana serves under /svc/grafana (serve_from_sub_path), so bare
+        # /metrics 301s and the path has to be spelled out.
+        #
+        # Scraping the alerting stack with the alerting stack is circular, and
+        # deliberately so: if Grafana is down nothing can page anyway, but the
+        # gap becomes visible in the target list and in history afterwards,
+        # rather than silently looking like nothing ever went wrong.
+        job_name = "grafana";
+        metrics_path = "/svc/grafana/metrics";
+        static_configs = [{
+          targets = [ "127.0.0.1:3000" ];
+        }];
+      }
+      {
         # Galley's backend runs a second server purely for metrics, on
         # METRICS_PORT from dev-suite/env/backend.env — not on the API port,
         # which is why /metrics on :8020 returns 404.
