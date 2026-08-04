@@ -266,6 +266,25 @@
         stage.labels {
           values = { process = "" }
         }
+
+        // Having lifted the name into a label, drop the prefix from the line
+        // itself — it is pure duplication in every log panel. Must come after
+        // the two stages above, which still need it to be there.
+        //
+        // The capture group has to be named. stage.replace only substitutes
+        // named groups: given an expression with none it matches, reports no
+        // error, and leaves the line exactly as it was. Verified by running
+        // this pipeline under `alloy run` against sample lines before landing
+        // it — the unnamed version silently did nothing.
+        //
+        // The padding is one or more tabs and the trailing space is not always
+        // present, hence \s+ and \s?. Anchored at ^, so an application's own
+        // bracketed prefix further along the line survives — "[typesense-indexer
+        // <tab>] [typesense-indexer] fetched 2" keeps the second one.
+        stage.replace {
+          expression = `^(?P<pcprefix>\[[a-z][a-z0-9-]*\s+\]\s?)`
+          replace    = ""
+        }
       }
     }
 
