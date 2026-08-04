@@ -22,7 +22,6 @@ let
   csApps = {
     cs         = { backend = "127.0.0.1:8000";  label = "chillest-subs"; };
     cs-editor  = { backend = "127.0.0.1:8010";  label = "chill-subs editor"; };
-    cs-grafana = { backend = "127.0.0.1:8022";  label = "chill-subs Grafana"; };
     cs-galley  = { backend = "127.0.0.1:8020";  label = "Galley backend"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     notes      = { backend = "127.0.0.1:8040";  label = "csg planning notes"; };
