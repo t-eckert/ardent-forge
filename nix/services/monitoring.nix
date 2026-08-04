@@ -10,6 +10,12 @@
 
     retentionTime = "30d";
 
+    # Claude Code has no scrapeable endpoint — it pushes OTLP and exits. Alloy
+    # receives it and remote-writes it here, which needs the receiver switched
+    # on explicitly; it is off by default even when the flag's feature is
+    # stable. Nothing else writes to it, and Prometheus is bound to localhost.
+    extraFlags = [ "--web.enable-remote-write-receiver" ];
+
     globalConfig = {
       scrape_interval = "15s";
       evaluation_interval = "15s";
@@ -488,6 +494,57 @@
     loki.write "local" {
       endpoint {
         url = "http://127.0.0.1:3100/loki/api/v1/push"
+      }
+    }
+
+    // ── Claude Code metrics ───────────────────────────────────────────────
+    // Claude Code is the one thing on the box that cannot be scraped: sessions
+    // are processes that start and end, so there is no stable endpoint to point
+    // Prometheus at. It pushes OTLP instead, and this is the landing pad.
+    //
+    // gRPC only. The HTTP receiver would also have to be declared to listen,
+    // and one protocol is enough — OTEL_EXPORTER_OTLP_PROTOCOL=grpc is set in
+    // ~/.claude/settings.json to match. Bound to localhost: this accepts
+    // unauthenticated writes, and the box is on a tailnet.
+    //
+    // ~/.claude/settings.json must also set
+    // OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative. Claude Code
+    // defaults to delta temporality, and otelcol.exporter.prometheus drops
+    // delta sums on the floor — no error, no warning, the metrics simply never
+    // arrive. The failure looks exactly like nothing being exported at all:
+    // otelcol_receiver_accepted_metric_points_total climbs while only
+    // target_info reaches Prometheus. Found the hard way; check that counter
+    // against the series count before suspecting anything else here.
+    otelcol.receiver.otlp "claude_code" {
+      grpc {
+        endpoint = "127.0.0.1:4317"
+      }
+
+      output {
+        metrics = [otelcol.processor.batch.claude_code.input]
+      }
+    }
+
+    otelcol.processor.batch "claude_code" {
+      output {
+        metrics = [otelcol.exporter.prometheus.claude_code.input]
+      }
+    }
+
+    // add_metric_suffixes is off so the series keep the names the Claude Code
+    // docs use, with dots swapped for underscores: claude_code_cost_usage
+    // rather than claude_code_cost_usage_USD_total. On by default it appends
+    // both the unit and _total, which for this set of metrics produces names
+    // like claude_code_token_usage_tokens_total — awkward to write queries
+    // against and not what anything documents.
+    otelcol.exporter.prometheus "claude_code" {
+      add_metric_suffixes = false
+      forward_to          = [prometheus.remote_write.local.receiver]
+    }
+
+    prometheus.remote_write "local" {
+      endpoint {
+        url = "http://127.0.0.1:9090/api/v1/write"
       }
     }
   '';

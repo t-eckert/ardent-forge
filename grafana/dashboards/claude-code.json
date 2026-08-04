@@ -1,0 +1,209 @@
+{
+  "id": null,
+  "uid": "claude-code",
+  "title": "Claude Code",
+  "tags": ["claude-code", "otel"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Sessions",
+      "type": "stat",
+      "description": "Sessions started in the selected range. Each session is its own set of series (session_id), and its counter starts at zero, so the session total is the last value of its series — summing last_over_time across sessions gives the range total. rate()/increase() would silently miss short sessions that only ever export once.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "sum(last_over_time(claude_code_session_count[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Cost",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "sum(last_over_time(claude_code_cost_usage[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Tokens",
+      "type": "stat",
+      "description": "All token types together — input, output, cacheRead and cacheCreation. cacheRead usually dominates by an order of magnitude, so read this alongside the by-type breakdown rather than on its own.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "sum(last_over_time(claude_code_token_usage[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Active Time",
+      "type": "stat",
+      "description": "Time Claude Code counted as actively working, not wall-clock session length. A session left open overnight adds nothing here.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "sum(last_over_time(claude_code_active_time_total[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Cost Rate by Model",
+      "type": "timeseries",
+      "description": "Dollars per hour. rate() is per-series and Prometheus treats each session's fresh counter as a reset, so concurrent sessions sum correctly. A session short enough to export only once contributes no rate — the Cost stat above is the authoritative range total.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 20,
+            "stacking": { "mode": "normal" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (model) (rate(claude_code_cost_usage[$__rate_interval])) * 3600",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Token Throughput by Type",
+      "type": "timeseries",
+      "description": "Tokens per minute, split by input / output / cacheRead / cacheCreation.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 20,
+            "stacking": { "mode": "normal" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(claude_code_token_usage[$__rate_interval])) * 60",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Tokens by Type",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      },
+      "targets": [
+        {
+          "expr": "sum by (type) (last_over_time(claude_code_token_usage[$__range]))",
+          "legendFormat": "{{type}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Cost by Model",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      },
+      "targets": [
+        {
+          "expr": "sum by (model) (last_over_time(claude_code_cost_usage[$__range]))",
+          "legendFormat": "{{model}}",
+          "instant": true
+        }
+      ]
+    }
+  ]
+}
