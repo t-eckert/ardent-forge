@@ -120,6 +120,166 @@
           options.foldersFromFilesStructure = true;
         }
       ];
+
+      # ── Alerting ────────────────────────────────────────
+      # Prometheus, Grafana and ntfy have all been running for months without
+      # anything connecting them, which meant the box could be broken and say
+      # nothing: the whole Chill Subs stack sat in a restart loop through a
+      # reboot and was only noticed by someone going and looking.
+      #
+      # ntfy ships a pre-defined `grafana` template, so the webhook needs no
+      # translator service in between — ?template=grafana turns Grafana's
+      # payload into a titled notification, prefixed 🚨 firing / ✅ resolved.
+      # Verified against the running ntfy before this landed.
+      alerting = {
+        contactPoints.settings = {
+          apiVersion = 1;
+          contactPoints = [{
+            orgId = 1;
+            name = "ntfy";
+            receivers = [{
+              uid = "ntfy-ardent-forge";
+              type = "webhook";
+              settings = {
+                url = "http://127.0.0.1:8090/ardent-forge?template=grafana";
+                httpMethod = "POST";
+              };
+            }];
+          }];
+        };
+
+        policies.settings = {
+          apiVersion = 1;
+          policies = [{
+            orgId = 1;
+            receiver = "ntfy";
+            group_by = [ "alertname" ];
+            group_wait = "30s";
+            group_interval = "5m";
+            # Long enough that an unfixed problem does not become background
+            # noise, short enough not to be forgotten.
+            repeat_interval = "12h";
+          }];
+        };
+
+        rules.settings = {
+          apiVersion = 1;
+          groups = [{
+            orgId = 1;
+            name = "ardent-forge";
+            folder = "Alerts";
+            interval = "1m";
+            rules =
+              let
+                # Each rule is an instant query (A) fed to a threshold (C).
+                # noDataState is OK throughout: every one of these is a
+                # "something is wrong" signal, and absent data means the thing
+                # is not running rather than that it is broken. Alerting on
+                # absence here would fire every time the dev suite is off.
+                promRule = { uid, title, expr, gt, for_, summary }: {
+                  inherit uid title;
+                  condition = "C";
+                  for = for_;
+                  noDataState = "OK";
+                  execErrState = "Error";
+                  annotations.summary = summary;
+                  labels = { };
+                  data = [
+                    {
+                      refId = "A";
+                      relativeTimeRange = { from = 600; to = 0; };
+                      datasourceUid = "prometheus";
+                      model = {
+                        refId = "A";
+                        instant = true;
+                        editorMode = "code";
+                        expr = expr;
+                      };
+                    }
+                    {
+                      refId = "C";
+                      relativeTimeRange = { from = 600; to = 0; };
+                      datasourceUid = "__expr__";
+                      model = {
+                        refId = "C";
+                        type = "threshold";
+                        expression = "A";
+                        conditions = [{
+                          evaluator = { type = "gt"; params = [ gt ]; };
+                        }];
+                      };
+                    }
+                  ];
+                };
+              in
+              [
+                (promRule {
+                  uid = "af-unit-failed";
+                  title = "systemd unit failed";
+                  expr = ''sum(node_systemd_unit_state{state="failed"})'';
+                  gt = 0;
+                  for_ = "5m";
+                  summary = "A systemd unit on ardent-forge is in the failed state.";
+                })
+                (promRule {
+                  uid = "af-disk-filling";
+                  title = "root filesystem above 80%";
+                  expr = ''100 - (node_filesystem_avail_bytes{mountpoint="/"} * 100 / node_filesystem_size_bytes{mountpoint="/"})'';
+                  gt = 80;
+                  for_ = "15m";
+                  summary = "Root filesystem is over 80% full. /nix/store and /data are the usual causes.";
+                })
+                (promRule {
+                  uid = "af-target-down";
+                  title = "prometheus target down";
+                  # galley is excluded deliberately: it is a dev-suite process
+                  # and is legitimately down whenever the suite is not running.
+                  expr = ''count(up{job!="galley"} == 0)'';
+                  gt = 0;
+                  for_ = "10m";
+                  summary = "A Prometheus scrape target has been unreachable for 10 minutes.";
+                })
+                {
+                  uid = "af-reindex-failing";
+                  title = "typesense reindex failing";
+                  condition = "C";
+                  for = "10m";
+                  noDataState = "OK";
+                  execErrState = "OK";
+                  annotations.summary =
+                    "Mongo -> Typesense reindex is failing, so submitter search is drifting out of sync with the editor.";
+                  labels = { };
+                  data = [
+                    {
+                      refId = "A";
+                      relativeTimeRange = { from = 900; to = 0; };
+                      datasourceUid = "loki";
+                      model = {
+                        refId = "A";
+                        queryType = "instant";
+                        editorMode = "code";
+                        expr = ''sum(count_over_time({job="chill-subs-dev", process="typesense-indexer"} |= `[reindex] FAILED` [10m]))'';
+                      };
+                    }
+                    {
+                      refId = "C";
+                      relativeTimeRange = { from = 900; to = 0; };
+                      datasourceUid = "__expr__";
+                      model = {
+                        refId = "C";
+                        type = "threshold";
+                        expression = "A";
+                        conditions = [{
+                          evaluator = { type = "gt"; params = [ 0 ]; };
+                        }];
+                      };
+                    }
+                  ];
+                }
+              ];
+          }];
+        };
+      };
     };
   };
 
