@@ -19,6 +19,7 @@
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
     ./services/memory-limits.nix
+    ./services/smartd.nix
   ];
 
   # ── System ──────────────────────────────────────────────
