@@ -16,6 +16,7 @@
     ./services/the-weather.nix
     ./services/notebook-sync.nix
     ./services/marimo.nix
+    ./services/lab-sync.nix
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
     ./services/memory-limits.nix
