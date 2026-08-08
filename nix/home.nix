@@ -68,8 +68,17 @@
 
   # Environment for the toolchains that live on this box
   home.sessionVariables = {
-    # mosh forwards TERM but not COLORTERM, so apps downgrade to the 256-color
-    # palette. mosh 1.4+ carries 24-bit color fine — it just needs the hint.
+    # mosh doesn't forward COLORTERM, so apps under it fall back to the
+    # 256-color palette. The hint is for the apps, not for mosh: mosh fixes its
+    # color depth at connect time from the *client's* terminfo `colors`
+    # (`mosh-client -c`) and never reads COLORTERM. Sessions here negotiate
+    # `-c 256`, and 24-bit sequences pass through that unharmed — measured
+    # 2026-08-07 against a live mosh-server/mosh-client pair.
+    #
+    # Caveat from the same measurement: mosh's emulator doesn't implement SGR 2
+    # (faint), and faint applied to a 24-bit foreground discards the color too,
+    # so dim-plus-truecolor text renders in the default foreground under mosh.
+    # Cosmetic, deliberately unfixed — see the mosh-drops-dim-sgr2 memory.
     COLORTERM = "truecolor";
 
     # openssl-sys (pulled in by async-stripe and others) requires both the dev
