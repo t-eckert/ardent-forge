@@ -20,6 +20,7 @@
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
     ./services/memory-limits.nix
+    ./services/fuzz-isolation.nix
     ./services/smartd.nix
   ];
 
@@ -87,6 +88,34 @@
     extraSetFlags = [ "--ssh" ];
     permitCertUid = "caddy";
   };
+
+  # ── Fuzz isolation ─────────────────────────────────────
+  # Defines fuzz.slice: default-deny egress, allowing only loopback, the
+  # tailnet, podman networks and the LAN. Nothing runs in it unless launched
+  # there with `fuzz-shell`, so enabling this costs nothing day to day.
+  #
+  # The Chill Subs dev suite holds credentials that reach production — see
+  # nix/services/fuzz-isolation.nix for the audit. The dev-suite env overlays
+  # neuter those credentials; this removes the network capability underneath
+  # them, so the two failures have to happen together.
+  #
+  # Off since 2026-08-11. The adversarial run it was built for finished, the
+  # apps moved back to cs-galley-suite.service in the user session, and the
+  # slice was left empty — a default-deny filter with nothing under it. Turning
+  # it off also keeps the slice from cutting Linear and the Anthropic API for
+  # anything launched via `fuzz-shell`, which is the shape agent work now takes.
+  #
+  # Turn back on (true + rebuild) before launching another fuzz or adversarial
+  # session against the suite.
+  #
+  # Verify with:  fuzz-shell fuzz-verify
+  ardentForge.fuzzIsolation.enable = false;
+  # The Clerk egress exception (allowClerkAuth) was used on 2026-08-10 to
+  # dynamically prove the editor IDOR, then set back to false to restore the
+  # fully-airtight posture. Flip to true + rebuild only when a test needs the
+  # editor to validate a live Clerk session; it is scoped to Clerk's exact IPs
+  # (disjoint from all Chill Subs IPs) and never opens the S3/SendGrid/DB sinks.
+  ardentForge.fuzzIsolation.allowClerkAuth = false;
 
   # ── Time & Locale ──────────────────────────────────────
   time.timeZone = "America/Toronto";
