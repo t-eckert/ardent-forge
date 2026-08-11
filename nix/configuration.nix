@@ -7,6 +7,11 @@
   ...
 }:
 
+let
+  # Chill Subs + Galley workspace roots, used by the crucible profile below.
+  csRoot = "/home/thomaseckert/Projects/Chill-Subs+Galley/Chill-Subs";
+  csgSuite = "/home/thomaseckert/Projects/Chill-Subs+Galley/t-eckert/csg/dev-suite";
+in
 {
   imports = [
     ./services/postgresql.nix
@@ -20,7 +25,7 @@
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
     ./services/memory-limits.nix
-    ./services/fuzz-isolation.nix
+    ./services/crucible.nix
     ./services/smartd.nix
   ];
 
@@ -89,33 +94,94 @@
     permitCertUid = "caddy";
   };
 
-  # ── Fuzz isolation ─────────────────────────────────────
-  # Defines fuzz.slice: default-deny egress, allowing only loopback, the
-  # tailnet, podman networks and the LAN. Nothing runs in it unless launched
-  # there with `fuzz-shell`, so enabling this costs nothing day to day.
+  # ── Crucible: containment for workloads that must not touch production ──
   #
-  # The Chill Subs dev suite holds credentials that reach production — see
-  # nix/services/fuzz-isolation.nix for the audit. The dev-suite env overlays
-  # neuter those credentials; this removes the network capability underneath
-  # them, so the two failures have to happen together.
+  # Left on permanently. A profile costs nothing until something is launched
+  # into it, so there is no rebuild-to-toggle dance: the choice is made when you
+  # start the work, not when you build the system.
   #
-  # Off since 2026-08-11. The adversarial run it was built for finished, the
-  # apps moved back to cs-galley-suite.service in the user session, and the
-  # slice was left empty — a default-deny filter with nothing under it. Turning
-  # it off also keeps the slice from cutting Linear and the Anthropic API for
-  # anything launched via `fuzz-shell`, which is the shape agent work now takes.
+  #   crucible-app chillSubs editor              start one declared app
+  #   crucible-shell chillSubs                   drop a shell in (asks for sudo)
+  #   crucible-shell chillSubs crucible-verify   prove the shield is real
   #
-  # Turn back on (true + rebuild) before launching another fuzz or adversarial
-  # session against the suite.
-  #
-  # Verify with:  fuzz-shell fuzz-verify
-  ardentForge.fuzzIsolation.enable = false;
-  # The Clerk egress exception (allowClerkAuth) was used on 2026-08-10 to
-  # dynamically prove the editor IDOR, then set back to false to restore the
-  # fully-airtight posture. Flip to true + rebuild only when a test needs the
-  # editor to validate a live Clerk session; it is scoped to Clerk's exact IPs
-  # (disjoint from all Chill Subs IPs) and never opens the S3/SendGrid/DB sinks.
-  ardentForge.fuzzIsolation.allowClerkAuth = false;
+  # See nix/services/crucible.nix for why enforcement is two layers and why the
+  # allowlist is by hostname rather than IP.
+  ardentForge.crucible.enable = true;
+  ardentForge.crucible.sudoUsers = [ "thomaseckert" ];
+
+  # The Chill Subs + Galley dev suite. Motivated by the 2026-08-10 audit of
+  # dev-suite/env, which found the suite holding credentials that reach
+  # production: the real AWS bucket with no S3_ENDPOINT, a live SendGrid key,
+  # and writable Upstash and Turso. The env overlays neuter those credentials;
+  # this profile removes the network capability underneath them, so both layers
+  # have to fail together before production is reachable.
+  ardentForge.crucible.profiles.chillSubs = {
+    description = "Chill Subs + Galley dev suite under adversarial testing";
+
+    # The suite genuinely needs all four: MinIO lives on the tailnet, the
+    # databases are rootless-podman port-forwards on loopback, and container-to-
+    # container traffic uses podman's CNI nets.
+    allowTailnet = true;
+    allowPodman = true;
+    allowLAN = true;
+
+    # Hostnames, not IPs -- this is the whole reason for the rewrite. The
+    # predecessor had to pin Clerk's Cloudflare addresses behind an
+    # `allowClerkAuth` flag with a "these rotate, refresh with getent" note, and
+    # flip it on and off around every authenticated test. Naming the host
+    # instead makes the exception permanent, legible and rotation-proof, and it
+    # is *narrower* than the IP list was: an address can be shared by hosts you
+    # did not mean to allow, a name cannot.
+    allowHosts = [
+      "on-elk-6.clerk.accounts.dev" # editor session validation
+      "api.clerk.com"
+      "binaries.prisma.sh" # prisma generate, on first run
+    ];
+
+    # Sized by measurement, not guess: chillest-subs 2045 MB + editor 2019 MB +
+    # admin 1042 MB, ~5.1 GB PSS together.
+    memoryHigh = "6G";
+    memoryMax = "7G";
+
+    environment = {
+      HOME = "/home/thomaseckert";
+      SUITE_ENV_DIR = "${csgSuite}/env";
+      PATH = "/run/wrappers/bin:/etc/profiles/per-user/thomaseckert/bin:/run/current-system/sw/bin:/usr/bin:/bin";
+      # System units inherit nothing from environment.d, so the PRISMA paths
+      # home.nix exports to the user manager have to be named explicitly here.
+      PRISMA_QUERY_ENGINE_LIBRARY = "${pkgs.prisma-engines_6}/lib/libquery_engine.node";
+      PRISMA_QUERY_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/query-engine";
+      PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/schema-engine";
+      PRISMA_FMT_BINARY = "${pkgs.prisma-engines_6}/bin/prisma-fmt";
+    };
+
+    # run-with-env gives the isolated apps exactly the env the process-compose
+    # copies get, including the .env.local credential overlays.
+    apps = {
+      admin = {
+        workingDirectory = "${csRoot}/chill-subs/admin";
+        command = "${csgSuite}/run-with-env admin -- yarn dev -p 8030 -H 0.0.0.0";
+      };
+      editor = {
+        workingDirectory = "${csRoot}/chill-subs/editor";
+        command = "${csgSuite}/run-with-env editor -- yarn dev -p 8010 -H 0.0.0.0";
+      };
+      chillest-subs = {
+        workingDirectory = "${csRoot}/chillest-subs";
+        command = "${csgSuite}/run-with-env chillest-subs -- pnpm dev --turbopack -p 8000 -H 0.0.0.0";
+      };
+    };
+
+    verify = {
+      mustReach = [ "http://localhost:8000/" ];
+      mustNotReach = [
+        "https://s3.amazonaws.com"
+        "https://api.sendgrid.com"
+        "https://vocal-trout-36239.upstash.io"
+        "https://www.chillsubs.com"
+      ];
+    };
+  };
 
   # ── Time & Locale ──────────────────────────────────────
   time.timeZone = "America/Toronto";
