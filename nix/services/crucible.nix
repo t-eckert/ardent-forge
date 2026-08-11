@@ -92,6 +92,16 @@ let
 
   sliceNameOf = name: "crucible-${name}";
 
+  # squid's -n rejects anything but letters and digits -- it dies with "Garbage
+  # after alphanumeric service name in the -n option value" on so much as a
+  # dash, so the slice name cannot be reused here.
+  alnum =
+    s:
+    lib.concatStrings (
+      lib.filter (c: builtins.match "[A-Za-z0-9]" c != null) (lib.stringToCharacters s)
+    );
+  squidServiceOf = name: "crucible${alnum name}";
+
   # ── Per-profile derived values ─────────────────────────────────────────────
 
   allowedDestinationsOf =
@@ -135,8 +145,12 @@ let
       cache deny all
       cache_store_log none
       pid_filename none
+      # Both logs go to stdout for the journal to pick up. Not /dev/stderr:
+      # squid fails to open it under this unit ("fopen(3) error: (6) No such
+      # device or address") and drops its startup diagnostics on the floor,
+      # which is exactly when you most want to read them.
       access_log stdio:/dev/stdout
-      cache_log stdio:/dev/stderr
+      cache_log stdio:/dev/stdout
       # Do not leak the client's address upstream. `via off` would also hide
       # that a proxy is involved, but squid warns "HTTP requires the use of Via"
       # on every start for it -- a permanent journal warning to conceal
@@ -176,7 +190,17 @@ let
         k: "setenvs+=(--setenv=${k}=${lib.escapeShellArg p.environment.${k}})"
       ) (lib.attrNames p.environment);
       apps = lib.attrNames p.apps;
-      appCases = lib.concatMapStringsSep "\n" (a: ''
+      # `verify` is reserved. Running the profile's own probes inside its slice
+      # is a fixed command, so it does not need the arbitrary-command privileges
+      # that keep crucible-shell behind a password -- and leaving it there would
+      # mean the containment proof could never run unattended, which is where a
+      # proof is worth the most.
+      appCases = ''
+        verify)
+          verify_mode=1
+          ;;
+      ''
+      + lib.concatMapStringsSep "\n" (a: ''
         ${a})
           dir=${lib.escapeShellArg p.apps.${a}.workingDirectory}
           cmd=${lib.escapeShellArg p.apps.${a}.command}
@@ -211,6 +235,7 @@ let
 
     if [ -z "$profile" ] || [ -z "$app" ]; then
       echo "usage: crucible-app <profile> <app> [start|stop|status]" >&2
+      echo "       crucible-app <profile> verify        run the profile's probes inside its slice" >&2
       echo "profiles: ${lib.concatStringsSep " " profileNames}" >&2
       exit 2
     fi
@@ -233,6 +258,19 @@ let
         exit 2
         ;;
     esac
+
+    if [ "''${verify_mode:-0}" = "1" ]; then
+      # Synchronous and in the foreground: this is a check whose exit status and
+      # output are the whole point, not a service to leave running.
+      exec ${pkgs.systemd}/bin/systemd-run \
+        --unit="$unit" \
+        --slice="$slice" \
+        --uid="$uid" --gid="$gid" \
+        --pipe --wait --quiet --collect \
+        --setenv=CRUCIBLE_PROFILE="$profile" \
+        "''${setenvs[@]}" \
+        -- ${crucibleVerify}/bin/crucible-verify
+    fi
 
     exec ${pkgs.systemd}/bin/systemd-run \
       --unit="$unit" \
@@ -568,14 +606,43 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = lib.mapAttrsToList (name: p: {
-      assertion = usesProxy p -> p.allowLoopback;
-      message = ''
-        ardentForge.crucible.profiles.${name} sets allowHosts but disables
-        allowLoopback. The egress proxy listens on 127.0.0.1, so the profile
-        could never reach it and every allowed host would be unreachable.
-      '';
-    }) cfg.profiles;
+    assertions =
+      lib.mapAttrsToList (name: p: {
+        assertion = usesProxy p -> p.allowLoopback;
+        message = ''
+          ardentForge.crucible.profiles.${name} sets allowHosts but disables
+          allowLoopback. The egress proxy listens on 127.0.0.1, so the profile
+          could never reach it and every allowed host would be unreachable.
+        '';
+      }) cfg.profiles
+      ++ lib.mapAttrsToList (name: p: {
+        assertion = !(p.apps ? verify);
+        message = ''
+          ardentForge.crucible.profiles.${name} declares an app named "verify",
+          which is reserved: `crucible-app ${name} verify` runs the profile's
+          own containment probes inside its slice. Rename the app.
+        '';
+      }) cfg.profiles
+      ++ [
+        # Stripping non-alphanumerics for squid's -n can map two distinct
+        # profiles onto one service name ("chill-subs" and "chillsubs" both
+        # become "cruciblechillsubs"), and the symptom would be the second
+        # proxy dying on a shared-memory collision -- a long way from the cause.
+        (
+          let
+            names = map squidServiceOf (lib.attrNames (lib.filterAttrs (_: usesProxy) cfg.profiles));
+          in
+          {
+            assertion = lib.length names == lib.length (lib.unique names);
+            message = ''
+              Two ardentForge.crucible profiles collapse to the same squid
+              service name once non-alphanumeric characters are stripped:
+              ${lib.concatStringsSep " " names}
+              Rename one so they stay distinct.
+            '';
+          }
+        )
+      ];
 
     # The allow list is evaluated most-specific-first, so a broad
     # IPAddressDeny=any plus narrow allows gives default-deny egress.
@@ -607,8 +674,19 @@ in
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
         serviceConfig = {
-          ExecStart = "${pkgs.squid}/bin/squid -N -f ${squidConfOf name p}";
+          # -n namespaces squid's POSIX shared-memory segments. Without it every
+          # instance on the box opens the same /dev/shm/squid-<hash>-cf__*.shm
+          # names -- the names derive from the config layout, not the port -- so
+          # the second one dies with "Ipc::Mem::Segment::create failed to
+          # shm_open: File exists". Since this module stands up one proxy per
+          # profile, that collision is the default case the moment a second
+          # profile declares allowHosts.
+          ExecStart = "${pkgs.squid}/bin/squid -N -n ${squidServiceOf name} -f ${squidConfOf name p}";
           Restart = "on-failure";
+          # Default burst is 5 in 10s. A config-level failure retries through
+          # the whole allowance in under a second and lands in start-limit-hit,
+          # which reads as "systemd gave up" and buries the real cause.
+          RestartSec = "3s";
           DynamicUser = true;
           RuntimeDirectory = "crucible-proxy-${name}";
           # The proxy holds no secrets and touches no persistent state; give it
