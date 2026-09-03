@@ -145,12 +145,24 @@ let
       cache deny all
       cache_store_log none
       pid_filename none
-      # Both logs go to stdout for the journal to pick up. Not /dev/stderr:
-      # squid fails to open it under this unit ("fopen(3) error: (6) No such
-      # device or address") and drops its startup diagnostics on the floor,
+      # Both logs go to syslog, which journald receives on /dev/log. Not
+      # stdio:/dev/stdout, and not /dev/stderr before it -- the earlier
+      # attempts at this both failed with "fopen(3) error: (6) No such device
+      # or address" and dropped squid's startup diagnostics on the floor,
       # which is exactly when you most want to read them.
-      access_log stdio:/dev/stdout
-      cache_log stdio:/dev/stdout
+      #
+      # The cause is not the choice of stream. Under StandardOutput=journal
+      # systemd hands the process an AF_UNIX socket as fd 1, and /dev/stdout
+      # is a symlink to /proc/self/fd/1. open() on a socket through /proc
+      # returns ENXIO, so squid's stdio module -- which fopen()s the path
+      # rather than writing to the fd it already has -- cannot open either
+      # stream. Redirecting stdout to a regular file makes /proc/self/fd/1
+      # reopenable, which is why testing it that way said it worked.
+      #
+      # syslog(3) sidesteps the reopen entirely. Needs -s on the command line;
+      # the directives alone are not enough.
+      access_log syslog:daemon.info
+      cache_log syslog:daemon.err
       # Do not leak the client's address upstream. `via off` would also hide
       # that a proxy is involved, but squid warns "HTTP requires the use of Via"
       # on every start for it -- a permanent journal warning to conceal
@@ -681,7 +693,12 @@ in
           # shm_open: File exists". Since this module stands up one proxy per
           # profile, that collision is the default case the moment a second
           # profile declares allowHosts.
-          ExecStart = "${pkgs.squid}/bin/squid -N -n ${squidServiceOf name} -f ${squidConfOf name p}";
+          # -s enables syslog logging, which the access_log/cache_log syslog:
+          # directives depend on. Measured with the generated config: without
+          # -s squid exits 1 and emits nothing at all -- not even the FATAL --
+          # so the flag is load-bearing and its absence is silent. See the log
+          # block above.
+          ExecStart = "${pkgs.squid}/bin/squid -N -s -n ${squidServiceOf name} -f ${squidConfOf name p}";
           Restart = "on-failure";
           # Default burst is 5 in 10s. A config-level failure retries through
           # the whole allowance in under a second and lands in start-limit-hit,
