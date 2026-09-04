@@ -125,7 +125,11 @@
     PRISMA_FMT_BINARY=${pkgs.prisma-engines_6}/bin/prisma-fmt
   '';
 
-  # Rebuild script — updates flake inputs then switches the system
+  # Rebuild script — switches the system from the flake.lock already in the
+  # tree. Moving the inputs is a separate, deliberate act behind --update:
+  # doing it on every rebuild meant the committed lock never described what
+  # the machine actually ran, and folded a month of unrelated nixpkgs into
+  # whatever change was being made at the time.
   home.file.".local/bin/af-rebuild" = {
     executable = true;
     text = ''
@@ -134,8 +138,35 @@
 
       FLAKE_DIR="/data/ardent-forge/repo/nix"
 
-      echo "Updating flake inputs..."
-      nix flake update --flake "$FLAKE_DIR"
+      update=0
+      if [ "$#" -gt 0 ]; then
+        case "$1" in
+          -u|--update)
+            update=1
+            ;;
+          -h|--help)
+            echo "usage: af-rebuild [--update]"
+            echo
+            echo "Rebuilds ardent-forge from the flake.lock in the working tree."
+            echo
+            echo "  -u, --update   refresh every flake input first, rewriting"
+            echo "                 flake.lock. Review and commit that separately."
+            exit 0
+            ;;
+          *)
+            echo "af-rebuild: unknown argument: $1" >&2
+            echo "usage: af-rebuild [--update]" >&2
+            exit 2
+            ;;
+        esac
+      fi
+
+      if [ "$update" -eq 1 ]; then
+        echo "Updating flake inputs..."
+        nix flake update --flake "$FLAKE_DIR"
+      else
+        echo "Building from the existing flake.lock (--update to refresh inputs)."
+      fi
 
       echo "Rebuilding system..."
       if sudo nixos-rebuild switch --flake "$FLAKE_DIR#ardent-forge" --impure; then
