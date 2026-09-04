@@ -39,6 +39,18 @@ in
       NTFY_BASE_URL = "https://ntfy.${tailnet}";
       NTFY_BEHIND_PROXY = "true";
       NTFY_CACHE_FILE = "/var/cache/ntfy/cache.db";
+
+      # iOS cannot hold a background connection to a self-hosted server, so
+      # APNs has to be woken by ntfy.sh. On publish this server sends ntfy.sh a
+      # poll request only: a message id and a topic derived by hashing
+      # base-url + topic. The alert text is not included -- the phone is woken
+      # and then fetches the real message from this box over the tailnet.
+      #
+      # The cost is that this box now makes an outbound call to a third party
+      # on every alert, and that alerting depends on ntfy.sh being reachable.
+      # Only needed for iOS; Android holds its own connection and needs none
+      # of this.
+      NTFY_UPSTREAM_BASE_URL = "https://ntfy.sh";
     };
   };
 
