@@ -281,7 +281,20 @@
                   data = [
                     {
                       refId = "A";
-                      relativeTimeRange = { from = 900; to = 0; };
+                      # Grafana evaluates a Loki *instant* query at the START of
+                      # this range, not the end -- verified in its own logs:
+                      # "t=00:17:22 start=00:02:20 end=00:17:20 queryType=instant".
+                      # With from = 900 that meant every evaluation asked about
+                      # 15 minutes ago, so the rule fired 15 minutes late and,
+                      # worse, kept firing 15 minutes after the failures stopped.
+                      # Measured on 2026-09-03: the last real reindex failure was
+                      # 23:28:20 and the alert went on notifying until 23:54:22.
+                      #
+                      # The [10m] in the expression already defines the lookback,
+                      # so this range only needs to place the evaluation instant.
+                      # 60s rather than 0 keeps the range non-degenerate, and is
+                      # below the evaluation interval, so it costs no real delay.
+                      relativeTimeRange = { from = 60; to = 0; };
                       datasourceUid = "loki";
                       model = {
                         refId = "A";
@@ -292,7 +305,9 @@
                     }
                     {
                       refId = "C";
-                      relativeTimeRange = { from = 900; to = 0; };
+                      # Server-side expression: this range is not used to query
+                      # anything, but is kept equal to A's by convention.
+                      relativeTimeRange = { from = 60; to = 0; };
                       datasourceUid = "__expr__";
                       model = {
                         refId = "C";
