@@ -137,13 +137,13 @@ in {
     # the suggested sha256 in place of lib.fakeHash and rebuild.
     package = pkgs.caddy.withPlugins {
       plugins = [
-        "github.com/tailscale/caddy-tailscale@v0.0.0-20260106222316-bb080c4414ac"
+        "github.com/tailscale/caddy-tailscale@v0.0.0-20260826180304-de41b249af4f"
         "github.com/mholt/caddy-webdav@v0.0.0-20260127042217-fa2f366b0d75"
       ];
       # Combined module hash for the tailscale + webdav plugin set. If you add
       # or bump a plugin, set this to lib.fakeHash, rebuild, and paste the
       # suggested sha256 the build prints.
-      hash = "sha256-jrFD0ci9OMJwpvIELNaBpZp5ZjXz3kd1L0yXhuWkXaY=";
+      hash = "sha256-teTBXms3+kot4hTi8wb/NRZPk7A9oSGFhwUbo/COeBo=";
     };
 
     # Tailscale credential lives in /etc/caddy/tailscale-auth (root:caddy
