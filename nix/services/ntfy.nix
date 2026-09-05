@@ -8,7 +8,14 @@ let
 in
 {
   virtualisation.oci-containers.containers.ntfy = {
-    image = "binwiederhier/ntfy:latest";
+    # Pinned by digest for the same reason as the-weather: :latest re-resolves
+    # on every start, so the code running here could change across a reboot
+    # with nothing in this repo to show for it. It matters more here than
+    # there -- this is the path alerts take to a phone, so a silent change
+    # breaks the thing that tells you other things broke. Digest as of
+    # 2026-09-04 (image built 2026-08-27, ntfy 2.21.0); resolve a new one with
+    # `skopeo inspect docker://docker.io/binwiederhier/ntfy:latest`.
+    image = "docker.io/binwiederhier/ntfy@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da";
     autoStart = true;
 
     ports = [
