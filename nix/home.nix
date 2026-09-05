@@ -9,6 +9,8 @@
   imports = [
     # Full dotfiles home environment: packages, shell, git, ssh, neovim, starship
     "${dotfiles}/nix/home"
+    # Unattended triage of alerts that reach ntfy
+    ./alert-triage.nix
   ];
 
   home = {
