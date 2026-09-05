@@ -127,6 +127,18 @@
     PRISMA_FMT_BINARY=${pkgs.prisma-engines_6}/bin/prisma-fmt
   '';
 
+  # Reports, and can refresh, the pins that live outside the flake lock: the
+  # caddy plugin pseudo-versions and the container image digests. `af-rebuild
+  # --update` covers flake inputs; nothing covered these, which is how one of
+  # them drifted eight months.
+  home.file.".local/bin/pin-check" = {
+    executable = true;
+    text = ''
+      #!/usr/bin/env bash
+      exec ${pkgs.python3}/bin/python3 /data/ardent-forge/repo/scripts/pin-check.py "$@"
+    '';
+  };
+
   # Rebuild script — switches the system from the flake.lock already in the
   # tree. Moving the inputs is a separate, deliberate act behind --update:
   # doing it on every rebuild meant the committed lock never described what
