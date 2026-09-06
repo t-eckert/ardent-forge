@@ -64,17 +64,17 @@
         }];
       }
       {
-        # Galley's backend runs a second server purely for metrics, on
-        # METRICS_PORT from dev-suite/env/backend.env — not on the API port,
-        # which is why /metrics on :8020 returns 404.
+        # Galley's API runs a second server purely for metrics on 8111, not on
+        # the API port 8110, which is why /metrics on the API port returns 404.
+        # The port map is in that repo's CLAUDE.md under "Local ports".
         #
-        # This is a dev-suite process, not a system service: it is only up when
-        # the suite is running, so `up{job="galley"}` is expected to be 0 much
-        # of the time. That is a useful signal rather than a fault, and the
-        # dashboards treat it as one.
+        # This is a dev process, not a system service, and the rebuilt tree has
+        # no API yet — so `up{job="galley"}` is expected to be 0 much of the
+        # time. That is a useful signal rather than a fault, and the dashboards
+        # treat it as one.
         job_name = "galley";
         static_configs = [{
-          targets = [ "127.0.0.1:8021" ];
+          targets = [ "127.0.0.1:8111" ];
         }];
       }
     ];
