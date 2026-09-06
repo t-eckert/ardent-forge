@@ -31,11 +31,12 @@ let
       label   = "Galley (dev server)";
       routes = ''
         # The API, prefix stripped, so it sees /health rather than
-        # /svc/api/health. A surface for poking at the API by hand — not a
-        # path the front end may call. Galley's front end is a trusted BFF
-        # that reaches the API server-side, and mounting it here puts it on
-        # the app's own origin, where client-side fetch would reach it with
-        # no CORS to object. There is no such route in production.
+        # /svc/api/health. This route exists to reach the API from another
+        # machine — a browser or a curl on the Mac. Code running on this box
+        # goes to 127.0.0.1:8110 directly and never comes through here: the
+        # proxy hop buys nothing locally, and there is no such route in
+        # production, where the front end is a trusted BFF that reaches the
+        # API server-side.
         handle_path /svc/api/* {
           reverse_proxy 127.0.0.1:8110
         }
