@@ -46,6 +46,18 @@ let
           reverse_proxy 127.0.0.1:8141
         }
 
+        # Storybook is its own node, not a service behind this one — see
+        # galley-storybook below for why. This is only a shortcut for people
+        # who guessed the /svc/ prefix, so it redirects rather than proxies:
+        # the browser lands on the node's root, where Storybook's absolute
+        # asset requests resolve. Proxying here would recreate exactly the
+        # breakage that moved it onto a node. handle_path strips the prefix,
+        # so {uri} carries the remainder and the query string with it, which
+        # matters because Storybook keeps the selected story in ?path=.
+        handle_path /svc/storybook* {
+          redir * https://galley-storybook.${tailnet}{uri}
+        }
+
         # Object storage is deliberately absent. A presigned URL is signed
         # over its path, so a prefix-stripping proxy invalidates every link
         # the API hands out, and the MinIO console wants to be served at a
