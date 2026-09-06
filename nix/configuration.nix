@@ -19,7 +19,7 @@
     ./services/lab-sync.nix
     ./services/workspace-init.nix
     ./services/thomaseckert-dev.nix
-    ./services/galley-frontend.nix
+    ./services/galley.nix
     ./services/memory-limits.nix
     ./services/crucible.nix
     ./services/smartd.nix

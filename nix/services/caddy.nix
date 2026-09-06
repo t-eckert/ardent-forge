@@ -58,6 +58,11 @@ let
         }
       '';
     };
+    # Its own node rather than a /svc path on galley: Storybook asks for its
+    # assets from an absolute root, the same reason ntfy is a node below. It
+    # also runs its own Host header check — the name has to be in
+    # `core.allowedHosts` in .storybook/main.ts or it answers 403.
+    galley-storybook = { backend = "127.0.0.1:8160"; label = "Galley component library"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
     # from an absolute /static, so under handle_path (which strips the prefix)
