@@ -23,7 +23,43 @@ let
     cs         = { backend = "127.0.0.1:8000";  label = "chillest-subs"; };
     cs-editor  = { backend = "127.0.0.1:8010";  label = "chill-subs editor"; };
     cs-galley  = { backend = "127.0.0.1:8020";  label = "Galley backend"; };
-    galley     = { backend = "127.0.0.1:8100";  label = "Galley (dev server)"; };
+    # One node with its supporting services hung off /svc/, the same prefix the
+    # landing page on the bare tailnet host already uses. Galley owns
+    # 8100-8199; the map is in that repo's CLAUDE.md under "Local ports".
+    galley = rec {
+      backend = "127.0.0.1:8100";
+      label   = "Galley (dev server)";
+      routes = ''
+        # The API, prefix stripped, so it sees /health rather than
+        # /svc/api/health. A surface for poking at the API by hand — not a
+        # path the front end may call. Galley's front end is a trusted BFF
+        # that reaches the API server-side, and mounting it here puts it on
+        # the app's own origin, where client-side fetch would reach it with
+        # no CORS to object. There is no such route in production.
+        handle_path /svc/api/* {
+          reverse_proxy 127.0.0.1:8110
+        }
+
+        # Mail catcher UI, prefix NOT stripped. Whatever gets picked has to be
+        # launched with a matching web root (Mailpit: --webroot /svc/mail), or
+        # its assets will ask for an absolute /static and fall through to the
+        # app below — the same failure that moved ntfy onto its own node.
+        handle /svc/mail/* {
+          reverse_proxy 127.0.0.1:8141
+        }
+
+        # Object storage is deliberately absent. A presigned URL is signed
+        # over its path, so a prefix-stripping proxy invalidates every link
+        # the API hands out, and the MinIO console wants to be served at a
+        # root. Both want their own node once object storage actually exists.
+
+        # Everything else is the app, websockets included, so Vite's HMR
+        # channel rides this same origin.
+        handle {
+          reverse_proxy ${backend}
+        }
+      '';
+    };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     notes      = { backend = "127.0.0.1:8040";  label = "csg planning notes"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
