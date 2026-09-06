@@ -59,7 +59,6 @@ let
       '';
     };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
-    notes      = { backend = "127.0.0.1:8040";  label = "csg planning notes"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
     # from an absolute /static, so under handle_path (which strips the prefix)
     # every asset 404'd against the landing page's file_server. The shell
