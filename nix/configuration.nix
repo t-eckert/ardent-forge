@@ -7,11 +7,6 @@
   ...
 }:
 
-let
-  # Chill Subs + Galley workspace roots, used by the crucible profile below.
-  csRoot = "/home/thomaseckert/Projects/Chill-Subs+Galley/Chill-Subs";
-  csgSuite = "/home/thomaseckert/Projects/Chill-Subs+Galley/t-eckert/csg/dev-suite";
-in
 {
   imports = [
     ./services/postgresql.nix
@@ -97,92 +92,19 @@ in
 
   # ── Crucible: containment for workloads that must not touch production ──
   #
-  # Left on permanently. A profile costs nothing until something is launched
-  # into it, so there is no rebuild-to-toggle dance: the choice is made when you
-  # start the work, not when you build the system.
+  # Left on permanently with no profiles defined. A profile costs nothing until
+  # something is launched into it, and the module costs nothing with none at
+  # all — so the next workload that needs containment gets it by adding a
+  # profile here, not by rebuilding this decision from scratch.
   #
-  #   crucible-app chillSubs editor              start one declared app
-  #   crucible-shell chillSubs                   drop a shell in (asks for sudo)
-  #   crucible-shell chillSubs crucible-verify   prove the shield is real
+  #   crucible-app <profile> <app>       start one declared app
+  #   crucible-shell <profile>           drop a shell in (asks for sudo)
+  #   crucible-shell <profile> crucible-verify   prove the shield is real
   #
   # See nix/services/crucible.nix for why enforcement is two layers and why the
   # allowlist is by hostname rather than IP.
   ardentForge.crucible.enable = true;
   ardentForge.crucible.sudoUsers = [ "thomaseckert" ];
-
-  # The Chill Subs + Galley dev suite. Motivated by the 2026-08-10 audit of
-  # dev-suite/env, which found the suite holding credentials that reach
-  # production: the real AWS bucket with no S3_ENDPOINT, a live SendGrid key,
-  # and writable Upstash and Turso. The env overlays neuter those credentials;
-  # this profile removes the network capability underneath them, so both layers
-  # have to fail together before production is reachable.
-  ardentForge.crucible.profiles.chillSubs = {
-    description = "Chill Subs + Galley dev suite under adversarial testing";
-
-    # The suite genuinely needs all four: MinIO lives on the tailnet, the
-    # databases are rootless-podman port-forwards on loopback, and container-to-
-    # container traffic uses podman's CNI nets.
-    allowTailnet = true;
-    allowPodman = true;
-    allowLAN = true;
-
-    # Hostnames, not IPs -- this is the whole reason for the rewrite. The
-    # predecessor had to pin Clerk's Cloudflare addresses behind an
-    # `allowClerkAuth` flag with a "these rotate, refresh with getent" note, and
-    # flip it on and off around every authenticated test. Naming the host
-    # instead makes the exception permanent, legible and rotation-proof, and it
-    # is *narrower* than the IP list was: an address can be shared by hosts you
-    # did not mean to allow, a name cannot.
-    allowHosts = [
-      "on-elk-6.clerk.accounts.dev" # editor session validation
-      "api.clerk.com"
-      "binaries.prisma.sh" # prisma generate, on first run
-    ];
-
-    # Sized by measurement, not guess: chillest-subs 2045 MB + editor 2019 MB +
-    # admin 1042 MB, ~5.1 GB PSS together.
-    memoryHigh = "6G";
-    memoryMax = "7G";
-
-    environment = {
-      HOME = "/home/thomaseckert";
-      SUITE_ENV_DIR = "${csgSuite}/env";
-      PATH = "/run/wrappers/bin:/etc/profiles/per-user/thomaseckert/bin:/run/current-system/sw/bin:/usr/bin:/bin";
-      # System units inherit nothing from environment.d, so the PRISMA paths
-      # home.nix exports to the user manager have to be named explicitly here.
-      PRISMA_QUERY_ENGINE_LIBRARY = "${pkgs.prisma-engines_6}/lib/libquery_engine.node";
-      PRISMA_QUERY_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/query-engine";
-      PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/schema-engine";
-      PRISMA_FMT_BINARY = "${pkgs.prisma-engines_6}/bin/prisma-fmt";
-    };
-
-    # run-with-env gives the isolated apps exactly the env the process-compose
-    # copies get, including the .env.local credential overlays.
-    apps = {
-      admin = {
-        workingDirectory = "${csRoot}/chill-subs/admin";
-        command = "${csgSuite}/run-with-env admin -- yarn dev -p 8030 -H 0.0.0.0";
-      };
-      editor = {
-        workingDirectory = "${csRoot}/chill-subs/editor";
-        command = "${csgSuite}/run-with-env editor -- yarn dev -p 8010 -H 0.0.0.0";
-      };
-      chillest-subs = {
-        workingDirectory = "${csRoot}/chillest-subs";
-        command = "${csgSuite}/run-with-env chillest-subs -- pnpm dev --turbopack -p 8000 -H 0.0.0.0";
-      };
-    };
-
-    verify = {
-      mustReach = [ "http://localhost:8000/" ];
-      mustNotReach = [
-        "https://s3.amazonaws.com"
-        "https://api.sendgrid.com"
-        "https://vocal-trout-36239.upstash.io"
-        "https://www.chillsubs.com"
-      ];
-    };
-  };
 
   # ── Time & Locale ──────────────────────────────────────
   time.timeZone = "America/Toronto";
