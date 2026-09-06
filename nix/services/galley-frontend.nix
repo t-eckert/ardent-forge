@@ -4,7 +4,8 @@
 # always reachable at https://galley.<tailnet> without someone first starting a
 # server over SSH. Caddy proxies that tsnet node to the port pinned here; the
 # matching half of the pairing (port + allowedHosts) lives in the repo's
-# frontend/vite.config.ts.
+# frontend/vite.config.ts. Galley's local services own 8100-8199; the map is
+# in that repo's CLAUDE.md under "Local ports".
 { pkgs, locals, ... }:
 
 {

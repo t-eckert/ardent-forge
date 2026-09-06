@@ -23,7 +23,7 @@ let
     cs         = { backend = "127.0.0.1:8000";  label = "chillest-subs"; };
     cs-editor  = { backend = "127.0.0.1:8010";  label = "chill-subs editor"; };
     cs-galley  = { backend = "127.0.0.1:8020";  label = "Galley backend"; };
-    galley     = { backend = "127.0.0.1:8030";  label = "Galley (dev server)"; };
+    galley     = { backend = "127.0.0.1:8100";  label = "Galley (dev server)"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     notes      = { backend = "127.0.0.1:8040";  label = "csg planning notes"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
