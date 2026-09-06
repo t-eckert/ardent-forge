@@ -20,9 +20,6 @@ let
   # generated from this same attrset — adding a host here is all it takes to
   # get it listed.
   csApps = {
-    cs         = { backend = "127.0.0.1:8000";  label = "chillest-subs"; };
-    cs-editor  = { backend = "127.0.0.1:8010";  label = "chill-subs editor"; };
-    cs-galley  = { backend = "127.0.0.1:8020";  label = "Galley backend"; };
     # One node with its supporting services hung off /svc/, the same prefix the
     # landing page on the bare tailnet host already uses. Galley owns
     # 8100-8199; the map is in that repo's CLAUDE.md under "Local ports".
