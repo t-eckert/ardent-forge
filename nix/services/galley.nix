@@ -13,9 +13,9 @@ let
   # Dependencies are deliberately not installed by these units: a `pnpm
   # install` that failed on a half-edited lockfile or a dead network would take
   # the server down with it. They are conditioned on node_modules existing
-  # instead, so after a dependency change run `task frontend:install` and
-  # restart. A unit whose condition fails goes inactive quietly rather than
-  # entering a restart loop.
+  # instead, so after a dependency change run `task frontend:install` — the
+  # restart that has to follow it is `galley-deps` below. A unit whose
+  # condition fails goes inactive quietly rather than entering a restart loop.
   pnpmService = { description, dir, script }: {
     inherit description;
     after = [ "network-online.target" ];
@@ -54,6 +54,54 @@ in
     description = "Galley Storybook (:8160)";
     dir = "${repo}/frontend";
     script = "storybook";
+  };
+
+  # A dependency added while those two are running does not reach them: Vite
+  # resolves node_modules once at startup, so a `pnpm install` afterwards
+  # leaves the dev server answering 500 with a PostCSS `ENOENT` naming a bare
+  # specifier that is on disk and that resolves fine by hand. Vite says so
+  # itself — "Re-optimizing dependencies because lockfile has changed" — but
+  # that line is buried in the journal, and the obvious reading of the error is
+  # a broken import. It cost an afternoon on 2026-09-06 when app.css picked up
+  # its @fontsource imports.
+  #
+  # The comment above says to restart by hand after `task frontend:install`.
+  # This is that, done automatically.
+  #
+  # `.modules.yaml` is the watched file rather than `pnpm-lock.yaml`, and the
+  # difference matters: pnpm writes the lockfile when resolution finishes and
+  # `.modules.yaml` when linking does. On the install that prompted this they
+  # were 30 seconds apart. Restarting on the lockfile would land mid-install
+  # and re-optimize against a half-linked tree — the same bug, new cause.
+  systemd.paths.galley-deps = {
+    description = "Watch for a finished pnpm install in the Galley front end";
+    wantedBy = [ "multi-user.target" ];
+
+    # PathChanged is inotify-only. Unlike the PathExists family it does not
+    # fire when the unit itself starts, so a boot does not immediately restart
+    # the two servers boot just started. When node_modules is absent the file
+    # is too, and systemd waits on the parent directory for it to appear —
+    # which covers `rm -rf node_modules && pnpm install`.
+    pathConfig.PathChanged = "${repo}/frontend/node_modules/.modules.yaml";
+  };
+
+  # Triggered by the path unit of the same name.
+  systemd.services.galley-deps = {
+    description = "Restart the Galley dev servers after a dependency change";
+
+    serviceConfig = {
+      Type = "oneshot";
+
+      # pnpm writes .modules.yaml near the end of an install but not at the
+      # very end. A few seconds of settle keeps the restart behind the last
+      # write, and collapses a burst of writes into a single restart.
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+
+      # Storybook runs out of the same node_modules and goes stale the same
+      # way, so it is restarted too. Neither unit is a dependency of this one,
+      # so restarting them from inside it cannot deadlock.
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart galley-frontend.service galley-storybook.service";
+    };
   };
 
   # The dev database gets its own container rather than a database on this
