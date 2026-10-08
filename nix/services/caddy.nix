@@ -58,10 +58,9 @@ let
           redir * https://galley-storybook.${tailnet}{uri}
         }
 
-        # Object storage is deliberately absent. A presigned URL is signed
-        # over its path, so a prefix-stripping proxy invalidates every link
-        # the API hands out, and the MinIO console wants to be served at a
-        # root. Both want their own node once object storage actually exists.
+        # Object storage is galley-s3 below, never a path here: a presigned
+        # URL is signed over its path, so a prefix-stripping proxy
+        # invalidates every link the API hands out.
 
         # Everything else is the app, websockets included, so Vite's HMR
         # channel rides this same origin.
@@ -75,6 +74,9 @@ let
     # also runs its own Host header check — the name has to be in
     # `core.allowedHosts` in .storybook/main.ts or it answers 403.
     galley-storybook = { backend = "127.0.0.1:8160"; label = "Galley component library"; };
+    # SeaweedFS's S3 API, so a browser on the Mac can PUT to a presigned URL.
+    # The Host header passes through unchanged: SigV4 signs it.
+    galley-s3  = { backend = "127.0.0.1:8130";  label = "Galley object storage"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
     # from an absolute /static, so under handle_path (which strips the prefix)
