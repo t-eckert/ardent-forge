@@ -11,6 +11,8 @@
     "${dotfiles}/nix/home"
     # Unattended triage of alerts that reach ntfy
     ./alert-triage.nix
+    # Daily weather refresh for the Notebook's logs
+    ./add-weather.nix
   ];
 
   home = {
