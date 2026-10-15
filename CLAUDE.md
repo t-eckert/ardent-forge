@@ -26,7 +26,7 @@ sudo nixos-rebuild switch --flake /data/ardent-forge/repo/nix#ardent-forge --imp
 # live switch can't be done (see nix/home.nix)
 af-rebuild
 
-# Move every flake input first (rewrites flake.lock; commit it separately)
+# Move nixpkgs first, committing the new flake.lock on its own
 af-rebuild --update
 
 # Move one input only, e.g. after pushing to t-eckert/dotfiles

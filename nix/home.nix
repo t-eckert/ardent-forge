@@ -165,8 +165,8 @@
             echo
             echo "Rebuilds ardent-forge from the flake.lock in the working tree."
             echo
-            echo "  -u, --update   refresh every flake input first, rewriting"
-            echo "                 flake.lock. Review and commit that separately."
+            echo "  -u, --update   refresh the nixpkgs input first and commit the"
+            echo "                 new flake.lock on its own."
             exit 0
             ;;
           *)
@@ -178,8 +178,9 @@
       fi
 
       if [ "$update" -eq 1 ]; then
-        echo "Updating flake inputs..."
-        nix flake update --flake "$FLAKE_DIR"
+        echo "Updating nixpkgs..."
+        # Commits only flake.lock, leaving anything else staged untouched.
+        nix flake update nixpkgs --commit-lock-file --flake "$FLAKE_DIR"
       else
         echo "Building from the existing flake.lock (--update to refresh inputs)."
       fi
