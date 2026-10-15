@@ -99,11 +99,11 @@
         "redpanda-tap": "redpanda-tap"
       },
       "locked": {
-        "lastModified": 1792028377,
-        "narHash": "sha256-+JhK5KqeNa1XmA6PfFxzSfOLvhtkwxz8wu6sSEOGxHQ=",
+        "lastModified": 1792106746,
+        "narHash": "sha256-VhXoQ7TXh0LozpARB5JxXzY0WC0YcB2j4QtvmmNH5LU=",
         "owner": "t-eckert",
         "repo": "dotfiles",
-        "rev": "1264f3b899055ce8bdd11ca944d045d02800140b",
+        "rev": "ede90d475cfe1211c95bd138f7a052e30825938b",
         "type": "github"
       },
       "original": {
