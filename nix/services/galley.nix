@@ -1,143 +1,35 @@
 # nix/services/galley.nix
 #
-# Galley's local development services. Galley owns 8100-8199 on this box; the
-# map lives in that repo's CLAUDE.md under "Local ports".
+# Galley's local development environment is **not** managed by this box any
+# more. It is one process-compose stack in the Galley repo — `task dev:up`,
+# `task dev:down`, `process-compose.yaml` at that repo's root — started by
+# whoever is working and stopped when they are done.
 #
-# The two node processes run straight out of the working tree, so they pick up
-# edits on their own — a rebuild here is only needed when this file changes.
-{ pkgs, locals, ... }:
+# This file held four units until 9 September 2026: `galley-frontend` and
+# `galley-storybook` running pnpm out of the working tree, `galley-deps`
+# restarting both when an install finished, and a root `galley-postgres`
+# container on /data/galley-postgres. They came up with the box and were never
+# stopped, and that turned out to be the problem rather than the convenience:
+#
+#   - A service that is always up is never *brought* up, so nothing ever ran
+#     the path a fresh checkout takes. On the day this was removed the front
+#     end had been answering 500 to every request for days — `SERVICE_TOKEN`
+#     was unset and nothing had restarted it since that started mattering.
+#   - The database container ran as root against a directory this box also
+#     managed with a tmpfiles rule, and the two disagreed about ownership. The
+#     port answered and the postmaster was up while every single connection
+#     died with `could not open file "global/pg_filenode.map": Permission
+#     denied`. The rootless podman volume that replaced it has no such seam.
+#   - A unit owns its port whether or not anyone is working, so running a dev
+#     server by hand meant `sudo systemctl stop` first.
+#
+# **Do not put them back.** If Galley needs something from this box it is a
+# reverse-proxy route in caddy.nix or a scrape target in monitoring.nix, both
+# of which already exist and both of which tolerate the backend being down.
+#
+# /data/galley-postgres is left on disk, unmanaged and unused. Delete it when
+# you are sure nothing in it is wanted; the new volume is `galley-pgdata`,
+# owned by the user, and `task dev:db:reset` is how it gets thrown away.
+{ ... }:
 
-let
-  repo = "/home/${locals.username}/Repos/github.com/t-eckert/galley";
-
-  # Dependencies are deliberately not installed by these units: a `pnpm
-  # install` that failed on a half-edited lockfile or a dead network would take
-  # the server down with it. They are conditioned on node_modules existing
-  # instead, so after a dependency change run `task frontend:install` — the
-  # restart that has to follow it is `galley-deps` below. A unit whose
-  # condition fails goes inactive quietly rather than entering a restart loop.
-  pnpmService = { description, dir, script }: {
-    inherit description;
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
-
-    unitConfig.ConditionPathExists = "${dir}/node_modules";
-
-    serviceConfig = {
-      User = locals.username;
-      WorkingDirectory = dir;
-      ExecStart = "${pkgs.pnpm}/bin/pnpm run ${script}";
-      Restart = "on-failure";
-      RestartSec = "5s";
-      Environment = [
-        "HOME=/home/${locals.username}"
-        "PATH=${pkgs.pnpm}/bin:${pkgs.nodejs}/bin:/run/current-system/sw/bin"
-      ];
-    };
-  };
-in
-{
-  # The app, on the tailnet as `galley`. Port and allowedHosts are pinned in
-  # the repo's frontend/vite.config.ts; Caddy proxies the node to it.
-  systemd.services.galley-frontend = pnpmService {
-    description = "Galley front end — SvelteKit dev server (:8100)";
-    dir = "${repo}/frontend";
-    script = "dev";
-  };
-
-  # Its own tsnet node rather than a path on the app's, because Storybook asks
-  # for its assets from an absolute root — the reason ntfy could not live under
-  # a prefix either. Storybook runs a Host header check of its own and needs
-  # the tailnet name in `core.allowedHosts` in .storybook/main.ts.
-  systemd.services.galley-storybook = pnpmService {
-    description = "Galley Storybook (:8160)";
-    dir = "${repo}/frontend";
-    script = "storybook";
-  };
-
-  # A dependency added while those two are running does not reach them: Vite
-  # resolves node_modules once at startup, so a `pnpm install` afterwards
-  # leaves the dev server answering 500 with a PostCSS `ENOENT` naming a bare
-  # specifier that is on disk and that resolves fine by hand. Vite says so
-  # itself — "Re-optimizing dependencies because lockfile has changed" — but
-  # that line is buried in the journal, and the obvious reading of the error is
-  # a broken import. It cost an afternoon on 2026-09-06 when app.css picked up
-  # its @fontsource imports.
-  #
-  # The comment above says to restart by hand after `task frontend:install`.
-  # This is that, done automatically.
-  #
-  # `.modules.yaml` is the watched file rather than `pnpm-lock.yaml`, and the
-  # difference matters: pnpm writes the lockfile when resolution finishes and
-  # `.modules.yaml` when linking does. On the install that prompted this they
-  # were 30 seconds apart. Restarting on the lockfile would land mid-install
-  # and re-optimize against a half-linked tree — the same bug, new cause.
-  systemd.paths.galley-deps = {
-    description = "Watch for a finished pnpm install in the Galley front end";
-    wantedBy = [ "multi-user.target" ];
-
-    # PathChanged is inotify-only. Unlike the PathExists family it does not
-    # fire when the unit itself starts, so a boot does not immediately restart
-    # the two servers boot just started. When node_modules is absent the file
-    # is too, and systemd waits on the parent directory for it to appear —
-    # which covers `rm -rf node_modules && pnpm install`.
-    pathConfig.PathChanged = "${repo}/frontend/node_modules/.modules.yaml";
-  };
-
-  # Triggered by the path unit of the same name.
-  systemd.services.galley-deps = {
-    description = "Restart the Galley dev servers after a dependency change";
-
-    serviceConfig = {
-      Type = "oneshot";
-
-      # pnpm writes .modules.yaml near the end of an install but not at the
-      # very end. A few seconds of settle keeps the restart behind the last
-      # write, and collapses a burst of writes into a single restart.
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
-
-      # Storybook runs out of the same node_modules and goes stale the same
-      # way, so it is restarted too. Neither unit is a dependency of this one,
-      # so restarting them from inside it cannot deadlock.
-      ExecStart = "${pkgs.systemd}/bin/systemctl restart galley-frontend.service galley-storybook.service";
-    };
-  };
-
-  # The dev database gets its own container rather than a database on this
-  # box's Postgres: it stays disposable against migrations, it pins its version
-  # independently of the host cluster, and it stays out of the nightly pg_dump
-  # in postgresql.nix, which dumps every non-template database it finds.
-  #
-  # Digest-pinned for the reason given in ntfy.nix and the-weather.nix: a tag
-  # re-resolves on every start, so what runs here could change across a reboot
-  # with nothing in this repo to show for it. postgres:17-alpine as of
-  # 2026-09-06, which is 17.11. Resolve a new one with
-  # `podman pull docker.io/library/postgres:17-alpine` and read RepoDigests.
-  virtualisation.oci-containers.containers.galley-postgres = {
-    image = "docker.io/library/postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73";
-    autoStart = true;
-
-    ports = [ "127.0.0.1:8120:5432" ];
-    volumes = [ "/data/galley-postgres:/var/lib/postgresql/data" ];
-
-    environment = {
-      POSTGRES_USER = "galley";
-      POSTGRES_DB = "galley";
-      TZ = "America/Toronto";
-
-      # Trust auth rather than a password. The port is bound to loopback only —
-      # not to tailscale0 — so nothing off this box can reach it, and this way
-      # there is no dev credential to commit here or to rotate later. Anything
-      # running on the box can connect, which is the trade and is fine for a
-      # single-user machine.
-      POSTGRES_HOST_AUTH_METHOD = "trust";
-    };
-  };
-
-  # The image's entrypoint starts as root and chowns PGDATA to its own postgres
-  # user, so this only has to exist.
-  systemd.tmpfiles.rules = [
-    "d /data/galley-postgres 0750 root root -"
-  ];
-}
+{ }
