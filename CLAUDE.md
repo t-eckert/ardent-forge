@@ -22,9 +22,15 @@ nix build '/data/ardent-forge/repo/nix#nixosConfigurations.ardent-forge.config.s
 # Apply it
 sudo nixos-rebuild switch --flake /data/ardent-forge/repo/nix#ardent-forge --impure
 
-# Or: update flake inputs first, then switch, falling back to `boot` if the
+# Or: switch from the flake.lock in the tree, falling back to `boot` if the
 # live switch can't be done (see nix/home.nix)
 af-rebuild
+
+# Move every flake input first (rewrites flake.lock; commit it separately)
+af-rebuild --update
+
+# Move one input only, e.g. after pushing to t-eckert/dotfiles
+nix flake update dotfiles --flake /data/ardent-forge/repo/nix
 ```
 
 `--impure` is mandatory: `nix/flake.nix` imports `nix/locals.nix` by absolute path.
