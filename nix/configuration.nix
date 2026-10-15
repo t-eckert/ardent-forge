@@ -170,7 +170,7 @@
     _1password-cli
     claude-code
     ghostty.terminfo
-    openssl_3
+    openssl
   ];
 
   # ── Data directories ───────────────────────────────────
