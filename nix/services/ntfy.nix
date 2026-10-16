@@ -13,9 +13,9 @@ in
     # with nothing in this repo to show for it. It matters more here than
     # there -- this is the path alerts take to a phone, so a silent change
     # breaks the thing that tells you other things broke. Digest as of
-    # 2026-09-04 (image built 2026-08-27, ntfy 2.21.0); resolve a new one with
+    # 2026-10-15 (image built 2026-10-15, ntfy 2.31.0); resolve a new one with
     # `skopeo inspect docker://docker.io/binwiederhier/ntfy:latest`.
-    image = "docker.io/binwiederhier/ntfy@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da";
+    image = "docker.io/binwiederhier/ntfy@sha256:803b2aaeb94df76c8b32ecd91039dc80b0fddb7041dcaf082b33bcdfd4ba39ad";
     autoStart = true;
 
     ports = [
