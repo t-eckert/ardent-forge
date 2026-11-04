@@ -148,6 +148,27 @@
         "type": "github"
       }
     },
+    "galley-agent": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793802812,
+        "narHash": "sha256-oXfU9ClBJSTFW5NPcT8H4ixwNrN2jPwLVIyZcYj2qos=",
+        "ref": "main",
+        "rev": "a132bd37e5230a4340feeb8c6da9913549fe3f7b",
+        "revCount": 25,
+        "type": "git",
+        "url": "file:///home/thomaseckert/Repos/github.com/t-eckert/galley-agent"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "file:///home/thomaseckert/Repos/github.com/t-eckert/galley-agent"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -330,6 +351,7 @@
     "root": {
       "inputs": {
         "dotfiles": "dotfiles",
+        "galley-agent": "galley-agent",
         "home-manager": "home-manager_2",
         "nixpkgs": "nixpkgs",
         "systems-linux": "systems-linux"

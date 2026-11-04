@@ -29,6 +29,15 @@
       inputs.hunk.inputs.bun2nix.inputs.systems.follows = "systems-linux";
     };
 
+    # stet, Galley's development agent: a package and a NixOS module. The repo is
+    # private and Nix here holds no GitHub token, so this reads the workspace
+    # checkout. `nix flake update galley-agent` locks whatever its `main` holds,
+    # so pull that checkout first. See nix/services/stet.nix.
+    galley-agent = {
+      url = "git+file:///home/thomaseckert/Repos/github.com/t-eckert/galley-agent?ref=main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Pins flake-parts' system enumeration for the inputs above. Nothing else
     # should follow this -- it exists to keep a transitive dependency from
     # evaluating platforms this machine will never build for.
@@ -39,7 +48,7 @@
 
   # systems-linux is declared purely to be followed by a transitive input; it
   # is never referenced here, hence the ellipsis.
-  outputs = { self, nixpkgs, home-manager, dotfiles, ... }:
+  outputs = { self, nixpkgs, home-manager, dotfiles, galley-agent, ... }:
     let
       # locals.nix is gitignored, so we import from an absolute path.
       # On the Bee Link this lives alongside the repo checkout.
@@ -51,6 +60,7 @@
       modules = [
         ./hardware.nix
         ./configuration.nix
+        galley-agent.nixosModules.stet
         home-manager.nixosModules.home-manager
         {
           home-manager = {

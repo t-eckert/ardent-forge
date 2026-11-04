@@ -595,7 +595,19 @@ in
       description = ''
         First loopback port for per-profile egress proxies; profiles are
         assigned sequentially from here. Nothing outside this module should
-        hardcode one -- the wrappers embed the right port at build time.
+        hardcode one -- the wrappers embed the right port at build time, and
+        a long-running service reads it from `proxyUrls`.
+      '';
+    };
+
+    proxyUrls = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      readOnly = true;
+      description = ''
+        The egress proxy URL of each profile that sets `allowHosts`, by profile
+        name. For services that run in a profile's slice as a unit of their own,
+        rather than through `crucible-app`, and so must be told where their
+        proxy is. Ports shift when profiles are added, so read it from here.
       '';
     };
 
@@ -618,6 +630,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    ardentForge.crucible.proxyUrls = lib.mapAttrs (
+      name: _: "http://127.0.0.1:${toString proxyPorts.${name}}"
+    ) (lib.filterAttrs (_: usesProxy) cfg.profiles);
+
     assertions =
       lib.mapAttrsToList (name: p: {
         assertion = usesProxy p -> p.allowLoopback;
