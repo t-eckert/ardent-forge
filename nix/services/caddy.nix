@@ -77,6 +77,7 @@ let
     # SeaweedFS's S3 API, so a browser on the Mac can PUT to a presigned URL.
     # The Host header passes through unchanged: SigV4 signs it.
     galley-s3  = { backend = "127.0.0.1:8130";  label = "Galley object storage"; };
+    galley-api = { backend = "127.0.0.1:8150";  label = "Galley API explorer"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
     # from an absolute /static, so under handle_path (which strips the prefix)
