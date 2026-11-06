@@ -204,6 +204,44 @@
           "instant": true
         }
       ]
+    },
+    {
+      "id": 9,
+      "title": "Session starts",
+      "description": "One row per session start, from the SessionStart hook in nix/claude-code.nix via the journal. Includes resumes, clears, compactions and forks; the source column says which. Sessions show here even when they export no OTel metrics.",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"claude-code-sessions\"} | json",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ],
+      "transformations": [
+        { "id": "extractFields", "options": { "source": "labels" } },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "Time": true, "session_id": true, "source": true, "entrypoint": true,
+              "ssh": true, "remote": true, "model": true, "cwd": true
+            },
+            "indexByName": {
+              "Time": 0, "session_id": 1, "source": 2, "entrypoint": 3,
+              "ssh": 4, "remote": 5, "model": 6, "cwd": 7
+            },
+            "renameByName": { "Time": "Started", "session_id": "Session" }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Started", "desc": true }]
+      }
     }
   ]
 }
