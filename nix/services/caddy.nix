@@ -158,8 +158,8 @@ let
     <body>
       <main>
         <h1>ardent forge</h1>
-        <p class="sub">NixOS box on <code>${tailnet}</code>. Config lives at
-          <code>/data/ardent-forge/repo</code>.</p>
+        <p class="sub">NixOS box on <code>${tailnet}</code>. Deployed from
+          commit <code>${config.system.configurationRevision or "unknown"}</code>.</p>
 
         <h2>Apps</h2>
         <ul>

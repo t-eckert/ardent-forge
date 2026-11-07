@@ -16,7 +16,7 @@
 
 let
   workspaceDir = "/home/${locals.username}/Repos/github.com";
-  envFile = "/data/ardent-forge/repo/nix/services/workspace-init.env";
+  envFile = ./workspace-init.env;
   reposFile = "/etc/ardent-forge/workspace-repos";
 
   cloneScript = pkgs.writeShellScript "workspace-init" ''

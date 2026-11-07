@@ -10,14 +10,13 @@
 
 let
   labDir = "/home/${locals.username}/Repos/lab";
-  repoDir = "/data/ardent-forge/repo";
   remote = "github.com/t-eckert/lab.git";
 
   startScript = pkgs.writeShellScript "lab-sync-start" ''
     set -euo pipefail
     export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
 
-    exec op run --env-file ${repoDir}/nix/services/lab-sync.env -- ${pkgs.bash}/bin/bash -c '
+    exec op run --env-file ${./lab-sync.env} -- ${pkgs.bash}/bin/bash -c '
       set -euo pipefail
 
       cd "${labDir}"
@@ -52,7 +51,7 @@ let
         git push -u origin main
       fi
 
-      exec python3 ${repoDir}/scripts/syncshot.py --period 60
+      exec python3 ${../../scripts/syncshot.py} --period 60
     '
   '';
 in {

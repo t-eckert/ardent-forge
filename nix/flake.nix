@@ -65,6 +65,9 @@
         ./hardware.nix
         ./configuration.nix
         galley-agent.nixosModules.stet
+        # The commit this system was built from, for the landing page and
+        # `af status`. dirtyRev when built from a tree with uncommitted edits.
+        { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
         home-manager.nixosModules.home-manager
         {
           home-manager = {

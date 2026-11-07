@@ -145,7 +145,10 @@
       dashboards.settings.providers = [
         {
           name = "default";
-          options.path = "/data/ardent-forge/repo/grafana/dashboards";
+          # From the store: dashboards change only when a deploy does. To edit
+          # one, change it in Grafana, export the JSON into grafana/dashboards
+          # and push; edits saved only in the UI are not kept.
+          options.path = ../../grafana/dashboards;
           options.foldersFromFilesStructure = true;
         }
       ];

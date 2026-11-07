@@ -19,8 +19,11 @@
 { config, pkgs, lib, ... }:
 
 let
+  # The checkout the agent works in. It moves to alert-triage's own clone in
+  # the next step of the deploy plan; the script and playbook already come
+  # from the store, so they change only when a deploy does.
   repo = "/data/ardent-forge/repo";
-  script = "${repo}/nix/services/alert-triage.py";
+  script = ./services/alert-triage.py;
   stateDir = "${config.home.homeDirectory}/.local/state/alert-triage";
 in
 {
@@ -37,7 +40,7 @@ in
       Environment = [
         "PATH=${config.home.homeDirectory}/.local/bin:/run/current-system/sw/bin:/etc/profiles/per-user/${config.home.username}/bin"
         "AT_STATE_DIR=${stateDir}"
-        "AT_PLAYBOOK=${repo}/nix/services/alert-triage-playbook.md"
+        "AT_PLAYBOOK=${./services/alert-triage-playbook.md}"
         "AT_NTFY=http://127.0.0.1:8090/ardent-forge"
         # One PR a day. A bad night is then one thing to unwind, not several.
         "AT_MAX_PRS=1"

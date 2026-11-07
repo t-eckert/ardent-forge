@@ -8,13 +8,12 @@
 
 let
   notebookDir = "/data/ardent-forge/notebook";
-  repoDir = "/data/ardent-forge/repo";
 
   startScript = pkgs.writeShellScript "notebook-sync-start" ''
     set -euo pipefail
     export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
 
-    exec op run --env-file ${repoDir}/nix/services/notebook-sync.env -- ${pkgs.bash}/bin/bash -c '
+    exec op run --env-file ${./notebook-sync.env} -- ${pkgs.bash}/bin/bash -c '
       set -euo pipefail
 
       if [ ! -d "${notebookDir}/.git" ]; then
@@ -30,7 +29,7 @@ let
       git config user.email "forge@${locals.tailnetDomain}"
       git config credential.helper "!f() { echo username=x-access-token; echo \"password=$FORGE_GITHUB_TOKEN\"; }; f"
 
-      exec python3 ${repoDir}/scripts/syncshot.py --period 30
+      exec python3 ${../../scripts/syncshot.py} --period 30
     '
   '';
 in {
