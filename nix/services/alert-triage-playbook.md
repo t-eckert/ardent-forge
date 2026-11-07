@@ -101,6 +101,12 @@ T1 unless it is a config fault in `monitoring.nix`, which is T3.
 
 ## Repo rules
 
+The run works in its own clone of ardent-forge and cannot push or open PRs
+itself: it commits, and the runner pushes a `triage/*` branch and opens the PR
+after its own `nixos-rebuild build`. So a T3 fix can only land in
+ardent-forge. A fix that belongs in another repo is reported at T1, with the
+proposed change in the summary.
+
 - **chill-subs** — `main` deploys straight to production. PR only, never a
   direct push, and never a merge. T2 there is limited to gitignored state.
 - **ardent-forge** — PR when unattended, even though direct pushes are normal

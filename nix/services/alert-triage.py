@@ -17,7 +17,12 @@ NTFY        = os.environ.get("AT_NTFY", "http://127.0.0.1:8090/ardent-forge")
 STATE_DIR   = os.environ.get("AT_STATE_DIR",
                              os.path.expanduser("~/.local/state/alert-triage"))
 STATE_PATH  = os.path.join(STATE_DIR, "state.json")
-PLAYBOOK    = os.environ.get("AT_PLAYBOOK", "/data/ardent-forge/repo/nix/services/alert-triage-playbook.md")
+PLAYBOOK    = os.environ.get("AT_PLAYBOOK", "alert-triage-playbook.md")
+# The agent works in a clone of its own, never in a checkout someone else uses.
+# It is reset to origin/main before every run.
+CLONE       = os.environ.get("AT_CLONE", os.path.join(STATE_DIR, "ardent-forge"))
+REPO_URL    = os.environ.get("AT_REPO_URL", "https://github.com/t-eckert/ardent-forge.git")
+BASE_BRANCH = "main"
 
 # Mechanical guardrails.
 MAX_RUNS_PER_DAY      = int(os.environ.get("AT_MAX_RUNS", "8"))
@@ -81,27 +86,75 @@ def classify(msg):
 
 # Tools the unattended run may use. Anything absent fails closed, which
 # degrades the run to diagnosis rather than letting it reach for something
-# unforeseen. Note what is NOT here: no sudo, no nixos-rebuild switch (which
-# needs a password this user does not have anyway), no git merge, no push to
-# a default branch.
+# unforeseen. Note what is NOT here: no sudo, no nixos-rebuild switch, no git
+# checkout, no push and no gh at all. A push to ardent-forge's main deploys the
+# box, so the model never pushes: it commits in its clone, and open_pr() below
+# pushes only to a triage/* branch, after its own build check. Edit and Write
+# reach only the clone.
 BASE_TOOLS = [
-    "Read", "Grep", "Glob", "Edit", "Write",
+    "Read", "Grep", "Glob", f"Edit(/{CLONE}/**)", f"Write(/{CLONE}/**)",
     "Bash(journalctl:*)", "Bash(systemctl status:*)", "Bash(systemctl is-active:*)",
     "Bash(systemctl --failed:*)", "Bash(systemctl --user:*)",
     "Bash(curl -s http://127.0.0.1:3100/*)", "Bash(curl -sG http://127.0.0.1:3100/*)",
     "Bash(curl -s http://127.0.0.1:8090/*)",
     "Bash(nixos-rebuild build:*)",
     "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
-    "Bash(git checkout -b:*)", "Bash(git add:*)", "Bash(git commit:*)",
-    "Bash(git push origin HEAD:*)",
+    "Bash(git add:*)", "Bash(git commit:*)",
     "Bash(tail:*)", "Bash(head:*)", "Bash(cat:*)", "Bash(ls:*)", "Bash(stat:*)",
     "Bash(md5sum:*)", "Bash(npx prisma generate:*)", "Bash(date:*)",
 ]
-PR_TOOL = "Bash(gh pr create:*)"
 DENY = ["Bash(sudo:*)", "Bash(nixos-rebuild switch:*)", "Bash(git merge:*)",
-        "Bash(git push origin main:*)", "Bash(rm -rf:*)"]
+        "Bash(git push:*)", "Bash(git checkout:*)", "Bash(git switch:*)",
+        "Bash(git reset:*)", "Bash(gh:*)", "Bash(rm -rf:*)"]
 
-def build_prompt(msg, sig, verdict_path, may_pr):
+def git(*args, timeout=120):
+    return subprocess.run(["git", "-C", CLONE, *args], capture_output=True,
+                          text=True, timeout=timeout)
+
+def prepare_clone(branch):
+    """A fresh tree at origin/main on a new triage/* branch, or an error string."""
+    if not os.path.isdir(os.path.join(CLONE, ".git")):
+        r = subprocess.run(["git", "clone", "-q", REPO_URL, CLONE],
+                           capture_output=True, text=True, timeout=300)
+        if r.returncode: return f"clone failed: {r.stderr.strip()[:300]}"
+    for args in (["fetch", "-q", "--prune", "origin"],
+                 ["checkout", "-q", "-B", branch, f"origin/{BASE_BRANCH}"],
+                 ["reset", "-q", "--hard", f"origin/{BASE_BRANCH}"],
+                 ["clean", "-q", "-fdx"]):
+        r = git(*args)
+        if r.returncode: return f"git {args[0]} failed: {r.stderr.strip()[:300]}"
+    return None
+
+def open_pr(branch, verdict):
+    """Push the run's commits to its triage/* branch and open a PR. Enforced
+    here, not in the prompt: the branch name is ours, the build must pass, and
+    the model never touches the remote. Returns (url, reason)."""
+    assert branch.startswith("triage/"), branch
+    if verdict.get("tier") != "T3":
+        return None, "not a T3 verdict"
+    title = (verdict.get("pr_title") or "").strip()
+    if not title:
+        return None, "verdict has no pr_title"
+    ahead = git("rev-list", "--count", f"origin/{BASE_BRANCH}..HEAD").stdout.strip()
+    if ahead in ("", "0"):
+        return None, "no commits to propose"
+    b = subprocess.run(["nixos-rebuild", "build", "--flake", f"{CLONE}/nix#ardent-forge", "--impure"],
+                       cwd=CLONE, capture_output=True, text=True, timeout=1800)
+    if b.returncode:
+        return None, "build failed; no PR opened: " + (b.stderr or b.stdout).strip()[-300:]
+    r = git("push", "-q", "origin", f"HEAD:refs/heads/{branch}", timeout=120)
+    if r.returncode:
+        return None, f"push failed: {r.stderr.strip()[:300]}"
+    body = (verdict.get("pr_body") or verdict.get("summary") or "").strip()
+    body += "\n\nOpened by alert-triage after `nixos-rebuild build` passed."
+    pr = subprocess.run(["gh", "pr", "create", "--base", BASE_BRANCH, "--head", branch,
+                         "--title", title, "--body", body],
+                        cwd=CLONE, capture_output=True, text=True, timeout=120)
+    if pr.returncode:
+        return None, f"gh pr create failed: {pr.stderr.strip()[:300]}"
+    return pr.stdout.strip().splitlines()[-1], "opened"
+
+def build_prompt(msg, sig, verdict_path, may_pr, branch):
     return f"""You are the unattended alert-triage run on ardent-forge. A Grafana
 alert fired and reached ntfy. Triage it.
 
@@ -118,8 +171,10 @@ Rules that are not negotiable:
   condition is already false or the source logs say SYNTHETIC, this is T0: say so
   and stop.
 - Default to T1 (diagnose only). Act only where the playbook names a tier.
-- chill-subs: never push, never merge. Its main deploys to production.
-- {"You MAY open a PR (gh pr create) if the playbook allows T3 AND nixos-rebuild build passes first." if may_pr else "You may NOT open a PR on this run: the daily PR budget is spent. Diagnose and report instead."}
+- You cannot push, merge or open PRs, in any repo. Your working directory is a
+  fresh clone of ardent-forge on branch {branch}, and Edit and Write reach only
+  this clone. Never touch chill-subs' git history; its main deploys to production.
+- {"If the playbook allows T3: make the fix here, run nixos-rebuild build, commit it, and set pr_title and pr_body in the verdict. The runner rebuilds, pushes this branch and opens the PR; if its build fails, no PR is opened." if may_pr else "No PR on this run: the daily PR budget is spent. Do not commit; diagnose and report instead."}
 - Do not restart a unit merely to clear an alert.
 
 When done, write your verdict as JSON to {verdict_path}:
@@ -127,18 +182,24 @@ When done, write your verdict as JSON to {verdict_path}:
     "real": true|false,
     "summary": "<= 300 chars, what you found and did",
     "actions": ["..."],
-    "pr_url": "<url or null>"}}
+    "pr_title": "<only for T3 with a commit, else null>",
+    "pr_body": "<only for T3: what changed and how it was verified, else null>"}}
 Write that file even if you conclude nothing should be done."""
 
 def run_claude(msg, sig, may_pr, timeout_s=900):
     vdir = os.path.join(STATE_DIR, "verdicts"); os.makedirs(vdir, exist_ok=True)
-    vpath = os.path.join(vdir, f"{int(time.time())}-{re.sub(r'[^a-z0-9]+','-',sig.lower())[:40]}.json")
-    tools = BASE_TOOLS + ([PR_TOOL] if may_pr else [])
-    cmd = ["claude", "-p", build_prompt(msg, sig, vpath, may_pr),
-           "--allowedTools", ",".join(tools),
+    slug = re.sub(r'[^a-z0-9]+','-',sig.lower()).strip('-')[:40] or "alert"
+    stamp = int(time.time())
+    vpath = os.path.join(vdir, f"{stamp}-{slug}.json")
+    branch = f"triage/{slug}-{stamp}"
+    err = prepare_clone(branch)
+    if err:
+        return {"tier": "T1", "real": None, "summary": f"could not prepare the clone ({err}); no triage run", "pr_url": None}, ""
+    cmd = ["claude", "-p", build_prompt(msg, sig, vpath, may_pr, branch),
+           "--allowedTools", ",".join(BASE_TOOLS),
            "--disallowedTools", ",".join(DENY)]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+        r = subprocess.run(cmd, cwd=CLONE, capture_output=True, text=True, timeout=timeout_s)
         out = (r.stdout or "")[-2000:]
     except subprocess.TimeoutExpired:
         return {"tier": "T1", "real": None, "summary": f"triage timed out after {timeout_s}s", "pr_url": None}, ""
@@ -148,7 +209,10 @@ def run_claude(msg, sig, may_pr, timeout_s=900):
         except Exception: verdict = None
     if verdict is None:
         verdict = {"tier": "T1", "real": None,
-                   "summary": "triage produced no verdict file; treat as diagnose-only", "pr_url": None}
+                   "summary": "triage produced no verdict file; treat as diagnose-only"}
+    verdict["pr_url"] = None
+    if may_pr:
+        verdict["pr_url"], verdict["pr_note"] = open_pr(branch, verdict)
     return verdict, out
 
 def notify(text, title):
@@ -221,7 +285,7 @@ def main():
         verdict, tail = run_claude(m, sig, may_pr)
         tier = verdict.get("tier", "T1")
         pr = verdict.get("pr_url")
-        print(f"     verdict: tier={tier} real={verdict.get('real')} pr={pr}")
+        print(f"     verdict: tier={tier} real={verdict.get('real')} pr={pr} ({verdict.get('pr_note', 'no PR budget')})")
         print(f"     {verdict.get('summary','')[:300]}")
         if pr:
             daily["prs"] += 1

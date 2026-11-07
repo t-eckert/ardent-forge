@@ -1,2 +1,6 @@
 .claude/settings.local.json
 
+
+# nix build / nixos-rebuild build output
+result
+result-*
