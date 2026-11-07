@@ -6,7 +6,7 @@
 |---|---|---|
 | Postgres (`grafana`, `ardent_forge`) | yes — nightly dumps | **no** |
 | `/data/ardent-forge/notebook` | yes | yes — git, pushed to GitHub every 30s |
-| `/data/ardent-forge/repo` | yes | yes — git |
+| this repo (developed in `~/Repos/github.com/t-eckert/ardent-forge`) | yes | yes — git, on GitHub |
 | `/etc/ardent-forge/locals.json`, `workspace-repos` | no | **no** |
 | `/data/grafana` (secret_key, plugins) | no | **no** |
 | `/data/loki`, `/data/prometheus` | no | **no** — deliberate, see below |

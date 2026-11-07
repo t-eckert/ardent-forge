@@ -91,9 +91,10 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     # SSH to the Bee Link (via local network first time)
     ssh thomaseckert@10.0.0.67
 
-    # On the Bee Link: clone the ardent-forge repo
-    git clone https://github.com/t-eckert/ardent-forge.git /data/ardent-forge/repo
-    cd /data/ardent-forge/repo
+    # On the Bee Link: clone the ardent-forge repo where you'll develop it
+    git clone https://github.com/t-eckert/ardent-forge.git ~/Repos/github.com/t-eckert/ardent-forge
+    cd ~/Repos/github.com/t-eckert/ardent-forge
+    git config core.hooksPath .githooks
 
     # Reconcile the generated hardware config into nix/hardware.nix.
     # Don't paste the generated file in wholesale: the committed version
@@ -171,16 +172,20 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
 
 After validation, commit the real hardware config back to the repo:
 
-    cd /data/ardent-forge/repo
+    cd ~/Repos/github.com/t-eckert/ardent-forge
     git add nix/hardware.nix
     git commit -m "chore(nix): add real Bee Link hardware configuration"
     git push
+
+From here on a push to `main` deploys the box: the first `nixos-rebuild switch`
+above installed the deploy timer and the `af` command. `af status` shows
+what is running.
 
 ## Post-Install
 
 - Bookmark the landing page: `https://ardent-forge.<tailnet>.ts.net` — it links
   everything else, including Grafana at `/svc/grafana`
-- Confirm the `system` and `logs` dashboards render in Grafana; they're read
-  live out of `grafana/dashboards/` in this checkout
+- Confirm the `system` and `logs` dashboards render in Grafana; they're provisioned
+  from `grafana/dashboards/` in the deployed commit
 - Mount the `drop` WebDAV share from Finder (⌘K → `https://drop.<tailnet>.ts.net`)
 - SSH or mosh in and start a Claude Code session — that's what the box is for

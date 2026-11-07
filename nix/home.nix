@@ -96,7 +96,7 @@
     # half-written client. Point it at the nixpkgs prisma-engines package
     # globally so every shell/process (pnpm install, predev, process-compose)
     # has a valid engine. nix-resolved → no stale /nix/store hash, tracks
-    # `af-rebuild`. Must match @prisma/client's major (currently 6.x).
+    # each deploy. Must match @prisma/client's major (currently 6.x).
     PRISMA_QUERY_ENGINE_LIBRARY = "${pkgs.prisma-engines_6}/lib/libquery_engine.node";
     PRISMA_SCHEMA_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/schema-engine";
     PRISMA_QUERY_ENGINE_BINARY = "${pkgs.prisma-engines_6}/bin/query-engine";
@@ -120,7 +120,7 @@
   # systemd user manager loads ~/.config/environment.d/*.conf via
   # 30-systemd-environment-d-generator, so this makes the engine paths available
   # to every user service. Paths reference pkgs.prisma-engines_6 → gcrooted,
-  # tracks af-rebuild. Apply to a running session without relogin via:
+  # tracks each deploy. Apply to a running session without relogin via:
   #   systemctl --user import-environment   (after a daemon-reexec), or relogin.
   home.file.".config/environment.d/10-prisma.conf".text = ''
     PRISMA_QUERY_ENGINE_LIBRARY=${pkgs.prisma-engines_6}/lib/libquery_engine.node
@@ -129,71 +129,7 @@
     PRISMA_FMT_BINARY=${pkgs.prisma-engines_6}/bin/prisma-fmt
   '';
 
-  # Reports, and can refresh, the pins that live outside the flake lock: the
-  # caddy plugin pseudo-versions and the container image digests. `af-rebuild
-  # --update` covers flake inputs; nothing covered these, which is how one of
-  # them drifted eight months.
-  home.file.".local/bin/pin-check" = {
-    executable = true;
-    text = ''
-      #!/usr/bin/env bash
-      exec ${pkgs.python3}/bin/python3 /data/ardent-forge/repo/scripts/pin-check.py "$@"
-    '';
-  };
-
-  # Rebuild script — switches the system from the flake.lock already in the
-  # tree. Moving the inputs is a separate, deliberate act behind --update:
-  # doing it on every rebuild meant the committed lock never described what
-  # the machine actually ran, and folded a month of unrelated nixpkgs into
-  # whatever change was being made at the time.
-  home.file.".local/bin/af-rebuild" = {
-    executable = true;
-    text = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      FLAKE_DIR="/data/ardent-forge/repo/nix"
-
-      update=0
-      if [ "$#" -gt 0 ]; then
-        case "$1" in
-          -u|--update)
-            update=1
-            ;;
-          -h|--help)
-            echo "usage: af-rebuild [--update]"
-            echo
-            echo "Rebuilds ardent-forge from the flake.lock in the working tree."
-            echo
-            echo "  -u, --update   refresh the nixpkgs input first and commit the"
-            echo "                 new flake.lock on its own."
-            exit 0
-            ;;
-          *)
-            echo "af-rebuild: unknown argument: $1" >&2
-            echo "usage: af-rebuild [--update]" >&2
-            exit 2
-            ;;
-        esac
-      fi
-
-      if [ "$update" -eq 1 ]; then
-        echo "Updating nixpkgs..."
-        # Commits only flake.lock, leaving anything else staged untouched.
-        nix flake update nixpkgs --commit-lock-file --flake "$FLAKE_DIR"
-      else
-        echo "Building from the existing flake.lock (--update to refresh inputs)."
-      fi
-
-      echo "Rebuilding system..."
-      if sudo nixos-rebuild switch --flake "$FLAKE_DIR#ardent-forge" --impure; then
-        echo "Switch complete."
-      else
-        echo "Live switch failed (likely critical system changes). Staging for next boot..."
-        sudo nixos-rebuild boot --flake "$FLAKE_DIR#ardent-forge" --impure
-        echo "Done. Reboot when ready: sudo reboot"
-      fi
-    '';
-  };
+  # Deploys, pins and lock updates are the `af` command now, installed
+  # system-wide by nix/services/deploy.nix.
 
 }

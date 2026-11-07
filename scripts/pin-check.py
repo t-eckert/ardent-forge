@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report and refresh the pins this config carries outside the flake lock.
 
-Flake inputs have `af-rebuild --update`. These do not: Go module pseudo-versions
+Flake inputs have `af update`. These do not: Go module pseudo-versions
 for the caddy plugins, and container image digests. They are pinned by hand,
 which means they are updated only when someone remembers, and both had drifted
 by the better part of a year before anyone looked.
@@ -10,12 +10,12 @@ This is deliberately a plain script and not an agent. Resolving a tag to a
 digest and rewriting a string is fully determined -- there is no judgement in
 it, so a model would add cost and nondeterminism and buy nothing.
 
-    pin-check                 report what is stale
-    pin-check --update        rewrite the pins, resolve the plugin hash, build
+    af pins                   report what is stale
+    af pins --update          rewrite the pins, resolve the plugin hash, build
 
-It never switches: `nixos-rebuild switch` needs a password this cannot supply,
-and a passing build is not proof the tsnet nodes still register with control.
-Review the diff and switch by hand.
+It never commits or pushes: a push to main deploys the box, and a passing
+build is not proof the tsnet nodes still register with control. Review the
+diff, then commit and push it.
 """
 import argparse, json, os, re, subprocess, sys, urllib.request
 

@@ -15,9 +15,9 @@
 #     proxy. stet-implementer-probe runs `stet probe` in the same slice before
 #     every start, so it takes no work unless the fence holds.
 #
-# Updating stet: pull ~/Repos/github.com/t-eckert/galley-agent, then
-#   nix flake update galley-agent --flake /data/ardent-forge/repo/nix
-# commit the flake.lock, and af-rebuild. Revert that commit to roll back.
+# Updating stet: pull ~/Repos/github.com/t-eckert/galley-agent, then in this
+# repo's checkout run `af update galley-agent`, commit the flake.lock and
+# push; the push deploys it. Revert that commit and push to roll back.
 { config, ... }:
 
 {

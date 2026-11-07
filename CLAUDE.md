@@ -12,26 +12,25 @@ The repo used to also host an agentic task-management platform (a Python backend
 
 ## Working on this repo
 
-**This checkout is the deployment.** `/data/ardent-forge/repo` is what `nixos-rebuild` reads. Do not clone the repo elsewhere on the box to work on it — a second checkout means rebuilding from a tree that isn't the deployed one. The workspace repo list deliberately omits this repo for that reason.
+**A push to `main` deploys the box.** `af-rebuild.service` (`nix/services/deploy.nix`) checks `origin/main` every two minutes and deploys that exact commit as root from its own clone; nothing builds from a working tree. Develop in `~/Repos/github.com/t-eckert/ardent-forge`. Pushes from Claude Code sessions in this repo ask first (`.claude/settings.json`).
+
+After a switch it checks tailscaled, sshd, Tailscale being online and GitHub being reachable. Each is a way back into the box, so if any fails for a minute it switches back to the previous system. Units that newly fail are reported and kept. A failed commit is skipped until `main` moves. Results go to the `ardent-forge-deploys` ntfy topic. The design and its reasons are in `nix/services/deploy/af-deploy.py`.
+
+The pre-push hook (`.githooks/pre-push`) builds the exact commit being pushed to `main`, so a broken config never reaches it and the deploy finds the build already done. Enable it in a new clone with `git config core.hooksPath .githooks`; `git push --no-verify` skips it.
 
 ```bash
-# Check that a change evaluates (fast, no switch)
-nix build '/data/ardent-forge/repo/nix#nixosConfigurations.ardent-forge.config.system.build.toplevel' \
-  --dry-run --impure --no-link
+af build                 # build the checkout's system; says if it matches what's running
+af update [input...]     # update flake inputs and build; review, commit, push
+af pins [--update]       # pins kept outside flake.lock (caddy plugins, image digests)
 
-# Apply it
-sudo nixos-rebuild switch --flake /data/ardent-forge/repo/nix#ardent-forge --impure
-
-# Or: switch from the flake.lock in the tree, falling back to `boot` if the
-# live switch can't be done (see nix/home.nix)
-af-rebuild
-
-# Move nixpkgs first, committing the new flake.lock on its own
-af-rebuild --update
-
-# Move one input only, e.g. after pushing to t-eckert/dotfiles
-nix flake update dotfiles --flake /data/ardent-forge/repo/nix
+af status                # running commit, origin/main, last result, reboot pending
+af deploy [--retry]      # deploy origin/main now instead of waiting for the timer
+af log [N]               # deploy journal
+af config show|edit      # /etc/ardent-forge/locals.json; edit deploys after
+af repos list|add|remove # repos workspace-init clones into ~/Repos/github.com
 ```
+
+Updating an input is a change like any other: `af update dotfiles` after pushing to t-eckert/dotfiles, then commit the lock and push. Nothing updates inputs on its own.
 
 `--impure` is mandatory: `nix/flake.nix` reads `/etc/ardent-forge/locals.json` by absolute path.
 
@@ -44,7 +43,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 - `nix/flake.nix` — inputs (nixpkgs unstable, home-manager, the `t-eckert/dotfiles` flake) and the `ardent-forge` host
 - `nix/configuration.nix` — system module: boot, networking, firewall, Tailscale, users, SSH, mosh, podman, nix-ld, system packages, `/data` tmpfiles
 - `nix/hardware.nix` — Bee Link specifics. Mounts are by **label**, not UUID; don't paste in a raw `nixos-generate-config` dump
-- `nix/home.nix` — home-manager: the dotfiles home env plus the toolchains this box needs (uv, pyright, rust-analyzer, playwright, cargo-watch) and the OpenSSL/Prisma/Playwright env they depend on. Also defines `af-rebuild`
+- `nix/home.nix` — home-manager: the dotfiles home env plus the toolchains this box needs (uv, pyright, rust-analyzer, playwright, cargo-watch) and the OpenSSL/Prisma/Playwright env they depend on
 - `nix/services/*.nix` — one module per service
 - `grafana/dashboards/` — dashboard JSON, read live off this checkout by Grafana's file provider
 - `scripts/syncshot.py` — the notebook sync loop, run by `ardent-forge-notebook-sync`
