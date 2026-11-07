@@ -1,0 +1,5 @@
+# GitHub repos to clone into ~/Repos/github.com/owner/repo, one per line.
+# Install as /etc/ardent-forge/workspace-repos, owned by your user.
+# workspace-init reads it at start; GH_TOKEN comes from 1Password, so private
+# repos work. Add a line and run `sudo systemctl start workspace-init`.
+owner/repo

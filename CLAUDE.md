@@ -12,7 +12,7 @@ The repo used to also host an agentic task-management platform (a Python backend
 
 ## Working on this repo
 
-**This checkout is the deployment.** `/data/ardent-forge/repo` is what `nixos-rebuild` reads. Do not clone the repo elsewhere on the box to work on it — a second checkout means rebuilding from a tree that isn't the deployed one. `nix/locals.nix` deliberately omits this repo from `workspaceRepos` for that reason.
+**This checkout is the deployment.** `/data/ardent-forge/repo` is what `nixos-rebuild` reads. Do not clone the repo elsewhere on the box to work on it — a second checkout means rebuilding from a tree that isn't the deployed one. The workspace repo list deliberately omits this repo for that reason.
 
 ```bash
 # Check that a change evaluates (fast, no switch)
@@ -33,9 +33,9 @@ af-rebuild --update
 nix flake update dotfiles --flake /data/ardent-forge/repo/nix
 ```
 
-`--impure` is mandatory: `nix/flake.nix` imports `nix/locals.nix` by absolute path.
+`--impure` is mandatory: `nix/flake.nix` reads `/etc/ardent-forge/locals.json` by absolute path.
 
-`nix/locals.nix` is gitignored — it holds the username, tailnet domain, SSH keys, and the workspace repo list. `nix/locals.example.nix` is its committed template; keep the two in sync when adding a field.
+Host values are not in the repo. `/etc/ardent-forge/locals.json` (root-owned) holds the username, tailnet domain and SSH keys, read by the build as plain JSON; `nix/locals.example.json` is its committed template, so keep the two in sync when adding a field. `/etc/ardent-forge/workspace-repos` (user-owned, one `owner/repo` per line) is the workspace repo list; workspace-init reads it at runtime and the build never sees it. Template: `nix/workspace-repos.example`.
 
 Formatting is nixfmt-rfc-style, but only some files have been through it. Match the file you're editing rather than reformatting it wholesale in an unrelated change.
 
@@ -61,7 +61,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 | `marimo` | Headless marimo on :2718 against `~/Repos/lab`, exposed as `lab.<tailnet>` |
 | `thomaseckert-dev` | Astro dev server on :10000, exposed as `te.<tailnet>` |
 | `ardent-forge-notebook-sync` | Clones `t-eckert/Notebook` to `/data/ardent-forge/notebook` and runs `scripts/syncshot.py` every 30s |
-| `workspace-init` | Clones `locals.workspaceRepos` into `~/Repos/github.com/owner/repo` at boot. Re-run with `sudo systemctl start workspace-init` |
+| `workspace-init` | Clones the repos in `/etc/ardent-forge/workspace-repos` into `~/Repos/github.com/owner/repo` at boot. Re-run with `sudo systemctl start workspace-init` |
 
 Adding a tailnet host is a single entry in `csApps` in `nix/services/caddy.nix` — that drives the tsnet node, the vhost, and the landing-page listing together. Don't use `tailscale serve`; it conflicts with Caddy's management of the host domain.
 

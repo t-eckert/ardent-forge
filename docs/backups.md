@@ -6,7 +6,8 @@
 |---|---|---|
 | Postgres (`grafana`, `ardent_forge`) | yes — nightly dumps | **no** |
 | `/data/ardent-forge/notebook` | yes | yes — git, pushed to GitHub every 30s |
-| `/data/ardent-forge/repo` | yes | yes — git, **except `nix/locals.nix`** |
+| `/data/ardent-forge/repo` | yes | yes — git |
+| `/etc/ardent-forge/locals.json`, `workspace-repos` | no | **no** |
 | `/data/grafana` (secret_key, plugins) | no | **no** |
 | `/data/loki`, `/data/prometheus` | no | **no** — deliberate, see below |
 | `/data/ntfy` | no | **no** |
@@ -44,16 +45,17 @@ sudo -u postgres pg_restore --clean --if-exists -d grafana \
   /data/backup/postgres/grafana-20260804T031500Z.dump
 ```
 
-## The `locals.nix` problem
+## The host config problem
 
-`nix/locals.nix` is gitignored by design — it holds the username, tailnet
-domain, SSH keys and workspace repo list. `--impure` is mandatory precisely
-because the flake reads it by absolute path.
+Host values are kept out of the repo by design. `/etc/ardent-forge/locals.json`
+holds the username, tailnet domain and SSH keys, and the flake reads it by
+absolute path, which is why `--impure` is mandatory.
+`/etc/ardent-forge/workspace-repos` is the list of repos workspace-init clones.
 
-It exists in exactly one place: this disk. The entire configuration is on
-GitHub and **the machine still cannot be rebuilt without this file**. It is
-854 bytes and it is the single point of failure for an otherwise fully
-declarative system.
+Both exist in exactly one place: this disk. The entire configuration is on
+GitHub and **the machine still cannot be rebuilt without `locals.json`**. It is
+a few hundred bytes and it is the single point of failure for an otherwise
+fully declarative system.
 
 Copying it to another path on the same NVMe achieves nothing against disk
 failure. It needs to leave the box. Reasonable options, in rough order of
@@ -65,9 +67,10 @@ effort:
 3. Anywhere off the box at all. A file this small on a USB key beats what is
    there now, which is nothing.
 
-`nix/locals.example.nix` is committed and lists every field, so a rebuild from
-scratch is a matter of filling in values rather than reverse-engineering them —
-but the SSH keys are not recoverable from the template.
+`nix/locals.example.json` and `nix/workspace-repos.example` are committed, so a
+rebuild from scratch is a matter of filling in values rather than
+reverse-engineering them — but the SSH keys are not recoverable from the
+template.
 
 ## Why Loki and Prometheus are not backed up
 
@@ -104,7 +107,7 @@ secrets are `op://` references, never values:
    - `/data/backup/postgres` — the dumps, not the live cluster
    - `/data/grafana` — `secret_key` and plugins
    - `/data/ntfy/etc`
-   - `nix/locals.nix`
+   - `/etc/ardent-forge/locals.json` and `workspace-repos`
 
    with `pruneOpts` along the lines of `--keep-daily 7 --keep-weekly 5
    --keep-monthly 12`.

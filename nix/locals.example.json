@@ -1,0 +1,7 @@
+{
+  "username": "youruser",
+  "tailnetDomain": "ardent-forge.example.ts.net",
+  "sshKeys": [
+    "ssh-ed25519 AAAA... you@host"
+  ]
+}

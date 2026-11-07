@@ -50,9 +50,13 @@
   # is never referenced here, hence the ellipsis.
   outputs = { self, nixpkgs, home-manager, dotfiles, galley-agent, ... }:
     let
-      # locals.nix is gitignored, so we import from an absolute path.
-      # On the Bee Link this lives alongside the repo checkout.
-      locals = import /data/ardent-forge/repo/nix/locals.nix;
+      # Host values (username, tailnet domain, SSH keys) live outside the repo,
+      # in a root-owned file placed on the box, so the repo carries no one's
+      # identity and nothing running as the user can change what the build
+      # reads. It is plain JSON, read as data, so a bad file cannot run code
+      # during evaluation. See nix/locals.example.json. Reading an absolute
+      # path is why every build of this flake needs --impure.
+      locals = builtins.fromJSON (builtins.readFile /etc/ardent-forge/locals.json);
     in {
     nixosConfigurations.ardent-forge = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";

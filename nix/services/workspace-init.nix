@@ -1,8 +1,13 @@
 # nix/services/workspace-init.nix
 #
-# Clones any repos declared in locals.workspaceRepos that are missing from
-# ~/Repos/github.com/owner/repo. Runs once at boot as a oneshot; re-run
-# manually with `systemctl start workspace-init` after adding a new repo.
+# Clones any repos listed in /etc/ardent-forge/workspace-repos that are
+# missing from ~/Repos/github.com/owner/repo. Runs once at boot as a oneshot;
+# re-run with `sudo systemctl start workspace-init` after adding a repo.
+#
+# The list is read when the service runs, not at build time: it is the user's
+# own file (one owner/repo per line, # comments allowed), the service runs as
+# the user and only clones, so the build never needs to see it and adding a
+# repo needs no rebuild. See nix/workspace-repos.example.
 #
 # GH_TOKEN is resolved by `op run` from workspace-init.env at start time, so
 # no secret ever lands in the Nix store. The op service-account token itself
@@ -12,11 +17,11 @@
 let
   workspaceDir = "/home/${locals.username}/Repos/github.com";
   envFile = "/data/ardent-forge/repo/nix/services/workspace-init.env";
-  repos = locals.workspaceRepos or [];
+  reposFile = "/etc/ardent-forge/workspace-repos";
 
   cloneScript = pkgs.writeShellScript "workspace-init" ''
     set -euo pipefail
-    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils ])}:$PATH
+    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils gnused ])}:$PATH
 
     clone_if_missing() {
       local slug="$1"
@@ -32,8 +37,22 @@ let
       git clone "https://x-access-token:''${GH_TOKEN}@github.com/$slug.git" "$dest"
     }
 
-    echo "workspace-init: checking ${toString (builtins.length repos)} repos"
-    ${lib.concatMapStrings (repo: "clone_if_missing ${lib.escapeShellArg repo}\n") repos}
+    if [ ! -f ${reposFile} ]; then
+      echo "workspace-init: no ${reposFile}, nothing to clone"
+      exit 0
+    fi
+
+    # Blank lines and # comments are skipped; anything that isn't owner/repo
+    # is reported and skipped rather than handed to git.
+    mapfile -t repos < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' -e '/^$/d' ${reposFile})
+    echo "workspace-init: checking ''${#repos[@]} repos"
+    for slug in "''${repos[@]}"; do
+      if [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+        clone_if_missing "$slug"
+      else
+        echo "  skip $slug (not owner/repo)"
+      fi
+    done
     echo "workspace-init: done"
   '';
 in {

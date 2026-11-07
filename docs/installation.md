@@ -102,13 +102,18 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     # in availableKernelModules and leave the fileSystems blocks alone.
     diff /etc/nixos/hardware-configuration.nix nix/hardware.nix
 
-    # Create locals.nix from the example (gitignored — stays on this machine)
-    cp nix/locals.example.nix nix/locals.nix
-    # Edit with your real tailnet domain, SSH public key, and workspace repos:
-    vim nix/locals.nix
+    # Host values live outside the repo. locals.json is root-owned and read
+    # by the build; workspace-repos is yours and read by workspace-init.
+    sudo mkdir -p /etc/ardent-forge
+    sudo install -o root -g root -m 0644 nix/locals.example.json /etc/ardent-forge/locals.json
+    sudo install -o "$USER" -g users -m 0644 nix/workspace-repos.example /etc/ardent-forge/workspace-repos
+    # Edit with your username, tailnet domain and SSH public key:
+    sudoedit /etc/ardent-forge/locals.json
+    # One owner/repo per line:
+    vim /etc/ardent-forge/workspace-repos
 
     # Apply the full NixOS configuration. --impure is required: flake.nix
-    # imports locals.nix by absolute path.
+    # reads /etc/ardent-forge/locals.json by absolute path.
     sudo nixos-rebuild switch --flake ./nix#ardent-forge --impure
 
     # Set up Tailscale
