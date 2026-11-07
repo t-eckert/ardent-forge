@@ -20,7 +20,7 @@ A commit that fails is remembered and not retried until main moves again
 (`af deploy --retry` forces it). Nothing here reboots, and a failed system is
 never staged for the next boot.
 """
-import argparse, hashlib, json, os, subprocess, sys, time
+import argparse, fcntl, hashlib, json, os, subprocess, sys, time
 from datetime import datetime, timezone
 
 REPO_URL = os.environ["AF_REPO_URL"]
@@ -170,6 +170,17 @@ def main():
     ap.add_argument("--retry", action="store_true", help="deploy a commit that failed before")
     ap.add_argument("--force", action="store_true", help="deploy even if already up to date")
     args = ap.parse_args()
+
+    # One deploy at a time. The timer, af deploy and the drill are separate
+    # units, and a switch restarts a stopped timer, so they can overlap; a
+    # second run waits here, then reads the state the first one left.
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    lock = open(os.path.join(os.path.dirname(STATE), "lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log("another deploy is running; waiting for it")
+        fcntl.flock(lock, fcntl.LOCK_EX)
 
     st = load_state()
     st["checked_at"] = now()
