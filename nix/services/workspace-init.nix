@@ -64,7 +64,8 @@ in {
 
     serviceConfig = {
       Type = "oneshot";
-      RemainAfterExit = true;
+      # No RemainAfterExit: with it the unit stays "active" after the boot
+      # run, and every later `systemctl start` is a no-op that clones nothing.
       User = locals.username;
       Group = "users";
 

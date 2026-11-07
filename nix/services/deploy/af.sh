@@ -65,9 +65,10 @@ cmd_status() {
   fi
   if [ -r "$state" ]; then
     jq -r '
-      (.last // empty) as $l
-      | "last        \($l.result) \($l.rev[0:7]) \($l.subject // "") at \($l.at)"
-        + (if ($l.detail // "") != "" then "\n            \($l.detail)" else "" end),
+      (if .last then
+         "last        \(.last.result) \(.last.rev[0:7]) \(.last.subject // "") at \(.last.at)"
+         + (if (.last.detail // "") != "" then "\n            \(.last.detail)" else "" end)
+       else "last        no deploy recorded yet" end),
       (if .failed then "failed      \(.failed[0:7]), skipped until main moves (af deploy --retry)" else empty end),
       "reboot      \(if .reboot_pending then "pending" else "not needed" end)"
     ' "$state"
@@ -124,8 +125,10 @@ cmd_repos() {
         echo "$slug" >>"$repos_file"
         echo "added $slug"
       fi
+      local since
+      since=$(date +%s)
       sudo "$systemctl" start workspace-init
-      journalctl -u workspace-init -n 20 -o cat --no-pager | sed -n '/checking/,/done/p' | tail -n +1
+      journalctl -u workspace-init --since "@$since" -o cat --no-pager | grep -E '^(workspace-init|  )' || true
       ;;
     remove)
       valid_slug "$slug" || die "usage: af repos remove owner/repo"
