@@ -12,8 +12,8 @@
 #   - The implementer runs one Claude Code session at a time, each in a rootless
 #     Podman container, inside the stet-implementer crucible profile below. The
 #     containers share the host network and leave only through the profile's
-#     proxy. Its unit runs `stet probe` before it starts, so it takes no work
-#     unless the fence holds.
+#     proxy. stet-implementer-probe runs `stet probe` in the same slice before
+#     every start, so it takes no work unless the fence holds.
 #
 # Updating stet: pull ~/Repos/github.com/t-eckert/galley-agent, then
 #   nix flake update galley-agent --flake /data/ardent-forge/repo/nix
@@ -57,7 +57,12 @@
     };
   };
 
-  # The implementer's proxy has to be up before its probe runs.
+  # The implementer's proxy has to be up before its probe runs, which is its own
+  # unit, and stays up while the implementer does.
+  systemd.services.stet-implementer-probe = {
+    requires = [ "crucible-proxy-stet-implementer.service" ];
+    after = [ "crucible-proxy-stet-implementer.service" ];
+  };
   systemd.services.stet-implementer = {
     requires = [ "crucible-proxy-stet-implementer.service" ];
     after = [ "crucible-proxy-stet-implementer.service" ];

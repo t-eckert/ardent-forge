@@ -155,11 +155,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794006042,
-        "narHash": "sha256-dUx/+SzxT66XAilQIRU3gFrGgsn1uVnvXlfl3RZoBRQ=",
+        "lastModified": 1794013666,
+        "narHash": "sha256-rvuq00rZt9BKQxwa0HMGOJ/mKlLBUmFvZkIhNAes3Ms=",
         "ref": "main",
-        "rev": "9ae11dd3c6e40549f244c7683e60e126698be190",
-        "revCount": 27,
+        "rev": "83ba96eb2979eaf2bfd3c7dc121786635aa40e8d",
+        "revCount": 28,
         "type": "git",
         "url": "file:///home/thomaseckert/Repos/github.com/t-eckert/galley-agent"
       },
