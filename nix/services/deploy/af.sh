@@ -128,7 +128,7 @@ cmd_repos() {
       local since
       since=$(date +%s)
       sudo "$systemctl" start workspace-init
-      journalctl -u workspace-init --since "@$since" -o cat --no-pager | grep -E '^(workspace-init|  )' || true
+      journalctl -u workspace-init --since "@$since" -o cat --no-pager | grep -E '^(workspace-init: |  )' || true
       ;;
     remove)
       valid_slug "$slug" || die "usage: af repos remove owner/repo"
