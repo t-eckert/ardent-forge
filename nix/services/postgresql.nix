@@ -1,4 +1,14 @@
 # nix/services/postgresql.nix
+#
+# Postgres for the platform's own services, not for development apps. Dev
+# stacks bring their own Postgres, so this one listens on the local socket
+# only and is sized for what uses it: today that is Grafana alone. A platform
+# service that needs a database gets one here through ensureDatabases and
+# ensureUsers, and connects over the socket as its own system user (peer auth).
+#
+# It used to listen on TCP and accept password logins from the whole tailnet,
+# tuned as the box's main database (2 GB shared_buffers, 200 connections) for
+# a shared-dev-database role nothing ever used.
 { config, pkgs, lib, ... }:
 
 {
@@ -7,37 +17,31 @@
     package = pkgs.postgresql_17;
     dataDir = "/data/postgresql";
 
-    enableTCPIP = true;
-
-    # Only allow connections from Tailscale and localhost
+    # Socket only. Every client is a local service connecting as its own
+    # system user, so peer auth is the only rule needed.
+    enableTCPIP = false;
     authentication = pkgs.lib.mkForce ''
       # TYPE  DATABASE        USER            ADDRESS                 METHOD
       local   all             all                                     peer
-      host    all             all             127.0.0.1/32            scram-sha-256
-      host    all             all             100.64.0.0/10           scram-sha-256
     '';
 
     settings = {
-      # ── Memory (tuned for 16GB RAM, shared with other services) ──
-      shared_buffers = "2GB";
-      effective_cache_size = "12GB";
-      maintenance_work_mem = "512MB";
-      work_mem = "32MB";
+      # enableTCPIP = false alone still listens on localhost:5432. Empty means
+      # no TCP at all, which leaves 5432 free for a dev stack's own Postgres.
+      listen_addresses = lib.mkForce "";
 
-      # ── Connections ──
-      max_connections = 200;
-      max_worker_processes = 4;
+      # Sized for a few small platform databases (Grafana's is ~15 MB), not
+      # as the box's main database: the rest of the 16 GB belongs to dev work.
+      shared_buffers = "256MB";
+      effective_cache_size = "1GB";
+      maintenance_work_mem = "64MB";
+      work_mem = "4MB";
 
-      # ── WAL ──
-      max_wal_size = "4GB";
+      # Grafana's pool, the exporter, the nightly dump and a psql session.
+      max_connections = 30;
+
       wal_compression = "on";
-      checkpoint_timeout = "10min";
 
-      # ── Autovacuum (SSD-optimized) ──
-      autovacuum_vacuum_cost_delay = "2ms";
-      autovacuum_vacuum_cost_limit = 2000;
-
-      # ── Logging ──
       log_min_duration_statement = 1000;  # Log queries > 1s
     };
 

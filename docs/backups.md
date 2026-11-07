@@ -4,7 +4,7 @@
 
 | Data | Protected against fat-fingers | Protected against the disk dying |
 |---|---|---|
-| Postgres (`grafana`, `ardent_forge`) | yes — nightly dumps | **no** |
+| Postgres (`grafana`) | yes — nightly dumps | **no** |
 | `/data/ardent-forge/notebook` | yes | yes — git, pushed to GitHub every 30s |
 | this repo (developed in `~/Repos/github.com/t-eckert/ardent-forge`) | yes | yes — git, on GitHub |
 | `/etc/ardent-forge/locals.json`, `workspace-repos` | no | **no** |
