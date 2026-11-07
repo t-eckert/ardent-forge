@@ -197,7 +197,7 @@ in {
       # Combined module hash for the tailscale + webdav plugin set. If you add
       # or bump a plugin, set this to lib.fakeHash, rebuild, and paste the
       # suggested sha256 the build prints.
-      hash = "sha256-6VrjrHySiFdZcb0nYWA9nG/tWzqsKb0VMkQBjOP8oT0=";
+      hash = "sha256-ypA1ExLFrmzYI2vYhwliKU00yGucCyCrWpNYCH05fvs=";
     };
 
     # Tailscale credential lives in /etc/caddy/tailscale-auth (root:caddy
