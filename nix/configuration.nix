@@ -24,6 +24,7 @@
     ./services/crucible.nix
     ./services/smartd.nix
     ./services/stet.nix
+    ./services/deploy.nix
   ];
 
   # ── System ──────────────────────────────────────────────

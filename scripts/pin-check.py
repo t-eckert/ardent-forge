@@ -19,7 +19,8 @@ Review the diff and switch by hand.
 """
 import argparse, json, os, re, subprocess, sys, urllib.request
 
-REPO = "/data/ardent-forge/repo"
+# The checkout to work on; `af pins` sets it.
+REPO = os.environ.get("AF_REPO") or os.getcwd()
 CADDY_NIX = "nix/services/caddy.nix"
 
 PINS = [

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Build the exact commit being pushed to main before it leaves the machine.
+#
+# A push to main deploys Ardent Forge (nix/services/deploy.nix). This builds
+# the pushed commit, not the working tree, with the same
+# /etc/ardent-forge/locals.json the deploy reads, so it produces the system
+# the deploy will build, and the deploy then finds it already in the store.
+# Pushes to other branches are not checked. `git push --no-verify` skips this.
+#
+# Enabled per clone with: git config core.hooksPath .githooks
+set -euo pipefail
+
+zero=0000000000000000000000000000000000000000
+top=$(git rev-parse --show-toplevel)
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  [ "$local_sha" = "$zero" ] && continue
+  echo "pre-push: building ${local_sha:0:7}, the system the Forge will deploy" >&2
+  if ! nix build --no-link --print-out-paths --impure \
+      "git+file://$top?rev=$local_sha&dir=nix#nixosConfigurations.ardent-forge.config.system.build.toplevel" >&2; then
+    echo "pre-push: the build failed, so nothing was pushed (git push --no-verify skips this check)" >&2
+    exit 1
+  fi
+done
