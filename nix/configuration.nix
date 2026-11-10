@@ -9,6 +9,7 @@
 
 {
   imports = [
+    ./claude-code.nix
     ./services/postgresql.nix
     ./services/monitoring.nix
     ./services/caddy.nix
