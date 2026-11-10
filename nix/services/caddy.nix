@@ -85,6 +85,7 @@ let
     # every asset 404'd against the landing page's file_server. The shell
     # returned 200 and then died, which is why nothing was ever subscribed.
     ntfy       = { backend = "127.0.0.1:8090";  label = "push notifications"; };
+    homefinder = { backend = "127.0.0.1:8300";  label = "Homefinder (dev)"; };
     te         = { backend = "127.0.0.1:10000"; label = "thomaseckert.dev"; };
     weather    = { backend = "127.0.0.1:8091";  label = "the weather"; };
   };
