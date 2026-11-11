@@ -75,6 +75,6 @@ To give a service a new secret, add the reference to its env file — never the 
 
 ## Deployment
 
-There is no CI and no autodeploy. A push to `main` does nothing on its own; changes land when someone runs a rebuild on the box. Verify with the dry-run build above before switching, and check `systemctl list-units --failed` after.
+A push to `main` is a deploy: `af-rebuild.service` picks it up within two minutes (see "Working on this repo" above). There is no CI; `af build`, which the pre-push hook also runs, is the check before pushing. After it lands, `af status` shows the running commit, the result and whether a reboot is pending; `af log` has the details and any units that newly failed.
 
-`/data/` is the persistent state root and is not managed by git: `/data/ardent-forge/notebook` (the Obsidian vault clone), `/data/postgresql`, `/data/grafana`, `/data/prometheus`, `/data/loki`, `/data/ntfy`.
+`/data/` is the persistent state root and is not managed by git: `/data/ardent-forge/notebook` (the Notebook clone), `/data/postgresql`, `/data/grafana`, `/data/prometheus`, `/data/loki`, `/data/ntfy`.
