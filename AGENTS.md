@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for coding agents working in this repository. `CLAUDE.md` imports this file, so there is one copy to maintain.
 
 ## Project
 
@@ -12,7 +12,7 @@ The repo used to also host an agentic task-management platform (a Python backend
 
 ## Working on this repo
 
-**A push to `main` deploys the box.** `af-rebuild.service` (`nix/services/deploy.nix`) checks `origin/main` every two minutes and deploys that exact commit as root from its own clone; nothing builds from a working tree. Develop in `~/Repos/github.com/t-eckert/ardent-forge`. Pushes from Claude Code sessions in this repo ask first (`.claude/settings.json`).
+**A push to `main` deploys the box.** `af-rebuild.service` (`nix/services/deploy.nix`) checks `origin/main` every two minutes and deploys that exact commit as root from its own clone; nothing builds from a working tree. Develop in `~/Repos/github.com/t-eckert/ardent-forge`. Ask before pushing to `main`. Claude Code sessions are made to ask by `.claude/settings.json`; other agents have to do it themselves.
 
 After a switch it checks tailscaled, sshd, Tailscale being online and GitHub being reachable. Each is a way back into the box, so if any fails for a minute it switches back to the previous system. Units that newly fail are reported and kept. A failed commit is skipped until `main` moves. Results go to the `ardent-forge-deploys` ntfy topic. The design and its reasons are in `nix/services/deploy/af-deploy.py`.
 
