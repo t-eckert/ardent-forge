@@ -69,12 +69,24 @@ cmd_status() {
          "last        \(.last.result) \(.last.rev[0:7]) \(.last.subject // "") at \(.last.at)"
          + (if (.last.detail // "") != "" then "\n            \(.last.detail)" else "" end)
        else "last        no deploy recorded yet" end),
-      (if .failed then "failed      \(.failed[0:7]), skipped until main moves (af deploy --retry)" else empty end),
-      "reboot      \(if .reboot_pending then "pending" else "not needed" end)"
+      (if .failed then "failed      \(.failed[0:7]), skipped until main moves (af deploy --retry)" else empty end)
     ' "$state"
   else
     echo "last        no deploy recorded yet"
   fi
+  # Checked live, not read from state.json: the deploy only writes its flag
+  # when it runs, so after a reboot the saved one stays stale until the timer.
+  if reboot_pending; then echo "reboot      pending"; else echo "reboot      not needed"; fi
+}
+
+# Same test as reboot_pending() in af-deploy.py: the booted kernel, initrd or
+# modules differ from the current system's.
+reboot_pending() {
+  local p
+  for p in kernel initrd kernel-modules; do
+    [ "$(readlink -f "/run/booted-system/$p")" = "$(readlink -f "/run/current-system/$p")" ] || return 0
+  done
+  return 1
 }
 
 cmd_deploy() {
