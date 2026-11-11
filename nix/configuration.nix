@@ -172,6 +172,7 @@
     btop
     _1password-cli
     claude-code
+    herdr # agent-aware terminal multiplexer for the Claude Code sessions
     ghostty.terminfo
     openssl
   ];
