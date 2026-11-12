@@ -173,6 +173,7 @@
     _1password-cli
     claude-code
     herdr # agent-aware terminal multiplexer for the Claude Code sessions
+    (callPackage ./herdr-core.nix { }) # hc, what the Herdr Mac app connects to
     ghostty.terminfo
     openssl
   ];
