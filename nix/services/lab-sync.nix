@@ -5,56 +5,56 @@
 # but the repo is created locally by marimo's ExecStartPre rather than cloned,
 # so this bootstraps the remote and the first commit instead of cloning.
 #
-# Everything runs inside `op run` so FORGE_GITHUB_TOKEN is available for push.
+# git gets the GitHub token from 1Password whenever it needs one, through
+# github-pat-credential.nix, so rotating the token needs no restart.
 { pkgs, lib, locals, ... }:
 
 let
   labDir = "/home/${locals.username}/Repos/lab";
   remote = "github.com/t-eckert/lab.git";
+  runtimeDir = "/run/ardent-forge-lab-sync";
+  credential = import ./github-pat-credential.nix { inherit pkgs; };
 
   startScript = pkgs.writeShellScript "lab-sync-start" ''
     set -euo pipefail
-    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
+    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 ])}:$PATH
 
-    exec op run --env-file ${./lab-sync.env} -- ${pkgs.bash}/bin/bash -c '
-      set -euo pipefail
+    cd "${labDir}"
 
-      cd "${labDir}"
+    # marimo.service ExecStartPre already does this, but lab-sync has no
+    # ordering guarantee against it and `git -C` on a non-repo is fatal.
+    if [ ! -d .git ]; then
+      git init
+    fi
 
-      # marimo.service ExecStartPre already does this, but lab-sync has no
-      # ordering guarantee against it and `git -C` on a non-repo is fatal.
-      if [ ! -d .git ]; then
-        git init
+    git symbolic-ref HEAD refs/heads/main
+
+    git config user.name "Ardent Forge"
+    git config user.email "forge@${locals.tailnetDomain}"
+    git config --unset-all credential.helper || true
+    git config credential.helper ""
+    git config --add credential.helper "cache --timeout=3600 --socket=${runtimeDir}/git-credential"
+    git config --add credential.helper ${credential}
+
+    git remote add origin "https://${remote}" 2>/dev/null \
+      || git remote set-url origin "https://${remote}"
+
+    # syncshot reads ahead/behind from `git status -b`, which reports nothing
+    # without an upstream. Seed a commit and set tracking on first run so the
+    # very first sync has a branch to compare against.
+    if ! git rev-parse HEAD >/dev/null 2>&1; then
+      if [ ! -f .gitignore ]; then
+        printf "%s\n" "__pycache__/" "__marimo__/" ".venv/" "*.pyc" > .gitignore
       fi
+      git add -A
+      git commit -m "Initialize lab" --allow-empty
+    fi
 
-      git symbolic-ref HEAD refs/heads/main
+    if ! git rev-parse --abbrev-ref main@{upstream} >/dev/null 2>&1; then
+      git push -u origin main
+    fi
 
-      git config user.name "Ardent Forge"
-      git config user.email "forge@${locals.tailnetDomain}"
-      # \$ keeps the token out of .git/config: the helper reads it from this
-      # service environment when git runs it.
-      git config credential.helper "!f() { echo username=x-access-token; echo \"password=\$FORGE_GITHUB_TOKEN\"; }; f"
-
-      git remote add origin "https://${remote}" 2>/dev/null \
-        || git remote set-url origin "https://${remote}"
-
-      # syncshot reads ahead/behind from `git status -b`, which reports nothing
-      # without an upstream. Seed a commit and set tracking on first run so the
-      # very first sync has a branch to compare against.
-      if ! git rev-parse HEAD >/dev/null 2>&1; then
-        if [ ! -f .gitignore ]; then
-          printf "%s\n" "__pycache__/" "__marimo__/" ".venv/" "*.pyc" > .gitignore
-        fi
-        git add -A
-        git commit -m "Initialize lab" --allow-empty
-      fi
-
-      if ! git rev-parse --abbrev-ref main@{upstream} >/dev/null 2>&1; then
-        git push -u origin main
-      fi
-
-      exec python3 ${../../scripts/syncshot.py} --period 60
-    '
+    exec python3 ${../../scripts/syncshot.py} --period 60
   '';
 in {
   systemd.services.ardent-forge-lab-sync = {
@@ -76,7 +76,11 @@ in {
       Group = "users";
       WorkingDirectory = labDir;
 
+      # OP_SERVICE_ACCOUNT_TOKEN, for the credential helper's `op read`.
       EnvironmentFile = "/etc/ardent-forge/op-token";
+      # Holds the credential cache's socket; git refuses a looser directory.
+      RuntimeDirectory = "ardent-forge-lab-sync";
+      RuntimeDirectoryMode = "0700";
 
       ExecStart = "${startScript}";
 
@@ -84,9 +88,4 @@ in {
       RestartSec = 30;
     };
   };
-
-  # Env template — secrets resolved by `op run`
-  environment.etc."ardent-forge/lab-sync.env.example".text = ''
-    FORGE_GITHUB_TOKEN=op://Ardent Forge/github-pat/credential
-  '';
 }

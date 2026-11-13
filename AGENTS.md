@@ -70,11 +70,11 @@ Adding a tailnet host is a single entry in `csApps` in `nix/services/caddy.nix` 
 No secret is ever committed or written to the Nix store. Two layers:
 
 1. `/etc/ardent-forge/op-token` holds `OP_SERVICE_ACCOUNT_TOKEN`. It is placed **by hand** on the box, not by Nix, and is what lets services call `op`.
-2. Each service that needs credentials runs under `op run --env-file <file>`, where the env file contains `op://` **references only** and is committed. See `nix/services/workspace-init.env` and `nix/services/notebook-sync.env`.
+2. Each service that needs credentials runs under `op run --env-file <file>`, where the env file contains `op://` **references only** and is committed. See `nix/services/workspace-init.env`.
 
 To give a service a new secret, add the reference to its env file — never the value.
 
-A token must not reach `.git/config` either. Don't put it in a clone URL (git saves the URL), and don't expand it into a configured credential helper; have the helper read the variable when git runs it, as `workspace-init.nix` and `notebook-sync.nix` do.
+A token must not reach `.git/config` either. Don't put it in a clone URL (git saves the URL), and don't expand it into a configured credential helper; have the helper read the variable when git runs it, as `workspace-init.nix` does. A long-running service should not hold the token at all: notebook-sync and lab-sync ask 1Password through `nix/services/github-pat-credential.nix` whenever git needs it, so rotating `github-pat` needs no restart.
 
 ## Deployment
 

@@ -2,37 +2,35 @@
 #
 # Runs syncshot against the local Notebook clone, committing and pushing
 # every 30 seconds. The clone is created on first start if missing.
-# Everything runs inside `op run` so FORGE_GITHUB_TOKEN is available for
-# both the initial clone and syncshot's push.
+# git gets the GitHub token from 1Password whenever it needs one, through
+# github-pat-credential.nix, so rotating the token needs no restart.
 { config, pkgs, lib, locals, ... }:
 
 let
   notebookDir = "/data/ardent-forge/notebook";
+  runtimeDir = "/run/ardent-forge-notebook-sync";
+  credential = import ./github-pat-credential.nix { inherit pkgs; };
 
   startScript = pkgs.writeShellScript "notebook-sync-start" ''
     set -euo pipefail
-    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 _1password-cli ])}:$PATH
+    export PATH=${lib.makeBinPath (with pkgs; [ git coreutils python313 ])}:$PATH
 
-    exec op run --env-file ${./notebook-sync.env} -- ${pkgs.bash}/bin/bash -c '
-      set -euo pipefail
+    if [ ! -d "${notebookDir}/.git" ]; then
+      echo "Cloning Notebook into ${notebookDir}"
+      git -c credential.helper= -c credential.helper=${credential} \
+        clone https://github.com/t-eckert/Notebook.git "${notebookDir}"
+    fi
 
-      if [ ! -d "${notebookDir}/.git" ]; then
-        echo "Cloning Notebook into ${notebookDir}"
-        git -c credential.helper= clone \
-          "https://x-access-token:$FORGE_GITHUB_TOKEN@github.com/t-eckert/Notebook.git" \
-          "${notebookDir}"
-      fi
+    cd "${notebookDir}"
+    git remote set-url origin https://github.com/t-eckert/Notebook.git
+    git config user.name "Ardent Forge"
+    git config user.email "forge@${locals.tailnetDomain}"
+    git config --unset-all credential.helper || true
+    git config credential.helper ""
+    git config --add credential.helper "cache --timeout=3600 --socket=${runtimeDir}/git-credential"
+    git config --add credential.helper ${credential}
 
-      cd "${notebookDir}"
-      git remote set-url origin https://github.com/t-eckert/Notebook.git
-      git config user.name "Ardent Forge"
-      git config user.email "forge@${locals.tailnetDomain}"
-      # \$ keeps the token out of .git/config: the helper reads it from this
-      # service environment when git runs it.
-      git config credential.helper "!f() { echo username=x-access-token; echo \"password=\$FORGE_GITHUB_TOKEN\"; }; f"
-
-      exec python3 ${../../scripts/syncshot.py} --period 30
-    '
+    exec python3 ${../../scripts/syncshot.py} --period 30
   '';
 in {
   systemd.services.ardent-forge-notebook-sync = {
@@ -54,7 +52,11 @@ in {
       Group = "users";
       WorkingDirectory = notebookDir;
 
+      # OP_SERVICE_ACCOUNT_TOKEN, for the credential helper's `op read`.
       EnvironmentFile = "/etc/ardent-forge/op-token";
+      # Holds the credential cache's socket; git refuses a looser directory.
+      RuntimeDirectory = "ardent-forge-notebook-sync";
+      RuntimeDirectoryMode = "0700";
 
       ExecStart = "${startScript}";
 
@@ -66,9 +68,4 @@ in {
   systemd.tmpfiles.rules = [
     "d ${notebookDir} 0750 ${locals.username} users -"
   ];
-
-  # Env template — secrets resolved by `op run`
-  environment.etc."ardent-forge/notebook-sync.env.example".text = ''
-    FORGE_GITHUB_TOKEN=op://Ardent Forge/github-pat/credential
-  '';
 }

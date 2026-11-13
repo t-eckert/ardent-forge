@@ -90,7 +90,7 @@ added to the restic paths below.
 
 Not done, because it needs a repository password and remote credentials that
 cannot be created unattended. The shape it should take, following the
-convention already used by `workspace-init.env` and `notebook-sync.env` —
+convention already used by `workspace-init.env` —
 secrets are `op://` references, never values:
 
 1. Create a 1Password item in the `Ardent Forge` vault, e.g. `restic-ardent-forge`,
