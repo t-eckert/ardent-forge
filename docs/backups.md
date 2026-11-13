@@ -7,7 +7,8 @@
 | Postgres (`grafana`) | yes — nightly dumps | **no** |
 | `/data/ardent-forge/notebook` | yes | yes — git, pushed to GitHub every 30s |
 | this repo (developed in `~/Repos/github.com/t-eckert/ardent-forge`) | yes | yes — git, on GitHub |
-| `/etc/ardent-forge/locals.json`, `workspace-repos` | no | **no** |
+| `/etc/ardent-forge/locals.json` | no | **no** |
+| workspace repo list | yes | yes — a 1Password note, `workspace-repos` |
 | `/data/grafana` (secret_key, plugins) | no | **no** |
 | `/data/loki`, `/data/prometheus` | no | **no** — deliberate, see below |
 | `/data/ntfy` | no | **no** |
@@ -50,9 +51,8 @@ sudo -u postgres pg_restore --clean --if-exists -d grafana \
 Host values are kept out of the repo by design. `/etc/ardent-forge/locals.json`
 holds the username, tailnet domain and SSH keys, and the flake reads it by
 absolute path, which is why `--impure` is mandatory.
-`/etc/ardent-forge/workspace-repos` is the list of repos workspace-init clones.
 
-Both exist in exactly one place: this disk. The entire configuration is on
+It exists in exactly one place: this disk. The entire configuration is on
 GitHub and **the machine still cannot be rebuilt without `locals.json`**. It is
 a few hundred bytes and it is the single point of failure for an otherwise
 fully declarative system.
@@ -67,7 +67,10 @@ effort:
 3. Anywhere off the box at all. A file this small on a USB key beats what is
    there now, which is nothing.
 
-`nix/locals.example.json` and `nix/workspace-repos.example` are committed, so a
+The workspace repo list used to have the same problem. It now lives in
+1Password as the `workspace-repos` note (option 1 below, done for that file).
+
+`nix/locals.example.json` is committed, so a
 rebuild from scratch is a matter of filling in values rather than
 reverse-engineering them — but the SSH keys are not recoverable from the
 template.
@@ -107,7 +110,7 @@ secrets are `op://` references, never values:
    - `/data/backup/postgres` — the dumps, not the live cluster
    - `/data/grafana` — `secret_key` and plugins
    - `/data/ntfy/etc`
-   - `/etc/ardent-forge/locals.json` and `workspace-repos`
+   - `/etc/ardent-forge/locals.json`
 
    with `pruneOpts` along the lines of `--keep-daily 7 --keep-weekly 5
    --keep-monthly 12`.

@@ -31,7 +31,9 @@ let
 
       git config user.name "Ardent Forge"
       git config user.email "forge@${locals.tailnetDomain}"
-      git config credential.helper "!f() { echo username=x-access-token; echo \"password=$FORGE_GITHUB_TOKEN\"; }; f"
+      # \$ keeps the token out of .git/config: the helper reads it from this
+      # service environment when git runs it.
+      git config credential.helper "!f() { echo username=x-access-token; echo \"password=\$FORGE_GITHUB_TOKEN\"; }; f"
 
       git remote add origin "https://${remote}" 2>/dev/null \
         || git remote set-url origin "https://${remote}"

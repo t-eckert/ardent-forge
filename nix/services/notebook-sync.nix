@@ -27,7 +27,9 @@ let
       git remote set-url origin https://github.com/t-eckert/Notebook.git
       git config user.name "Ardent Forge"
       git config user.email "forge@${locals.tailnetDomain}"
-      git config credential.helper "!f() { echo username=x-access-token; echo \"password=$FORGE_GITHUB_TOKEN\"; }; f"
+      # \$ keeps the token out of .git/config: the helper reads it from this
+      # service environment when git runs it.
+      git config credential.helper "!f() { echo username=x-access-token; echo \"password=\$FORGE_GITHUB_TOKEN\"; }; f"
 
       exec python3 ${../../scripts/syncshot.py} --period 30
     '

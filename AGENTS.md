@@ -27,14 +27,15 @@ af status                # running commit, origin/main, last result, reboot pend
 af deploy [--retry]      # deploy origin/main now instead of waiting for the timer
 af log [N]               # deploy journal
 af config show|edit      # /etc/ardent-forge/locals.json; edit deploys after
-af repos list|add|remove # repos workspace-init clones into ~/Repos/github.com
+af repos list|sync       # repos workspace-init clones into ~/Repos/github.com
+af repos add|remove o/r  # edit that list (a 1Password note) and sync
 ```
 
 Updating an input is a change like any other: `af update dotfiles` after pushing to t-eckert/dotfiles, then commit the lock and push. Nothing updates inputs on its own.
 
 `--impure` is mandatory: `nix/flake.nix` reads `/etc/ardent-forge/locals.json` by absolute path.
 
-Host values are not in the repo. `/etc/ardent-forge/locals.json` (root-owned) holds the username, tailnet domain and SSH keys, read by the build as plain JSON; `nix/locals.example.json` is its committed template, so keep the two in sync when adding a field. `/etc/ardent-forge/workspace-repos` (user-owned, one `owner/repo` per line) is the workspace repo list; workspace-init reads it at runtime and the build never sees it. Template: `nix/workspace-repos.example`.
+Host values are not in the repo. `/etc/ardent-forge/locals.json` (root-owned) holds the username, tailnet domain and SSH keys, read by the build as plain JSON; `nix/locals.example.json` is its committed template, so keep the two in sync when adding a field. The workspace repo list is not on the box or in the repo at all: it is the `workspace-repos` Secure Note in the `Ardent Forge` 1Password vault (one `owner/repo` per line), because this repo is public and private repo names should not land here by accident. workspace-init reads it at runtime and the build never sees it. Never commit repo names to stand in for it.
 
 Formatting is nixfmt-rfc-style, but only some files have been through it. Match the file you're editing rather than reformatting it wholesale in an unrelated change.
 
@@ -60,7 +61,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 | `marimo` | Headless marimo on :2718 against `~/Repos/lab`, exposed as `lab.<tailnet>` |
 | `thomaseckert-dev` | Astro dev server on :10000, exposed as `te.<tailnet>` |
 | `ardent-forge-notebook-sync` | Clones `t-eckert/Notebook` to `/data/ardent-forge/notebook` and runs `scripts/syncshot.py` every 30s |
-| `workspace-init` | Clones the repos in `/etc/ardent-forge/workspace-repos` into `~/Repos/github.com/owner/repo` at boot. Re-run with `sudo systemctl start workspace-init` |
+| `workspace-init` | Clones the repos in the `workspace-repos` 1Password note into `~/Repos/github.com/owner/repo` at boot, keeping a copy of the list in `/var/lib/workspace-init/repos`. Re-run with `af repos sync` |
 
 Adding a tailnet host is a single entry in `csApps` in `nix/services/caddy.nix` — that drives the tsnet node, the vhost, and the landing-page listing together. Don't use `tailscale serve`; it conflicts with Caddy's management of the host domain.
 
@@ -72,6 +73,8 @@ No secret is ever committed or written to the Nix store. Two layers:
 2. Each service that needs credentials runs under `op run --env-file <file>`, where the env file contains `op://` **references only** and is committed. See `nix/services/workspace-init.env` and `nix/services/notebook-sync.env`.
 
 To give a service a new secret, add the reference to its env file — never the value.
+
+A token must not reach `.git/config` either. Don't put it in a clone URL (git saves the URL), and don't expand it into a configured credential helper; have the helper read the variable when git runs it, as `workspace-init.nix` and `notebook-sync.nix` do.
 
 ## Deployment
 

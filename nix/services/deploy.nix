@@ -52,7 +52,7 @@ let
 
   af = pkgs.writeShellApplication {
     name = "af";
-    runtimeInputs = with pkgs; [ git jq coreutils gnugrep gnused nix python3 ];
+    runtimeInputs = with pkgs; [ git jq coreutils gnugrep gnused nix python3 _1password-cli ];
     text = lib.replaceStrings
       [ "@repoUrl@" "@devCheckout@" "@host@" ]
       [ repoUrl devCheckout host ]

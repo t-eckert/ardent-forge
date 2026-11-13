@@ -7,6 +7,8 @@
 - Monitor + keyboard (for initial install only)
 - 1Password account with an "Ardent Forge" vault containing:
   - `github-pat` — clones the workspace repos and pushes the notebook
+  - `workspace-repos` — a Secure Note listing the repos to clone into
+    `~/Repos/github.com`, one `owner/repo` per line
   - `open-weather-api-key` — for the-weather
 - A 1Password **service account** token, for the box to resolve those
   non-interactively
@@ -104,14 +106,11 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     diff /etc/nixos/hardware-configuration.nix nix/hardware.nix
 
     # Host values live outside the repo. locals.json is root-owned and read
-    # by the build; workspace-repos is yours and read by workspace-init.
+    # by the build.
     sudo mkdir -p /etc/ardent-forge
     sudo install -o root -g root -m 0644 nix/locals.example.json /etc/ardent-forge/locals.json
-    sudo install -o "$USER" -g users -m 0644 nix/workspace-repos.example /etc/ardent-forge/workspace-repos
     # Edit with your username, tailnet domain and SSH public key:
     sudoedit /etc/ardent-forge/locals.json
-    # One owner/repo per line:
-    vim /etc/ardent-forge/workspace-repos
 
     # Apply the full NixOS configuration. --impure is required: flake.nix
     # reads /etc/ardent-forge/locals.json by absolute path.
@@ -137,8 +136,9 @@ From your Mac, after the Bee Link has rebooted and you can SSH in:
     # Edit the base-url to match your tailnet hostname:
     sudo vim /data/ntfy/etc/server.yml
 
-    # Clone the workspace repos now rather than waiting for the next boot
-    sudo systemctl start workspace-init
+    # Clone the workspace repos (listed in the workspace-repos 1Password
+    # note) now rather than waiting for the next boot
+    af repos sync
 
 ## Phase 4: Validate
 

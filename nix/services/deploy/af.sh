@@ -7,7 +7,8 @@ dev_checkout="@devCheckout@"
 host="@host@"
 state=/var/lib/af-rebuild/state.json
 locals=/etc/ardent-forge/locals.json
-repos_file=/etc/ardent-forge/workspace-repos
+repos_copy=/var/lib/workspace-init/repos # written by workspace-init on each run
+repos_ref="op://Ardent Forge/workspace-repos/notesPlain"
 systemctl=/run/current-system/sw/bin/systemctl # the path the sudo rules name
 
 usage() {
@@ -19,7 +20,8 @@ Box
   status                  what is running, what origin/main is, the last result
   log [N]                 the last N lines of deploy logs (default 80)
   config show|edit        show or edit /etc/ardent-forge/locals.json; edit deploys after
-  repos list|add|remove   the repos workspace-init clones into ~/Repos/github.com
+  repos list|sync         the repos workspace-init clones into ~/Repos/github.com
+  repos add|remove o/r    edit that list (in 1Password) and sync
 
 Development (in your checkout)
   build                   build the system from the checkout, as the pre-push hook does
@@ -125,35 +127,59 @@ cmd_config() {
 
 valid_slug() { [[ "$1" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; }
 
+# The list is the `workspace-repos` Secure Note in 1Password (see
+# workspace-init.nix). Reading it needs no sign-in: workspace-init keeps a copy.
+# Editing it signs in to 1Password as you, since the box's service account
+# token is root-only.
+repos_sync() {
+  local since rc=0
+  since=$(date +%s)
+  sudo "$systemctl" start workspace-init || rc=$?
+  journalctl -u workspace-init --since "@$since" -o cat --no-pager | grep -E '^(workspace-init: |  )' || true
+  return "$rc"
+}
+
+repos_edit() {
+  local action="$1" slug="$2" current new
+  op whoami >/dev/null 2>&1 || eval "$(op signin)"
+  current=$(op read "$repos_ref")
+  case "$action" in
+    add)
+      if grep -qxF "$slug" <<<"$current"; then
+        echo "$slug is already listed"
+        return
+      fi
+      new=$(printf '%s\n%s' "$current" "$slug")
+      ;;
+    remove)
+      grep -qxF "$slug" <<<"$current" || die "$slug is not listed"
+      new=$(grep -vxF "$slug" <<<"$current" || true)
+      ;;
+  esac
+  op item edit workspace-repos --vault "Ardent Forge" "notesPlain=$new" >/dev/null
+  echo "${action}: $slug"
+}
+
 cmd_repos() {
   local sub="${1:-list}" slug="${2:-}"
   case "$sub" in
-    list) grep -v '^[[:space:]]*\(#\|$\)' "$repos_file" || true ;;
+    list)
+      [ -r "$repos_copy" ] || die "no copy of the list yet; run 'af repos sync'"
+      grep -v '^[[:space:]]*\(#\|$\)' "$repos_copy" || true
+      ;;
+    sync) repos_sync ;;
     add)
       valid_slug "$slug" || die "usage: af repos add owner/repo"
-      if grep -qxF "$slug" "$repos_file"; then
-        echo "$slug is already listed"
-      else
-        echo "$slug" >>"$repos_file"
-        echo "added $slug"
-      fi
-      local since
-      since=$(date +%s)
-      sudo "$systemctl" start workspace-init
-      journalctl -u workspace-init --since "@$since" -o cat --no-pager | grep -E '^(workspace-init: |  )' || true
+      repos_edit add "$slug"
+      repos_sync
       ;;
     remove)
       valid_slug "$slug" || die "usage: af repos remove owner/repo"
-      grep -qxF "$slug" "$repos_file" || die "$slug is not listed"
-      local tmp
-      tmp=$(mktemp)
-      grep -vxF "$slug" "$repos_file" >"$tmp" || true
-      # Rewrite in place: the file is ours but /etc/ardent-forge is not, so no rename.
-      cat "$tmp" >"$repos_file"
-      rm -f "$tmp"
-      echo "removed $slug (its clone in ~/Repos/github.com is left alone)"
+      repos_edit remove "$slug"
+      repos_sync
+      echo "its clone in ~/Repos/github.com is left alone"
       ;;
-    *) die "repos takes list, add or remove" ;;
+    *) die "repos takes list, sync, add or remove" ;;
   esac
 }
 
