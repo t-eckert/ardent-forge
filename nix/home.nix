@@ -13,6 +13,8 @@
     ./alert-triage.nix
     # Daily weather refresh for the Notebook's logs
     ./add-weather.nix
+    # claude remote-control servers, one per repo (instances enabled on the box)
+    ./remote-control.nix
   ];
 
   home = {
