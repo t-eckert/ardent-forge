@@ -11,12 +11,16 @@
 # the same reason the workspace repo list lives in 1Password. Enable one with
 # the repo's path relative to $HOME, escaped:
 #
-#   systemctl --user enable --now \
-#     "claude-rc@$(systemd-escape --path Repos/github.com/OWNER/REPO).service"
+#   u="claude-rc@$(systemd-escape --path Repos/github.com/OWNER/REPO).service"
+#   ln -s ../claude-rc@.service ~/.config/systemd/user/default.target.wants/"$u"
+#   systemctl --user daemon-reload && systemctl --user start "$u"
 #
-# and list what is enabled with `systemctl --user list-units 'claude-rc@*'`.
-# The enablement symlink lives in ~/.config/systemd/user/default.target.wants,
-# which home-manager does not own, so it survives switches.
+# Not `systemctl enable`: it resolves the template's home-manager symlink and
+# links the instance to that generation's store path, which goes stale on the
+# next switch. Linking to ../claude-rc@.service follows home-manager instead.
+# default.target.wants is not owned by home-manager, so the link survives
+# switches. Disable with `systemctl --user disable --now "$u"`; list with
+# `systemctl --user list-units 'claude-rc@*'`.
 #
 # Run `claude` in the repo once by hand before enabling it: a folder has to be
 # trusted, and a unit has no terminal to answer the prompt on.
