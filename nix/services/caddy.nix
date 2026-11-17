@@ -10,6 +10,12 @@ let
   # from a Mac via Finder (⌘K -> https://drop.<tailnet>) to drag files onto the
   # box; Claude Code sessions read them out of shareDir via the screenshots skill.
   shareName = "drop";
+
+  # Galley's weekly UI snapshots, written by the galley-snapshots user timer
+  # (nix/galley-snapshots.nix) and served read-only on their own node. Outside
+  # /data/ardent-forge, which is 0750 and closed to the caddy user.
+  snapshotsName = "galley-snapshots";
+  snapshotsDir = "/data/galley-snapshots";
   shareDir = "/var/lib/shared";
 
   # Per-app tsnet nodes registered via the caddy-tailscale plugin. Each
@@ -215,6 +221,7 @@ in {
 
         ${csNodeBlock}
         ${shareName} { hostname ${shareName} }
+        ${snapshotsName} { hostname ${snapshotsName} }
       }
 
       # webdav isn't a standard directive, so it needs an explicit slot in the
@@ -249,6 +256,13 @@ in {
           webdav
         '';
       };
+      "${snapshotsName}.${tailnet}" = {
+        extraConfig = ''
+          bind tailscale/${snapshotsName}
+          root * ${snapshotsDir}
+          file_server
+        '';
+      };
     } // csVirtualHosts;
 
     # NixOS default is `level ERROR`, which swallows the tsnet startup logs
@@ -273,5 +287,7 @@ in {
   # /var/lib is writable under ProtectSystem=full, so no ReadWritePaths tweak.
   systemd.tmpfiles.rules = [
     "d ${shareDir} 2775 caddy users -"
+    # Written by the user timer; caddy reads it through the world bits.
+    "d ${snapshotsDir} 0755 ${locals.username} users -"
   ];
 }

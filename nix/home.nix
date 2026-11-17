@@ -13,6 +13,8 @@
     ./alert-triage.nix
     # Daily weather refresh for the Notebook's logs
     ./add-weather.nix
+    # Weekly screenshots of every Galley page, into the tailnet gallery
+    ./galley-snapshots.nix
     # claude remote-control servers, one per repo (instances enabled on the box)
     ./remote-control.nix
   ];
