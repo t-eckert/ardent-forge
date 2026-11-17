@@ -50,6 +50,32 @@
     options = "--delete-older-than 30d";
   };
 
+  # rustup patches each toolchain it installs to call store paths by absolute
+  # path (its own linker wrapper, glibc, zlib), and none of them is a GC root.
+  # Unrooted, the first GC after a rustup or glibc update ages out breaks every
+  # Rust build. The roots are rebuilt each run so a removed toolchain lets go.
+  systemd.services.nix-gc.preStart = ''
+    roots=/nix/var/nix/gcroots/rustup
+    rm -rf "$roots"
+    mkdir -p "$roots"
+    toolchains=/home/${locals.username}/.rustup/toolchains
+    [ -d "$toolchains" ] || exit 0
+    grep -rhoaE '/nix/store/[0-9a-z]{32}' "$toolchains" | sort -u |
+      while read -r hash; do
+        found=
+        for path in "$hash"-*; do
+          if [ -e "$path" ]; then
+            ln -s "$path" "$roots/''${path#/nix/store/}"
+            found=1
+          fi
+        done
+        if [ -z "$found" ]; then
+          echo "a rustup toolchain refers to $hash, already collected; reinstall it" >&2
+        fi
+      done
+    echo "rooted $(ls "$roots" | wc -l) store paths for rustup toolchains"
+  '';
+
   # Hard-links identical files in the store. Typically reclaims 25-35% and is
   # independent of GC — it deduplicates what is kept rather than deleting.
   nix.optimise = {
