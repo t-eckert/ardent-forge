@@ -84,6 +84,9 @@ let
     # The Host header passes through unchanged: SigV4 signs it.
     galley-s3  = { backend = "127.0.0.1:8130";  label = "Galley object storage"; };
     galley-api = { backend = "127.0.0.1:8150";  label = "Galley API explorer"; };
+    # The panel refuses any Host but loopback and its PANEL_NODE, set in
+    # Galley's process-compose.yaml to this node's name.
+    galley-dev = { backend = "127.0.0.1:8180";  label = "Galley dev panel"; };
     code       = { backend = "127.0.0.1:4096";  label = "OpenCode"; };
     lab        = { backend = "127.0.0.1:2718";  label = "marimo notebooks"; };
     # Its own node rather than a /svc path: ntfy's web app requests its assets
