@@ -442,6 +442,17 @@
         replacement  = "systemd-journal"
       }
 
+      // One JSON line per Claude Code session start, written by the
+      // SessionStart hook in nix/claude-code.nix. Its own job so the sessions
+      // table on the Claude Code dashboard can select it without scanning the
+      // whole journal.
+      rule {
+        source_labels = ["__journal_syslog_identifier"]
+        regex         = "claude-code-session"
+        target_label  = "job"
+        replacement   = "claude-code-sessions"
+      }
+
       // The Chill Subs dev suite out-logs the entire rest of the box and is not
       // system state — it is one developer's stack running in the foreground.
       // Give it its own job so it can be read, and ignored, on its own.
