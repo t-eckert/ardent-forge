@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Open a named Zellij tab running an interactive Claude Code session.
+#
+#   spawn [options] NAME [PROMPT] [-- CLAUDE_ARGS...]
+#   echo PROMPT | spawn [options] NAME
+#
+#   -d DIR        directory the session starts in (default: the current one)
+#   -w WORKTREE   start the session in a new git worktree of that name
+#   -s SESSION    Zellij session (default: $ZELLIJ_SESSION_NAME)
+#   --focus       switch every attached client to the new tab
+#   --max N       refuse when the session already has N tabs (default: 8)
+#   --dry-run     print the command, open nothing
+#
+# Prints the new tab's id. The session inherits the Zellij server's
+# environment, not the caller's, so nothing from an agent's own session leaks
+# into it.
+set -euo pipefail
+
+die() { echo "spawn: $*" >&2; exit 1; }
+
+dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 dry=0
+positional=() extra=()
+while (($#)); do
+  case $1 in
+    -d) dir=${2:?-d needs a directory}; shift 2 ;;
+    -w) worktree=${2:?-w needs a name}; shift 2 ;;
+    -s) session=${2:?-s needs a session}; shift 2 ;;
+    --max) max=${2:?--max needs a number}; shift 2 ;;
+    --focus) focus=1; shift ;;
+    --dry-run) dry=1; shift ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --) shift; extra=("$@"); break ;;
+    -*) die "unknown option $1" ;;
+    *) positional+=("$1"); shift ;;
+  esac
+done
+
+((${#positional[@]} >= 1)) || die "a tab name is required"
+((${#positional[@]} <= 2)) || die "one name and one prompt; quote the prompt"
+name=${positional[0]}
+prompt=${positional[1]:-}
+if [[ -z $prompt && ! -t 0 ]]; then prompt=$(cat); fi
+
+[[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]{0,31}$ ]] || die "tab name must be 1-32 letters, digits, spaces, dots, dashes or underscores"
+[[ $prompt != -* ]] || die "a prompt starting with '-' would be read as an option"
+[[ $max =~ ^[0-9]+$ ]] || die "--max must be a number"
+[[ -n $session ]] || die "no Zellij session: set ZELLIJ_SESSION_NAME or pass -s"
+dir=$(realpath -e -- "$dir" 2>/dev/null) || die "no such directory"
+[[ -d $dir ]] || die "$dir is not a directory"
+claude=$(command -v claude) || die "claude is not on PATH"
+
+zj() { zellij --session "$session" action "$@"; }
+
+tabs=$(zj query-tab-names) || die "cannot reach Zellij session '$session'"
+if grep -Fxq -- "$name" <<<"$tabs"; then die "a tab named '$name' is already open"; fi
+count=$(grep -c . <<<"$tabs" || true)
+((count < max)) || die "session '$session' already has $count tabs (limit $max); close one first"
+
+cmd=("$claude" --name "$name")
+[[ -n $worktree ]] && cmd+=(--worktree "$worktree")
+((${#extra[@]})) && cmd+=("${extra[@]}")
+[[ -n $prompt ]] && cmd+=("$prompt")
+
+tab_args=(--name "$name" --cwd "$dir")
+((focus)) || tab_args+=(--no-focus)
+
+if ((dry)); then
+  printf 'zellij --session %q action new-tab' "$session"
+  printf ' %q' "${tab_args[@]}" -- "${cmd[@]}"
+  echo
+  exit 0
+fi
+
+zj new-tab "${tab_args[@]}" -- "${cmd[@]}"

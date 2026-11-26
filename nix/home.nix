@@ -17,6 +17,8 @@
     ./galley-snapshots.nix
     # claude remote-control servers, one per repo (instances enabled on the box)
     ./remote-control.nix
+    # Claude Code skills for this box, installed into ~/.claude/skills
+    ./claude-skills.nix
   ];
 
   home = {

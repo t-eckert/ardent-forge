@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""Open one split beside this session's own Zellij pane.
+
+  split log  [options] -- COMMAND [ARGS...]   run it now and leave the output up
+  split cmd  [options] 'COMMAND LINE'         a shell with the line typed, not run
+  split edit [options] FILE[:LINE]            neovim on the file
+  split close                                 close the split this script opened
+
+  --down        open below instead of to the right
+  -d DIR        working directory of the split (default: the current one)
+  --replace     close the split this script opened here, then open the new one
+  --focus       move focus into the split; without it focus stays put
+  --pane ID     this session's pane, when ZELLIJ_PANE_ID is not set
+  --dry-run     print what would run, open nothing
+
+Refuses unless this session's pane is the only tiled pane in its tab. Floating
+panes are ignored. Prints the new pane's id.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def die(message):
+    sys.exit(f"split: {message}")
+
+
+def zellij(*args, check=True):
+    session = os.environ.get("ZELLIJ_SESSION_NAME")
+    if not session:
+        die("no Zellij session: ZELLIJ_SESSION_NAME is not set")
+    result = subprocess.run(
+        ["zellij", "--session", session, "action", *args],
+        capture_output=True,
+        text=True,
+    )
+    if check and result.returncode != 0:
+        die(f"zellij {args[0]} failed: {result.stderr.strip() or result.stdout.strip()}")
+    return result.stdout.strip()
+
+
+def tiled_panes(tab_id):
+    panes = json.loads(zellij("list-panes", "-a", "-j"))
+    return [
+        f"terminal_{p['id']}"
+        for p in panes
+        if p["tab_id"] == tab_id
+        and not p["is_plugin"]
+        and not p["is_floating"]
+        and not p["is_suppressed"]
+    ]
+
+
+def own_pane(override):
+    raw = override or os.environ.get("ZELLIJ_PANE_ID")
+    if not raw:
+        die("this session is not in a Zellij pane: ZELLIJ_PANE_ID is not set")
+    pane = raw if raw.startswith("terminal_") else f"terminal_{raw}"
+    number = pane.removeprefix("terminal_")
+    for p in json.loads(zellij("list-panes", "-a", "-j")):
+        if not p["is_plugin"] and str(p["id"]) == number:
+            if p["is_floating"]:
+                die(f"{pane} is a floating pane; a split needs a tiled one")
+            return pane, p["tab_id"], p["tab_name"]
+    die(f"{pane} is not a pane in this Zellij session")
+
+
+def state_file(tab_id):
+    base = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "claude-split"
+    base.mkdir(mode=0o700, exist_ok=True)
+    return base / f"{os.environ['ZELLIJ_SESSION_NAME']}-tab{tab_id}"
+
+
+def opened_here(tab_id):
+    path = state_file(tab_id)
+    return path.read_text().strip() if path.exists() else None
+
+
+def parse(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        sys.exit(0)
+    mode, rest = argv[0], argv[1:]
+    if mode not in ("log", "cmd", "edit", "close"):
+        die(f"unknown mode '{mode}'; use log, cmd, edit or close")
+    opts = {"down": False, "dir": os.getcwd(), "replace": False, "focus": False, "pane": None, "dry": False}
+    args = []
+    i = 0
+    while i < len(rest):
+        a = rest[i]
+        if a == "--":
+            args += rest[i + 1 :]
+            break
+        if a == "--down":
+            opts["down"] = True
+        elif a == "--replace":
+            opts["replace"] = True
+        elif a == "--focus":
+            opts["focus"] = True
+        elif a == "--dry-run":
+            opts["dry"] = True
+        elif a in ("-d", "--pane"):
+            if i + 1 >= len(rest):
+                die(f"{a} needs a value")
+            opts["dir" if a == "-d" else "pane"] = rest[i + 1]
+            i += 1
+        elif a.startswith("-"):
+            die(f"unknown option {a}")
+        else:
+            args.append(a)
+        i += 1
+    return mode, opts, args
+
+
+def build(mode, args, cwd):
+    """Return (pane name, argv to run, line to type or None)."""
+    if mode == "log":
+        if not args:
+            die("log needs a command after --")
+        argv = args if len(args) > 1 else ["sh", "-c", args[0]]
+        return f"log: {' '.join(args)}"[:60], argv, None
+    if mode == "cmd":
+        if len(args) != 1 or not args[0].strip():
+            die("cmd takes one quoted command line")
+        line = args[0]
+        if any(ord(c) < 32 or ord(c) == 127 for c in line):
+            die("the command line must be one line with no control characters")
+        return "run this", [os.environ.get("SHELL") or "zsh"], line
+    if len(args) != 1:
+        die("edit takes one FILE[:LINE]")
+    target, line_number = args[0], None
+    head, sep, tail = target.rpartition(":")
+    if sep and tail.isdigit():
+        target, line_number = head, tail
+    path = Path(cwd, target).resolve()
+    if not path.is_file():
+        die(f"no such file: {path}")
+    nvim = shutil.which("nvim") or die("nvim is not on PATH")
+    argv = [nvim] + ([f"+{line_number}"] if line_number else []) + ["--", str(path)]
+    return path.name, argv, None
+
+
+def main():
+    mode, opts, args = parse(sys.argv[1:])
+    me, tab_id, tab_name = own_pane(opts["pane"])
+    mine = opened_here(tab_id)
+    present = tiled_panes(tab_id)
+    if mine and mine not in present:
+        state_file(tab_id).unlink()
+        mine = None
+
+    if mode == "close":
+        if not mine:
+            die("this script has no split open in this tab")
+        zellij("close-pane", "--pane-id", mine)
+        state_file(tab_id).unlink()
+        print(f"closed {mine}")
+        return
+
+    cwd = os.path.realpath(opts["dir"])
+    if not os.path.isdir(cwd):
+        die(f"no such directory: {cwd}")
+    name, argv, line = build(mode, args, cwd)
+
+    others = [p for p in present if p != me]
+    if others == [mine] and opts["replace"]:
+        pass
+    elif others:
+        hint = " (pass --replace to swap it)" if others == [mine] else ""
+        die(f"tab '{tab_name}' holds other panes: {', '.join(others)}{hint}")
+
+    new_pane = ["new-pane", "--tab-id", str(tab_id), "--direction", "down" if opts["down"] else "right",
+                "--cwd", cwd, "--name", name]
+    if not opts["focus"]:
+        new_pane.append("--no-focus")
+    new_pane += ["--", *argv]
+
+    if opts["dry"]:
+        print("zellij action " + " ".join(json.dumps(a) for a in new_pane))
+        if line:
+            print(f"then type, without Enter: {line}")
+        return
+
+    if others:
+        zellij("close-pane", "--pane-id", mine)
+        state_file(tab_id).unlink()
+    created = zellij(*new_pane)
+    state_file(tab_id).write_text(created)
+    if line:
+        time.sleep(1.0)
+        zellij("write-chars", "--pane-id", created, line)
+    print(created)
+
+
+if __name__ == "__main__":
+    main()

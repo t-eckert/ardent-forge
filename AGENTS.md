@@ -45,6 +45,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 - `nix/configuration.nix` — system module: boot, networking, firewall, Tailscale, users, SSH, mosh, podman, nix-ld, system packages, `/data` tmpfiles
 - `nix/hardware.nix` — Bee Link specifics. Mounts are by **label**, not UUID; don't paste in a raw `nixos-generate-config` dump
 - `nix/home.nix` — home-manager: the dotfiles home env plus the toolchains this box needs (uv, pyright, rust-analyzer, playwright, cargo-watch) and the OpenSSL/Prisma/Playwright env they depend on
+- `nix/claude-skills.nix` — installs each directory under `nix/claude-skills/` into `~/.claude/skills`. These are the skills that only make sense on this box; edit them here, not in place
 - `nix/services/*.nix` — one module per service
 - `grafana/dashboards/` — dashboard JSON, read live off this checkout by Grafana's file provider
 - `scripts/syncshot.py` — the notebook sync loop, run by `ardent-forge-notebook-sync`
