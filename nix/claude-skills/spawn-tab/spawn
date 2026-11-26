@@ -9,6 +9,9 @@
 #   -s SESSION    Zellij session (default: $ZELLIJ_SESSION_NAME)
 #   --focus       switch every attached client to the new tab
 #   --max N       refuse when the session already has N tabs (default: 8)
+#   --report-to SESSION
+#                 end the brief by asking for a report to that Claude Code
+#                 session, by the name ListAgents gives it
 #   --dry-run     print the command, open nothing
 #
 # Prints the new tab's id. The session inherits the Zellij server's
@@ -18,7 +21,7 @@ set -euo pipefail
 
 die() { echo "spawn: $*" >&2; exit 1; }
 
-dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 dry=0
+dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 dry=0 report_to=""
 positional=() extra=()
 while (($#)); do
   case $1 in
@@ -26,9 +29,10 @@ while (($#)); do
     -w) worktree=${2:?-w needs a name}; shift 2 ;;
     -s) session=${2:?-s needs a session}; shift 2 ;;
     --max) max=${2:?--max needs a number}; shift 2 ;;
+    --report-to) report_to=${2:?--report-to needs a session name}; shift 2 ;;
     --focus) focus=1; shift ;;
     --dry-run) dry=1; shift ;;
-    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --) shift; extra=("$@"); break ;;
     -*) die "unknown option $1" ;;
     *) positional+=("$1"); shift ;;
@@ -39,11 +43,19 @@ done
 ((${#positional[@]} <= 2)) || die "one name and one prompt; quote the prompt"
 name=${positional[0]}
 prompt=${positional[1]:-}
-if [[ -z $prompt && ! -t 0 ]]; then prompt=$(cat); fi
+# Only a pipe or a file: an agent's shell often has a stdin that is neither
+# a terminal nor closed, and reading it would hang.
+if [[ -z $prompt && ( -p /dev/stdin || -f /dev/stdin ) ]]; then prompt=$(cat); fi
 
 [[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]{0,31}$ ]] || die "tab name must be 1-32 letters, digits, spaces, dots, dashes or underscores"
 [[ $prompt != -* ]] || die "a prompt starting with '-' would be read as an option"
 [[ $max =~ ^[0-9]+$ ]] || die "--max must be a number"
+if [[ -n $report_to ]]; then
+  [[ -n $prompt ]] || die "--report-to needs a prompt to attach the request to"
+  [[ $report_to != *$'\n'* && $report_to != *'"'* ]] || die "the session name must be one line with no double quotes"
+  [[ $report_to != "$name" ]] || die "the tab cannot report to itself; name it differently from the session it reports to"
+  prompt+=$'\n\n---\n'"When this work is finished, or as soon as you are blocked, send one report to the Claude Code session named \"$report_to\" with the SendMessage tool. Load the tool with ToolSearch if it is not listed. Make the first line the outcome in one sentence. Then say what you changed and where, what you checked, and what is still open. Thomas may also talk to you in this tab; what he says comes first."
+fi
 [[ -n $session ]] || die "no Zellij session: set ZELLIJ_SESSION_NAME or pass -s"
 dir=$(realpath -e -- "$dir" 2>/dev/null) || die "no such directory"
 [[ -d $dir ]] || die "$dir is not a directory"
