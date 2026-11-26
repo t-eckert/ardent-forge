@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Mark a Zellij tab when the Claude Code session in it is waiting for Thomas.
+
+  zellij-attention mark     the session stopped or is asking something
+  zellij-attention clear    the session is working again, or has ended
+  zellij-attention status   list marked tabs
+  zellij-attention reset    unmark every tab in this Zellij session
+
+Run by Claude Code hooks. A marked tab has "● " in front of its name. A tab
+is not marked while a client is looking at it, and a tab that is being looked
+at loses its mark the next time any session's hook runs.
+
+Does nothing outside Zellij, in a background session (its pane id belongs to
+the agents view) and in a non-interactive run. Always exits 0: a hook that
+fails must never get in a session's way.
+"""
+
+import fcntl
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+MARK = "● "
+
+
+def zellij(*args):
+    result = subprocess.run(
+        ["zellij", "--session", os.environ["ZELLIJ_SESSION_NAME"], "action", *args],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+    return result.stdout
+
+
+def state_root():
+    # One fixed path: sessions whose environments differ must agree on it.
+    return Path(f"/tmp/claude-attention-{os.getuid()}") / os.environ["ZELLIJ_SESSION_NAME"]
+
+
+def tabs():
+    return {t["tab_id"]: t for t in json.loads(zellij("list-tabs", "-j"))}
+
+
+def watched(tab):
+    # From a one-shot command every real client is one of the "other" clients.
+    return bool(tab["other_focused_clients"])
+
+
+def set_mark(tab, on):
+    name = tab["name"]
+    bare = name.removeprefix(MARK)
+    wanted = MARK + bare if on else bare
+    if wanted != name:
+        zellij("rename-tab-by-id", str(tab["tab_id"]), wanted)
+
+
+def waiting(tab_id):
+    """State files of the panes in this tab that are waiting; each holds its tab id."""
+    root = state_root()
+    if not root.is_dir():
+        return []
+    return [p for p in root.glob("pane_*") if p.read_text().strip() == str(tab_id)]
+
+
+def forget(tab_id):
+    for path in waiting(tab_id):
+        path.unlink(missing_ok=True)
+
+
+def sweep(all_tabs):
+    """Unmark tabs that are being looked at or whose waiting panes are gone."""
+    root = state_root()
+    if root.is_dir():
+        for path in root.glob("pane_*"):
+            tab = all_tabs.get(int(path.read_text().strip() or -1))
+            if tab is None or watched(tab):
+                path.unlink(missing_ok=True)
+    for tab_id, tab in all_tabs.items():
+        set_mark(tab, bool(waiting(tab_id)))
+
+
+def own_tab():
+    pane = os.environ.get("ZELLIJ_PANE_ID")
+    if not pane or os.environ.get("CLAUDE_JOB_DIR"):
+        return None, None
+    if os.environ.get("CLAUDE_CODE_ENTRYPOINT", "cli") != "cli":
+        return None, None
+    for p in json.loads(zellij("list-panes", "-a", "-j")):
+        if not p["is_plugin"] and str(p["id"]) == pane:
+            return pane, p["tab_id"]
+    return None, None
+
+
+def asks_for_attention(payload):
+    kind = str(payload.get("notification_type") or "")
+    return not kind or "prompt" in kind or "dialog" in kind
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else ""
+    if action not in ("mark", "clear", "status", "reset") or not os.environ.get("ZELLIJ_SESSION_NAME"):
+        return
+
+    if action == "status":
+        for tab in tabs().values():
+            if tab["name"].startswith(MARK):
+                print(f"{tab['tab_id']}\t{tab['name']}")
+        return
+    if action == "reset":
+        root = state_root()
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with open(root / "lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            for tab in tabs().values():
+                forget(tab["tab_id"])
+                set_mark(tab, False)
+        return
+
+    payload = {}
+    if not sys.stdin.isatty():
+        try:
+            payload = json.load(sys.stdin)
+        except ValueError:
+            pass
+
+    # The common case, a tool call in a session that is not marked, stops
+    # here without starting zellij.
+    pane_id = os.environ.get("ZELLIJ_PANE_ID", "")
+    mine = state_root() / f"pane_{pane_id}"
+    if action == "clear" and not mine.exists():
+        return
+
+    pane, tab_id = own_tab()
+    if pane is None:
+        return
+    mine.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # Hooks from several sessions fire together; unlocked, one renames a tab
+    # from a listing the other has already made stale.
+    with open(mine.parent / "lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if action == "mark" and asks_for_attention(payload):
+            mine.write_text(str(tab_id))
+        elif action == "clear":
+            mine.unlink(missing_ok=True)
+        sweep(tabs())
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass

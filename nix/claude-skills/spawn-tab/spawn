@@ -52,6 +52,8 @@ claude=$(command -v claude) || die "claude is not on PATH"
 zj() { zellij --session "$session" action "$@"; }
 
 tabs=$(zj query-tab-names) || die "cannot reach Zellij session '$session'"
+# A tab whose session is waiting carries the attention hook's "● " prefix.
+tabs=$(sed 's/^● //' <<<"$tabs")
 if grep -Fxq -- "$name" <<<"$tabs"; then die "a tab named '$name' is already open"; fi
 count=$(grep -c . <<<"$tabs" || true)
 ((count < max)) || die "session '$session' already has $count tabs (limit $max); close one first"
