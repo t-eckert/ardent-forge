@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Mark a Zellij tab when the Claude Code session in it is waiting for Thomas.
 
-  zellij-attention mark     the session stopped or is asking something
-  zellij-attention clear    the session is working again, or has ended
-  zellij-attention status   list marked tabs
-  zellij-attention reset    unmark every tab in this Zellij session
+  zellij-attention mark [ask|done]   the session is asking something, or stopped
+  zellij-attention clear             the session is working again, or has ended
+  zellij-attention status            list marked tabs
+  zellij-attention reset             unmark every tab in this Zellij session
 
-Run by Claude Code hooks. A marked tab has "● " in front of its name. A tab
-is not marked while a client is looking at it, and a tab that is being looked
-at loses its mark the next time any session's hook runs.
+Run by Claude Code hooks. A tab whose session finished its turn gets "● " in
+front of its name; one whose session is asking a question or for permission
+gets "◆ ". Without ask or done, `mark` reads the kind from the hook's input.
+
+A tab is never marked while a client is looking at it. While any tab is
+marked a watcher runs, started by the hook: it unmarks a tab within a couple
+of seconds of Thomas visiting it, and when a session has been asking for
+ZELLIJ_ATTENTION_PING_AFTER seconds (default 300) with no client attached it
+sends one phone notification through ping-thomas. A finished turn never
+pings. The watcher exits when no tab is marked.
 
 Does nothing outside Zellij, in a background session (its pane id belongs to
 the agents view) and in a non-interactive run. Always exits 0: a hook that
@@ -20,9 +27,13 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
-MARK = "● "
+MARKS = {"done": "● ", "ask": "◆ "}
+PING = Path.home() / ".claude/skills/ping-thomas/ping"
+PING_AFTER = int(os.environ.get("ZELLIJ_ATTENTION_PING_AFTER", "300"))
+POLL_SECONDS = 2
 
 
 def zellij(*args):
@@ -42,8 +53,21 @@ def state_root():
     return Path(f"/tmp/claude-attention-{os.getuid()}") / os.environ["ZELLIJ_SESSION_NAME"]
 
 
+def locked():
+    root = state_root()
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    handle = open(root / "lock", "w")
+    fcntl.flock(handle, fcntl.LOCK_EX)
+    return handle
+
+
 def tabs():
     return {t["tab_id"]: t for t in json.loads(zellij("list-tabs", "-j"))}
+
+
+def attached():
+    """Whether any client is attached to the Zellij session."""
+    return len(zellij("list-clients").strip().splitlines()) > 1
 
 
 def watched(tab):
@@ -51,74 +75,136 @@ def watched(tab):
     return bool(tab["other_focused_clients"])
 
 
-def set_mark(tab, on):
-    name = tab["name"]
-    bare = name.removeprefix(MARK)
-    wanted = MARK + bare if on else bare
-    if wanted != name:
-        zellij("rename-tab-by-id", str(tab["tab_id"]), wanted)
+def bare(name):
+    for mark in MARKS.values():
+        name = name.removeprefix(mark)
+    return name
 
 
-def waiting(tab_id):
-    """State files of the panes in this tab that are waiting; each holds its tab id."""
-    root = state_root()
-    if not root.is_dir():
-        return []
-    return [p for p in root.glob("pane_*") if p.read_text().strip() == str(tab_id)]
-
-
-def forget(tab_id):
-    for path in waiting(tab_id):
-        path.unlink(missing_ok=True)
+def waiting():
+    """Every waiting pane's state: {path: {"tab", "kind", "since", "pinged"}}."""
+    states = {}
+    for path in state_root().glob("pane_*"):
+        try:
+            state = json.loads(path.read_text())
+        except (OSError, ValueError):
+            state = None
+        if isinstance(state, int):
+            # A bare tab id is the form this script wrote before it had kinds.
+            state = {"tab": state, "kind": "done", "since": time.time(), "pinged": False}
+        if isinstance(state, dict) and {"tab", "kind", "since", "pinged"} <= state.keys():
+            states[path] = state
+        else:
+            path.unlink(missing_ok=True)
+    return states
 
 
 def sweep(all_tabs):
-    """Unmark tabs that are being looked at or whose waiting panes are gone."""
-    root = state_root()
-    if root.is_dir():
-        for path in root.glob("pane_*"):
-            tab = all_tabs.get(int(path.read_text().strip() or -1))
-            if tab is None or watched(tab):
-                path.unlink(missing_ok=True)
+    """Drop the state of tabs being looked at or gone, then set every tab's name."""
+    kinds = {}
+    for path, state in waiting().items():
+        tab = all_tabs.get(state["tab"])
+        if tab is None or watched(tab):
+            path.unlink(missing_ok=True)
+        elif state["kind"] == "ask" or state["tab"] not in kinds:
+            kinds[state["tab"]] = state["kind"]
     for tab_id, tab in all_tabs.items():
-        set_mark(tab, bool(waiting(tab_id)))
+        wanted = MARKS.get(kinds.get(tab_id), "") + bare(tab["name"])
+        if wanted != tab["name"]:
+            zellij("rename-tab-by-id", str(tab_id), wanted)
+
+
+def ping_overdue(all_tabs):
+    """Send one notification for each session that has asked too long, unseen."""
+    overdue = [
+        (path, state)
+        for path, state in waiting().items()
+        if state["kind"] == "ask" and not state["pinged"] and time.time() - state["since"] >= PING_AFTER
+    ]
+    if not overdue or attached():
+        return
+    for path, state in overdue:
+        name = bare(all_tabs[state["tab"]]["name"])
+        minutes = max(1, round((time.time() - state["since"]) / 60))
+        subprocess.run(
+            [str(PING), "-p", "high", "-t", f"{name} is asking",
+             f"The Claude Code session in the Zellij tab '{name}' has been waiting on your answer "
+             f"for {minutes} minutes, and nobody is attached to '{os.environ['ZELLIJ_SESSION_NAME']}'."],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
+        )
+        # Marked whatever the result: a refused ping must not be retried.
+        path.write_text(json.dumps({**state, "pinged": True}))
+
+
+def watch():
+    """Run until nothing is marked. One watcher per Zellij session."""
+    root = state_root()
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    guard = open(root / "watcher", "w")
+    try:
+        fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    while True:
+        time.sleep(POLL_SECONDS)
+        with locked():
+            if not waiting():
+                return
+            all_tabs = tabs()
+            sweep(all_tabs)
+            ping_overdue(all_tabs)
+
+
+def start_watcher():
+    subprocess.Popen(
+        [sys.executable, os.path.abspath(__file__), "watch"],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
 
 
 def own_tab():
     pane = os.environ.get("ZELLIJ_PANE_ID")
     if not pane or os.environ.get("CLAUDE_JOB_DIR"):
-        return None, None
+        return None
     if os.environ.get("CLAUDE_CODE_ENTRYPOINT", "cli") != "cli":
-        return None, None
+        return None
     for p in json.loads(zellij("list-panes", "-a", "-j")):
         if not p["is_plugin"] and str(p["id"]) == pane:
-            return pane, p["tab_id"]
-    return None, None
+            return p["tab_id"]
+    return None
 
 
-def asks_for_attention(payload):
+def kind_of(payload, previous):
+    """ask, done, or None when the event is not a request for attention."""
+    if payload.get("hook_event_name") != "Notification":
+        return "done"
     kind = str(payload.get("notification_type") or "")
-    return not kind or "prompt" in kind or "dialog" in kind
+    if "permission" in kind or "elicitation" in kind or "question" in kind:
+        return "ask"
+    if "idle" in kind or not kind:
+        return previous or "done"
+    return None
 
 
 def main():
     action = sys.argv[1] if len(sys.argv) > 1 else ""
-    if action not in ("mark", "clear", "status", "reset") or not os.environ.get("ZELLIJ_SESSION_NAME"):
+    if action not in ("mark", "clear", "status", "reset", "watch") or not os.environ.get("ZELLIJ_SESSION_NAME"):
         return
 
+    if action == "watch":
+        watch()
+        return
     if action == "status":
         for tab in tabs().values():
-            if tab["name"].startswith(MARK):
+            if tab["name"] != bare(tab["name"]):
                 print(f"{tab['tab_id']}\t{tab['name']}")
         return
     if action == "reset":
-        root = state_root()
-        root.mkdir(mode=0o700, parents=True, exist_ok=True)
-        with open(root / "lock", "w") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            for tab in tabs().values():
-                forget(tab["tab_id"])
-                set_mark(tab, False)
+        with locked():
+            for path in waiting():
+                path.unlink(missing_ok=True)
+            sweep(tabs())
         return
 
     payload = {}
@@ -130,24 +216,34 @@ def main():
 
     # The common case, a tool call in a session that is not marked, stops
     # here without starting zellij.
-    pane_id = os.environ.get("ZELLIJ_PANE_ID", "")
-    mine = state_root() / f"pane_{pane_id}"
+    mine = state_root() / f"pane_{os.environ.get('ZELLIJ_PANE_ID', '')}"
     if action == "clear" and not mine.exists():
         return
 
-    pane, tab_id = own_tab()
-    if pane is None:
+    tab_id = own_tab()
+    if tab_id is None:
         return
-    mine.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     # Hooks from several sessions fire together; unlocked, one renames a tab
     # from a listing the other has already made stale.
-    with open(mine.parent / "lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if action == "mark" and asks_for_attention(payload):
-            mine.write_text(str(tab_id))
-        elif action == "clear":
+    with locked():
+        if action == "clear":
             mine.unlink(missing_ok=True)
+        else:
+            previous = waiting().get(mine, {})
+            forced = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] in MARKS else None
+            kind = forced or kind_of(payload, previous.get("kind"))
+            if kind:
+                keep = previous if previous.get("kind") == kind else {}
+                mine.write_text(json.dumps({
+                    "tab": tab_id,
+                    "kind": kind,
+                    "since": keep.get("since", time.time()),
+                    "pinged": keep.get("pinged", False),
+                }))
         sweep(tabs())
+        marked = bool(waiting())
+    if marked:
+        start_watcher()
 
 
 if __name__ == "__main__":
