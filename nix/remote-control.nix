@@ -69,4 +69,29 @@ in
     [Install]
     WantedBy=default.target
   '';
+
+  # Nothing ends a session started from the phone: its process and worktree
+  # stay until the server stops. Hourly, the reaper stops a spawned session
+  # whose transcript has been idle for two days and removes its worktree,
+  # provided the worktree is clean and holds no commit that is on no remote.
+  # The pre-created session in the checkout is never touched. What it did
+  # and what it kept, with the reason, is in `journalctl --user -u claude-rc-reap`.
+  systemd.user.services.claude-rc-reap = {
+    Unit.Description = "Stop idle Remote Control sessions and remove their worktrees";
+    Service = {
+      Type = "oneshot";
+      Environment = [ "PATH=${path}" ];
+      ExecStart = "${pkgs.python3}/bin/python3 ${./claude-rc-reap.py}";
+    };
+  };
+
+  systemd.user.timers.claude-rc-reap = {
+    Unit.Description = "Hourly sweep of idle Remote Control sessions";
+    Timer = {
+      OnCalendar = "hourly";
+      Persistent = true;
+      Unit = "claude-rc-reap.service";
+    };
+    Install.WantedBy = [ "timers.target" ];
+  };
 }
