@@ -68,7 +68,7 @@ def find_worktree(directory, name):
     """Return (path, branch, locked) for the worktree of that name, or None."""
     listing = run("git", "-C", directory, "worktree", "list", "--porcelain").stdout
     for block in listing.strip().split("\n\n"):
-        fields = dict(line.partition(" ")[::2] for line in block.splitlines())
+        fields = {key: value for key, _, value in (line.partition(" ") for line in block.splitlines())}
         path = fields.get("worktree", "")
         if Path(path).name == name and "/worktrees/" in path:
             return path, fields.get("branch", "").removeprefix("refs/heads/"), "locked" in fields
