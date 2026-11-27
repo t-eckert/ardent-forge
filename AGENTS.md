@@ -6,9 +6,9 @@ Guidance for coding agents working in this repository. `CLAUDE.md` imports this 
 
 Ardent Forge is the NixOS configuration for a single Bee Link box, reached over Tailscale. It exists to be a good place to do development work: a full toolchain preinstalled, long-running Claude Code sessions over SSH/mosh, dev servers shared to the tailnet, and monitoring so it's clear what the box is doing.
 
-It is a config repo. There is no application here — no build, no test suite, no CI. The only thing that "runs" it is `nixos-rebuild`.
+It is mostly a config repo: the only thing that "runs" it is `nixos-rebuild`, and there is no CI. The one application is the implementer in `implementer/`, the Forge's coding agent, a TypeScript project with its own tests (`cd implementer && npm test`). It is not deployed yet.
 
-The repo used to also host an agentic task-management platform (a Python backend and a SvelteKit UI). That was removed on 2026-08-03; the concept is being rebuilt separately. If you find a reference to `forge/`, `ui/`, `uv run forge`, port 7030, or a `FORGE_*` env var, it's residue — delete it.
+The repo used to also host an agentic task-management platform (a Python backend and a SvelteKit UI). That was removed on 2026-08-03. Its coding half is being rebuilt as `implementer/`. If you find a reference to `forge/`, `ui/`, `uv run forge`, port 7030, or a `FORGE_*` env var, it's residue — delete it.
 
 ## Working on this repo
 
@@ -49,6 +49,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 - `nix/services/*.nix` — one module per service
 - `grafana/dashboards/` — dashboard JSON, read live off this checkout by Grafana's file provider
 - `scripts/syncshot.py` — the notebook sync loop, run by `ardent-forge-notebook-sync`
+- `implementer/` — the Forge's coding agent: a Linear agent that turns a delegated ticket into a pull request from a fenced Podman session. Its design is `implementer/docs/design.md`. Anything specific to one repo it works on lives in that repo, never here, and so does the list of repos
 
 ## Services
 
