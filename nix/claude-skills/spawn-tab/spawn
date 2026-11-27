@@ -14,7 +14,11 @@
 #                 session, by the name ListAgents gives it
 #   --dry-run     print the command, open nothing
 #
-# Prints the new tab's id. The session inherits the Zellij server's
+# The tab is named in Title Case whatever case NAME arrives in, and the
+# session takes the same name. Prints the new tab's id; when the name was
+# changed, the name used goes to stderr.
+#
+# The session inherits the Zellij server's
 # environment, not the caller's, so nothing from an agent's own session leaks
 # into it.
 set -euo pipefail
@@ -23,6 +27,23 @@ die() { echo "spawn: $*" >&2; exit 1; }
 
 dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 dry=0 report_to=""
 positional=() extra=()
+
+# Raises first letters and lowers nothing, so "PR review" keeps its acronym.
+# Short joining words stay lowercase between the first and last word.
+title_case() {
+  local small=" a an and as at but by for in nor of on or the to via vs with "
+  local words out=() i last
+  read -ra words <<<"$1"
+  last=$((${#words[@]} - 1))
+  for i in "${!words[@]}"; do
+    if ((i > 0 && i < last)) && [[ $small == *" ${words[i]} "* ]]; then
+      out+=("${words[i]}")
+    else
+      out+=("${words[i]^}")
+    fi
+  done
+  printf '%s' "${out[*]}"
+}
 while (($#)); do
   case $1 in
     -d) dir=${2:?-d needs a directory}; shift 2 ;;
@@ -32,7 +53,7 @@ while (($#)); do
     --report-to) report_to=${2:?--report-to needs a session name}; shift 2 ;;
     --focus) focus=1; shift ;;
     --dry-run) dry=1; shift ;;
-    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --) shift; extra=("$@"); break ;;
     -*) die "unknown option $1" ;;
     *) positional+=("$1"); shift ;;
@@ -48,6 +69,9 @@ prompt=${positional[1]:-}
 if [[ -z $prompt && ( -p /dev/stdin || -f /dev/stdin ) ]]; then prompt=$(cat); fi
 
 [[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]{0,31}$ ]] || die "tab name must be 1-32 letters, digits, spaces, dots, dashes or underscores"
+given=$name
+name=$(title_case "$name")
+[[ $name == "$given" ]] || echo "spawn: tab named '$name'" >&2
 [[ $prompt != -* ]] || die "a prompt starting with '-' would be read as an option"
 [[ $max =~ ^[0-9]+$ ]] || die "--max must be a number"
 if [[ -n $report_to ]]; then
@@ -66,7 +90,7 @@ zj() { zellij --session "$session" action "$@"; }
 tabs=$(zj query-tab-names) || die "cannot reach Zellij session '$session'"
 # A tab whose session is waiting carries the attention hook's "● " prefix.
 tabs=$(sed 's/^● //' <<<"$tabs")
-if grep -Fxq -- "$name" <<<"$tabs"; then die "a tab named '$name' is already open"; fi
+if grep -Fxqi -- "$name" <<<"$tabs"; then die "a tab named '$name' is already open"; fi
 count=$(grep -c . <<<"$tabs" || true)
 ((count < max)) || die "session '$session' already has $count tabs (limit $max); close one first"
 

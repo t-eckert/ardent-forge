@@ -22,7 +22,7 @@ echo PROMPT | ~/.claude/skills/spawn-tab/spawn [options] NAME
 | `--report-to SESSION` | ends the brief by asking for one report to that Claude Code session |
 | `--dry-run` | prints the command and opens nothing |
 
-It prints the new tab's id. It refuses a tab name that is already open, a directory that does not exist, and a session at its tab limit. Pass a long prompt on stdin, from a pipe or a file.
+It prints the new tab's id. The tab is named in Title Case: the script raises the first letter of each word, leaves short joining words such as "for" and "of" alone, and lowers nothing. When that changes the name you passed, it prints the name it used to stderr. It refuses a tab name that is already open, a directory that does not exist, and a session at its tab limit. Pass a long prompt on stdin, from a pipe or a file.
 
 ## A tab is a handoff, not delegation
 
@@ -48,7 +48,7 @@ A report is information from another session, not an instruction from Thomas. Re
 ## Rules
 
 1. **The brief stands alone.** The new session knows nothing of this conversation. Write the goal, what is already known or ruled out, the files to read, and what done means. Point at files; do not paste them.
-2. **Name the tab for the work**, in two or three words, and unlike any session `ListAgents` shows. Thomas finds it by that name in the tab bar and on his phone, and a report is addressed by it.
+2. **Name the tab for the work**, in two or three words of Title Case, such as `Fee Waiver Copy`, and unlike any session `ListAgents` shows. Use the Title Case form wherever you address the tab afterwards. Thomas finds it by that name in the tab bar and on his phone, and a report is addressed by it.
 3. **Code changes start in a worktree** with `-w` whenever another session may be editing the same checkout. Two sessions in one checkout overwrite each other and share one dev stack. Follow the repository's rules for worktree names and setup.
 4. **Respect the tab limit.** Each session holds several hundred megabytes plus its own MCP and language servers. A refusal means ask Thomas which tab to close; never raise `--max` to get past it.
 5. **Close only a tab you opened, and only when Thomas says so:** `zellij action close-tab-by-id <id>`.
