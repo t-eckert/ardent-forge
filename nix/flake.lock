@@ -361,11 +361,11 @@
     "syncshot": {
       "flake": false,
       "locked": {
-        "lastModified": 1795380315,
-        "narHash": "sha256-LSWcQhYe2cMS8uqDsItIxu7U852o0S8Bn/BIpTfeCUQ=",
+        "lastModified": 1795751784,
+        "narHash": "sha256-2rAO6LPW+6waoSwauDHz1XxSj5cd9URFjU9W0VjUmks=",
         "owner": "t-eckert",
         "repo": "syncshot",
-        "rev": "21908337f694947a703f944797d189d35353170c",
+        "rev": "06d61f676e08c5533ac3531c4941d7b2760ba92c",
         "type": "github"
       },
       "original": {
