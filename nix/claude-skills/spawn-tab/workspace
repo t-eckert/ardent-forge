@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Open the standard tabs for a project in the current Zellij session.
+#
+#   workspace [options] [DIR]
+#
+#   -s SESSION    Zellij session (default: $ZELLIJ_SESSION_NAME)
+#   --logs CMD    command for the logs tab, in place of the detected one
+#   --no-logs     open no logs tab
+#   --focus       switch every attached client to the project's Claude tab
+#   --dry-run     print what would open, open nothing
+#
+# For a project in a directory named galley it opens three tabs: "Galley",
+# running Claude Code; "Galley Shell", a shell; and "Galley Logs". The logs
+# tab runs `task dev:ui` when the project's Taskfile has it, else
+# `task dev:logs`, else it is left out. It attaches to a dev stack that is
+# already running and never starts one. A tab that is already open is left
+# alone, so running it again fills in only what is missing.
+set -euo pipefail
+
+die() { echo "workspace: $*" >&2; exit 1; }
+here=$(dirname "$(realpath "$0")")
+
+dir="" session=${ZELLIJ_SESSION_NAME:-} logs="" no_logs=0 focus=0 dry=0
+while (($#)); do
+  case $1 in
+    -s) session=${2:?-s needs a session}; shift 2 ;;
+    --logs) logs=${2:?--logs needs a command}; shift 2 ;;
+    --no-logs) no_logs=1; shift ;;
+    --focus) focus=1; shift ;;
+    --dry-run) dry=1; shift ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) die "unknown option $1" ;;
+    *) [[ -z $dir ]] || die "one directory"; dir=$1; shift ;;
+  esac
+done
+
+[[ -n $session ]] || die "no Zellij session: set ZELLIJ_SESSION_NAME or pass -s"
+dir=$(realpath -e -- "${dir:-$PWD}" 2>/dev/null) || die "no such directory"
+[[ -d $dir ]] || die "$dir is not a directory"
+
+# galley-kit -> "Galley Kit"
+read -ra words <<<"$(basename "$dir" | tr '_.-' '   ')"
+project="${words[*]^}"
+
+if ((!no_logs)) && [[ -z $logs ]]; then
+  tasks=$(cd "$dir" && task --list-all 2>/dev/null || true)
+  if grep -q '^\* dev:ui:' <<<"$tasks"; then
+    logs="task dev:ui"
+  elif grep -q '^\* dev:logs:' <<<"$tasks"; then
+    logs="task dev:logs"
+  fi
+fi
+
+zj() { zellij --session "$session" action "$@"; }
+open_tabs=$(zj query-tab-names | sed -E 's/^(●|◆) //') || die "cannot reach Zellij session '$session'"
+is_open() { grep -Fxqi -- "$1" <<<"$open_tabs"; }
+
+opened=() skipped=()
+plan() { # NAME then the command that opens it
+  local name=$1; shift
+  if is_open "$name"; then skipped+=("$name"); return; fi
+  opened+=("$name")
+  ((dry)) || "$@" >/dev/null
+}
+
+spawn_args=(-s "$session" -d "$dir")
+((focus)) && spawn_args+=(--focus)
+plan "$project" "$here/spawn" "${spawn_args[@]}" "$project"
+plan "$project Shell" zj new-tab --no-focus --name "$project Shell" --cwd "$dir"
+if [[ -n $logs ]]; then
+  plan "$project Logs" zj new-tab --no-focus --name "$project Logs" --cwd "$dir" -- "${SHELL:-sh}" -c "$logs"
+fi
+
+verb=$( ((dry)) && echo "would open" || echo "opened" )
+((${#opened[@]})) && printf '%s: %s\n' "$verb" "$(IFS=,; echo "${opened[*]}" | sed 's/,/, /g')"
+((${#skipped[@]})) && printf 'already open: %s\n' "$(IFS=,; echo "${skipped[*]}" | sed 's/,/, /g')"
+[[ -n $logs || $no_logs -eq 1 ]] || echo "no logs tab: the project has no dev:ui or dev:logs task"
+exit 0
