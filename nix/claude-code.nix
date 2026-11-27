@@ -13,7 +13,8 @@
 # A hook script does nothing until ~/.claude/settings.json names it under
 # `hooks`. Claude Code rewrites that file itself, so it is not managed here:
 # on a fresh install the entries are added by hand. zellij-attention runs as
-# `mark` on Stop and Notification, and as `clear` on UserPromptSubmit,
+# `mark` on Stop and Notification, as `mark ask` on PreToolUse matching
+# AskUserQuestion|ExitPlanMode, and as `clear` on UserPromptSubmit,
 # PostToolUse and SessionEnd.
 #
 # Every file is forced. Without it home-manager refuses to switch when a

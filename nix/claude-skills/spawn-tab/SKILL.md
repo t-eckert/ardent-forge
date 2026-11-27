@@ -71,6 +71,8 @@ Never commit, push or discard another session's work to get past a refusal. Tell
 
 ## Looking at a spawned tab
 
+`~/.claude/skills/spawn-tab/board` lists every active Claude Code session on the box: its tab, state, directory, branch, uncommitted changes, memory and age. Run it before spawning into a checkout, to see whether another session is already working there, and when Thomas asks what is running. `--json` gives the same rows for a script.
+
 ```
 zellij action list-tabs
 zellij action list-panes -t -c          # which pane is in which tab, and its command

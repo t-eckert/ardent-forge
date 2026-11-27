@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""List every active Claude Code session on this box and where it is.
+
+  board [--json]
+
+One row per session from `claude agents --json`: the Zellij tab it runs in,
+its state, its directory with branch and uncommitted changes, its memory and
+its age. A background session is shown under the agents view, since that is
+the pane it was started from. Reads only; changes nothing.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+
+def out(*args):
+    result = subprocess.run(args, capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else ""
+
+
+def environ(pid):
+    try:
+        raw = Path(f"/proc/{pid}/environ").read_text()
+    except OSError:
+        return {}
+    return dict(item.split("=", 1) for item in raw.split("\0") if "=" in item)
+
+
+def memory_mb(pid):
+    """Resident memory of the session and every process under it."""
+    children = {}
+    for line in out("ps", "-eo", "pid=,ppid=,rss=").splitlines():
+        p, parent, rss = (int(x) for x in line.split())
+        children.setdefault(parent, []).append((p, rss))
+    total, stack = 0, [int(pid)]
+    own = {p: rss for kids in children.values() for p, rss in kids}
+    total += own.get(int(pid), 0)
+    while stack:
+        for child, rss in children.get(stack.pop(), []):
+            total += rss
+            stack.append(child)
+    return total // 1024
+
+
+def place(cwd):
+    """Short directory, branch and count of uncommitted changes."""
+    path = Path(cwd)
+    home = str(Path.home())
+    short = cwd.replace(home + "/Repos/github.com/", "").replace(home, "~")
+    if "/.claude/worktrees/" in short:
+        repo, _, tree = short.partition("/.claude/worktrees/")
+        short = f"{repo.split('/')[-1]} ⟂ {tree}"
+    branch = out("git", "-C", cwd, "branch", "--show-current").strip() if path.is_dir() else ""
+    dirty = len(out("git", "-C", cwd, "status", "--porcelain").splitlines()) if branch else 0
+    return short, branch, dirty
+
+
+def age(started):
+    try:
+        if isinstance(started, (int, float)):
+            seconds = time.time() - (started / 1000 if started > 1e11 else started)
+        else:
+            seconds = time.time() - datetime.fromisoformat(str(started).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return ""
+    for size, unit in ((86400, "d"), (3600, "h"), (60, "m")):
+        if seconds >= size:
+            return f"{int(seconds // size)}{unit}"
+    return "now"
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip())
+        return
+    agents = json.loads(out("claude", "agents", "--json") or "[]")
+    zellij_session = os.environ.get("ZELLIJ_SESSION_NAME", "")
+    panes = {}
+    if zellij_session:
+        listing = out("zellij", "--session", zellij_session, "action", "list-panes", "-a", "-j")
+        for p in json.loads(listing or "[]"):
+            if not p["is_plugin"]:
+                panes[str(p["id"])] = (p["tab_position"], p["tab_name"])
+
+    rows = []
+    for agent in agents:
+        env = environ(agent["pid"])
+        position, tab = 999, "—"
+        if agent.get("kind") == "background":
+            position, tab = 998, "(agents view)"
+        elif env.get("ZELLIJ_SESSION_NAME") == zellij_session and env.get("ZELLIJ_PANE_ID") in panes:
+            position, tab = panes[env["ZELLIJ_PANE_ID"]]
+        elif env.get("ZELLIJ_SESSION_NAME"):
+            tab = f"({env['ZELLIJ_SESSION_NAME']})"
+        short, branch, dirty = place(agent.get("cwd", ""))
+        rows.append({
+            "position": position,
+            "tab": tab,
+            "session": agent.get("name", ""),
+            "state": agent.get("state") or agent.get("status", ""),
+            "kind": agent.get("kind", ""),
+            "directory": short,
+            "branch": branch,
+            "uncommitted": dirty,
+            "memory_mb": memory_mb(agent["pid"]),
+            "age": age(agent.get("startedAt")),
+            "pid": agent["pid"],
+        })
+    rows.sort(key=lambda r: (r["position"], r["session"]))
+
+    if "--json" in sys.argv:
+        print(json.dumps([{k: v for k, v in r.items() if k != "position"} for r in rows], indent=2))
+        return
+    table = [("TAB", "SESSION", "STATE", "DIRECTORY", "BRANCH", "CHANGES", "MEMORY", "AGE")]
+    for r in rows:
+        table.append((
+            r["tab"], r["session"], r["state"], r["directory"], r["branch"] or "—",
+            str(r["uncommitted"]) if r["branch"] else "—", f"{r['memory_mb']} MB", r["age"],
+        ))
+    widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
+    for row in table:
+        print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip())
+    total = sum(r["memory_mb"] for r in rows)
+    free = int(next(l.split()[1] for l in open("/proc/meminfo") if l.startswith("MemAvailable"))) // 1024
+    print(f"\n{len(rows)} sessions, {total} MB in use by them, {free} MB available")
+
+
+if __name__ == "__main__":
+    main()
