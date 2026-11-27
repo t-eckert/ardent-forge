@@ -1,0 +1,24 @@
+{
+  "notebook": "/data/ardent-forge/notebook",
+  "deny": ["Fields/Example/A Personal Note.md"],
+  "grants": {
+    "EXAMPLE_READER_TOKEN": {
+      "caller": "example.reader",
+      "author": "example <example@agents>",
+      "mode": "read-only",
+      "read": ["Fields/Example/", "Projects/Example/Plan.md"],
+      "write": [],
+      "frontmatterAuthor": "example"
+    },
+    "EXAMPLE_WRITER_TOKEN": {
+      "caller": "example.writer",
+      "author": "example <example@agents>",
+      "mode": "read-write",
+      "read": ["Fields/Example/"],
+      "write": ["Fields/Example/Reports/"],
+      "rootInbox": true,
+      "requireReference": ["Fields/Example/Research/"],
+      "frontmatterAuthor": "example"
+    }
+  }
+}

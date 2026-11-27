@@ -48,6 +48,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 - `nix/claude-code.nix` — installs each directory under `nix/claude-skills/` into `~/.claude/skills` and each script under `nix/claude-hooks/` into `~/.claude/hooks`. These are the skills and hooks that only make sense on this box; edit them here, not in place. Hook scripts are registered by hand in `~/.claude/settings.json`
 - `nix/services/*.nix` — one module per service
 - `grafana/dashboards/` — dashboard JSON, read live off this checkout by Grafana's file provider
+- `notebook-door/` — the Notebook's MCP door, plain TypeScript on Node 24 with no runtime dependencies (`cd notebook-door && npm test`)
 - `implementer/` — the Forge's coding agent: a Linear agent that turns a delegated ticket into a pull request from a fenced Podman session. Its design is `implementer/docs/design.md`. Anything specific to one repo it works on lives in that repo, never here, and so does the list of repos
 
 ## Services
@@ -63,6 +64,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 | `thomaseckert-dev` | Astro dev server on :10000, exposed as `te.<tailnet>` |
 | `samba-smbd` | The home directory (dotfiles hidden) and the drop folder as SMB shares, `smb://ardent-forge.<tailnet>/home` and `/drop`. One user, password set by hand with `smbpasswd`; tailnet addresses only |
 | `ardent-forge-notebook-sync` | Clones `t-eckert/Notebook` to `/data/ardent-forge/notebook` and runs syncshot every 30s, from the `syncshot` flake input, the same source the Mac runs. On a conflict it stops syncing until resolved by hand, and `notebook-sync-check` sends an ntfy alert after five minutes |
+| `notebook-door` | The Notebook's MCP door at `nb.<tailnet>/mcp`, on :8095: per-caller tokens and grants, a deny list, and writes committed by syncshot as their caller. Code in `notebook-door/`; its grants are `/etc/ardent-forge/notebook-door.json`, placed by hand. Starts only once that file exists |
 | `workspace-init` | Clones the repos in the `workspace-repos` 1Password note into `~/Repos/github.com/owner/repo` at boot, keeping a copy of the list in `/var/lib/workspace-init/repos`. Re-run with `af repos sync` |
 
 Adding a tailnet host is a single entry in `csApps` in `nix/services/caddy.nix` — that drives the tsnet node, the vhost, and the landing-page listing together. Don't use `tailscale serve`; it conflicts with Caddy's management of the host domain.

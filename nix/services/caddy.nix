@@ -97,6 +97,18 @@ let
     homefinder = { backend = "127.0.0.1:8300";  label = "Homefinder (dev)"; };
     te         = { backend = "127.0.0.1:10000"; label = "thomaseckert.dev"; };
     weather    = { backend = "127.0.0.1:8091";  label = "the weather"; };
+    # The Notebook's MCP door. Only /mcp is served; each caller authenticates
+    # with its own token. See nix/services/notebook-door.nix.
+    nb = {
+      backend = "127.0.0.1:8095";
+      label   = "Notebook door (MCP)";
+      routes  = ''
+        handle /mcp {
+          reverse_proxy 127.0.0.1:8095
+        }
+        respond 404
+      '';
+    };
   };
 
   csNodeBlock = lib.concatStringsSep "\n  " (lib.mapAttrsToList

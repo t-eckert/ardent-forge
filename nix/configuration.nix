@@ -15,6 +15,7 @@
     ./services/ntfy.nix
     ./services/the-weather.nix
     ./services/notebook-sync.nix
+    ./services/notebook-door.nix
     ./services/marimo.nix
     ./services/opencode.nix
     ./services/lab-sync.nix
