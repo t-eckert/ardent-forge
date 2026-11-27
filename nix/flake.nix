@@ -29,15 +29,6 @@
       inputs.hunk.inputs.bun2nix.inputs.systems.follows = "systems-linux";
     };
 
-    # stet, Galley's development agent: a package and a NixOS module. The repo is
-    # private and Nix here holds no GitHub token, so this reads the workspace
-    # checkout. `nix flake update galley-agent` locks whatever its `main` holds,
-    # so pull that checkout first. See nix/services/stet.nix.
-    galley-agent = {
-      url = "git+file:///home/thomaseckert/Repos/github.com/t-eckert/galley-agent?ref=main";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # syncshot, the loop that commits and syncs the Notebook. The same source the
     # Mac runs, pinned here; `af update syncshot` takes a newer one. It refuses to
     # sync mid-conflict and takes pause leases, which the copy once vendored in
@@ -57,7 +48,7 @@
 
   # systems-linux is declared purely to be followed by a transitive input; it
   # is never referenced here, hence the ellipsis.
-  outputs = { self, nixpkgs, home-manager, dotfiles, galley-agent, syncshot, ... }:
+  outputs = { self, nixpkgs, home-manager, dotfiles, syncshot, ... }:
     let
       # Host values (username, tailnet domain, SSH keys) live outside the repo,
       # in a root-owned file placed on the box, so the repo carries no one's
@@ -73,7 +64,6 @@
       modules = [
         ./hardware.nix
         ./configuration.nix
-        galley-agent.nixosModules.stet
         # The commit this system was built from, for the landing page and
         # `af status`. dirtyRev when built from a tree with uncommitted edits.
         { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }

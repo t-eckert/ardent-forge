@@ -5,7 +5,7 @@
 #
 # Interactive, not unattended: it runs as the user and edits anything under
 # ~, the same trust as a Claude Code session over SSH. Anything left to run on
-# its own belongs behind crucible, like stet.
+# its own belongs behind crucible.
 #
 # Access, in three layers:
 #   - The server listens on 127.0.0.1 only. OpenCode has no TLS of its own, so
