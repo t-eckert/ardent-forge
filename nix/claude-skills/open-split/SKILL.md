@@ -1,6 +1,6 @@
 ---
 name: open-split
-description: Open one split beside this session's own Zellij pane, in the same tab, to show Thomas something while the conversation carries on - a running log or command output, a shell with a command typed and waiting for him to run, or neovim open on a file at a line. Use when a long-running command's output is worth watching, when Thomas has to run a command himself (an interactive login, sudo, anything you may not run), or when he should read or edit a specific file. Also use when Thomas says "open a split", "show me that in a split", "put the log beside this", or "open that file for me". Only when this session's pane is alone in its tab.
+description: Open one pane beside this session's own Zellij pane, in the same tab, to show Thomas something while the conversation carries on - a running log or command output, a shell with a command typed and waiting for him to run, or neovim open on a file at a line. A split when this session is alone in its tab, a floating pane when it is not. Use when a long-running command's output is worth watching, when Thomas has to run a command himself (an interactive login, sudo, anything you may not run), or when he should read or edit a specific file. Also use when Thomas says "open a split", "show me that in a split", "put the log beside this", or "open that file for me".
 ---
 
 # Open a split
@@ -17,6 +17,7 @@ split close                                 close the split this script opened
 | Option | Does |
 | --- | --- |
 | `--down` | opens below; the default is to the right |
+| `--float` | opens a floating pane over the tab instead of a split |
 | `-d DIR` | working directory of the split; the default is the current one |
 | `--replace` | closes the split this script opened in this tab, then opens the new one |
 | `--focus` | moves focus into the split |
@@ -32,8 +33,8 @@ It prints the new pane's id, such as `terminal_24`.
 
 ## Rules
 
-1. **Only when this session's pane is alone in its tab.** The script refuses when any other tiled pane is there, and it ignores floating panes. A refusal is the answer: say what you would have shown and carry on. Never close or rearrange a pane to make room.
-2. **One split at a time.** To show something else, pass `--replace`, which closes only the split this script opened. Close it with `split close` when it has served its purpose.
+1. **A split only when this session's pane is alone in its tab.** The script refuses a split when any other tiled pane is there. Pass `--float` then: a floating pane sits over the tab and moves nothing. Never close or rearrange a pane to make room.
+2. **One pane at a time, split or floating.** To show something else, pass `--replace`, which closes only the pane this script opened. Close it with `split close` when it has served its purpose. A floating pane covers the conversation, so close it sooner.
 3. **Never run through `cmd` what you could not run yourself.** `cmd` is for Thomas's hands. Do not follow it with `write-chars` or anything else that presses Enter for him.
 4. **Leave focus alone** unless he asked to be put in the split. He may be typing, and keystrokes landing in a shell or an editor do damage.
 5. **Say what you opened** and why, in the same reply, in one line.
