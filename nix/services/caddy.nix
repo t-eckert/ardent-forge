@@ -200,7 +200,7 @@ in {
     # Bake in the caddy-tailscale plugin so each cs* vhost can register as
     # its own tsnet node. First build will fail with a hash mismatch; paste
     # the suggested sha256 in place of lib.fakeHash and rebuild.
-    package = pkgs.caddy.withPlugins {
+    package = (pkgs.caddy.withPlugins {
       plugins = [
         "github.com/tailscale/caddy-tailscale@v0.0.0-20260826180304-de41b249af4f"
         "github.com/mholt/caddy-webdav@v0.0.0-20260127042217-fa2f366b0d75"
@@ -209,7 +209,20 @@ in {
       # or bump a plugin, set this to lib.fakeHash, rebuild, and paste the
       # suggested sha256 the build prints.
       hash = "sha256-ypA1ExLFrmzYI2vYhwliKU00yGucCyCrWpNYCH05fvs=";
-    };
+    }).overrideAttrs (old: {
+      # Stamp the tsnet version. Without it, tailscale.com/version falls back
+      # to Go's VCS build info, which a -trimpath vendored build doesn't have,
+      # so every node reports "x.y.z-ERR-BuildInfo" in the admin console. The
+      # version is read from the vendored VERSION.txt so it follows whatever
+      # tailscale.com the caddy-tailscale pin pulls in.
+      preBuild = (old.preBuild or "") + ''
+        tsVersion=$(tr -d '[:space:]' < vendor/tailscale.com/VERSION.txt)
+        ldflags+=(
+          "-X tailscale.com/version.shortStamp=$tsVersion"
+          "-X tailscale.com/version.longStamp=$tsVersion"
+        )
+      '';
+    });
 
     # Tailscale credential lives in /etc/caddy/tailscale-auth (root:caddy
     # 0640) as TS_AUTHKEY. The plugin accepts an OAuth client secret in
