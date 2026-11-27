@@ -38,6 +38,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # syncshot, the loop that commits and syncs the Notebook. The same source the
+    # Mac runs, pinned here; `af update syncshot` takes a newer one. It refuses to
+    # sync mid-conflict and takes pause leases, which the copy once vendored in
+    # scripts/ did not. See nix/services/notebook-sync.nix.
+    syncshot = {
+      url = "github:t-eckert/syncshot";
+      flake = false;
+    };
+
     # Pins flake-parts' system enumeration for the inputs above. Nothing else
     # should follow this -- it exists to keep a transitive dependency from
     # evaluating platforms this machine will never build for.
@@ -48,7 +57,7 @@
 
   # systems-linux is declared purely to be followed by a transitive input; it
   # is never referenced here, hence the ellipsis.
-  outputs = { self, nixpkgs, home-manager, dotfiles, galley-agent, ... }:
+  outputs = { self, nixpkgs, home-manager, dotfiles, galley-agent, syncshot, ... }:
     let
       # Host values (username, tailnet domain, SSH keys) live outside the repo,
       # in a root-owned file placed on the box, so the repo carries no one's
@@ -60,7 +69,7 @@
     in {
     nixosConfigurations.ardent-forge = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      specialArgs = { inherit dotfiles locals; };
+      specialArgs = { inherit dotfiles locals syncshot; };
       modules = [
         ./hardware.nix
         ./configuration.nix

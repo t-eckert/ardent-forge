@@ -7,7 +7,7 @@
 #
 # git gets the GitHub token from 1Password whenever it needs one, through
 # github-pat-credential.nix, so rotating the token needs no restart.
-{ pkgs, lib, locals, ... }:
+{ pkgs, lib, locals, syncshot, ... }:
 
 let
   labDir = "/home/${locals.username}/Repos/lab";
@@ -54,7 +54,7 @@ let
       git push -u origin main
     fi
 
-    exec python3 ${../../scripts/syncshot.py} --period 60
+    exec python3 ${syncshot}/syncshot.py run --period 60
   '';
 in {
   systemd.services.ardent-forge-lab-sync = {

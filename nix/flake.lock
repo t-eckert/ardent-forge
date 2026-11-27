@@ -354,7 +354,24 @@
         "galley-agent": "galley-agent",
         "home-manager": "home-manager_2",
         "nixpkgs": "nixpkgs",
+        "syncshot": "syncshot",
         "systems-linux": "systems-linux"
+      }
+    },
+    "syncshot": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795380315,
+        "narHash": "sha256-LSWcQhYe2cMS8uqDsItIxu7U852o0S8Bn/BIpTfeCUQ=",
+        "owner": "t-eckert",
+        "repo": "syncshot",
+        "rev": "21908337f694947a703f944797d189d35353170c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t-eckert",
+        "repo": "syncshot",
+        "type": "github"
       }
     },
     "systems": {
