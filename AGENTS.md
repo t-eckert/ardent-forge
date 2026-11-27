@@ -61,6 +61,7 @@ Formatting is nixfmt-rfc-style, but only some files have been through it. Match 
 | `the-weather` | `ghcr.io/t-eckert/the-weather` container on :8091 |
 | `marimo` | Headless marimo on :2718 against `~/Repos/lab`, exposed as `lab.<tailnet>` |
 | `thomaseckert-dev` | Astro dev server on :10000, exposed as `te.<tailnet>` |
+| `samba-smbd` | The home directory (dotfiles hidden) and the drop folder as SMB shares, `smb://ardent-forge.<tailnet>/home` and `/drop`. One user, password set by hand with `smbpasswd`; tailnet addresses only |
 | `ardent-forge-notebook-sync` | Clones `t-eckert/Notebook` to `/data/ardent-forge/notebook` and runs syncshot every 30s, from the `syncshot` flake input, the same source the Mac runs. On a conflict it stops syncing until resolved by hand, and `notebook-sync-check` sends an ntfy alert after five minutes |
 | `workspace-init` | Clones the repos in the `workspace-repos` 1Password note into `~/Repos/github.com/owner/repo` at boot, keeping a copy of the list in `/var/lib/workspace-init/repos`. Re-run with `af repos sync` |
 
