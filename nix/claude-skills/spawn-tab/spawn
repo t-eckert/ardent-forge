@@ -9,6 +9,7 @@
 #   -s SESSION    Zellij session (default: $ZELLIJ_SESSION_NAME)
 #   --focus       switch every attached client to the new tab
 #   --max N       refuse when the session already has N tabs (default: 8)
+#   --min-free MB refuse when less memory than this is available (default: 2000)
 #   --report-to SESSION
 #                 end the brief by asking for a report to that Claude Code
 #                 session, by the name ListAgents gives it
@@ -25,7 +26,7 @@ set -euo pipefail
 
 die() { echo "spawn: $*" >&2; exit 1; }
 
-dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 dry=0 report_to=""
+dir=$PWD worktree="" session=${ZELLIJ_SESSION_NAME:-} focus=0 max=8 min_free=2000 dry=0 report_to=""
 positional=() extra=()
 
 # Raises first letters and lowers nothing, so "PR review" keeps its acronym.
@@ -50,10 +51,11 @@ while (($#)); do
     -w) worktree=${2:?-w needs a name}; shift 2 ;;
     -s) session=${2:?-s needs a session}; shift 2 ;;
     --max) max=${2:?--max needs a number}; shift 2 ;;
+    --min-free) min_free=${2:?--min-free needs a number of megabytes}; shift 2 ;;
     --report-to) report_to=${2:?--report-to needs a session name}; shift 2 ;;
     --focus) focus=1; shift ;;
     --dry-run) dry=1; shift ;;
-    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --) shift; extra=("$@"); break ;;
     -*) die "unknown option $1" ;;
     *) positional+=("$1"); shift ;;
@@ -74,6 +76,7 @@ name=$(title_case "$name")
 [[ $name == "$given" ]] || echo "spawn: tab named '$name'" >&2
 [[ $prompt != -* ]] || die "a prompt starting with '-' would be read as an option"
 [[ $max =~ ^[0-9]+$ ]] || die "--max must be a number"
+[[ $min_free =~ ^[0-9]+$ ]] || die "--min-free must be a number of megabytes"
 if [[ -n $report_to ]]; then
   [[ -n $prompt ]] || die "--report-to needs a prompt to attach the request to"
   [[ $report_to != *$'\n'* && $report_to != *'"'* ]] || die "the session name must be one line with no double quotes"
@@ -88,11 +91,13 @@ claude=$(command -v claude) || die "claude is not on PATH"
 zj() { zellij --session "$session" action "$@"; }
 
 tabs=$(zj query-tab-names) || die "cannot reach Zellij session '$session'"
-# A tab whose session is waiting carries the attention hook's "● " prefix.
-tabs=$(sed 's/^● //' <<<"$tabs")
+# A tab whose session is waiting carries one of the attention hook's prefixes.
+tabs=$(sed -E 's/^(●|◆) //' <<<"$tabs")
 if grep -Fxqi -- "$name" <<<"$tabs"; then die "a tab named '$name' is already open"; fi
 count=$(grep -c . <<<"$tabs" || true)
 ((count < max)) || die "session '$session' already has $count tabs (limit $max); close one first"
+available=$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)
+((available >= min_free)) || die "only $available MB of memory is available (limit $min_free); close a session first"
 
 cmd=("$claude" --name "$name")
 [[ -n $worktree ]] && cmd+=(--worktree "$worktree")
@@ -109,4 +114,12 @@ if ((dry)); then
   exit 0
 fi
 
-zj new-tab "${tab_args[@]}" -- "${cmd[@]}"
+tab_id=$(zj new-tab "${tab_args[@]}" -- "${cmd[@]}")
+
+# What `close` needs to find this tab again and clean up after it.
+record_dir=/tmp/claude-spawn-$(id -u)/$session
+mkdir -p -m 700 "$record_dir"
+jq -n --arg name "$name" --arg dir "$dir" --arg worktree "$worktree" \
+  '{name: $name, dir: $dir, worktree: $worktree}' >"$record_dir/$tab_id"
+
+echo "$tab_id"

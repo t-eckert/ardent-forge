@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Close a tab that `spawn` opened, and remove its worktree when that is safe.
+
+  close [--keep-worktree] [--force] [--dry-run] NAME
+
+Refuses a tab `spawn` did not open, a tab whose session is still working
+(--force overrides), and a worktree with uncommitted changes or commits that
+are on no remote. --keep-worktree closes the tab and leaves the worktree.
+Nothing is closed when a check fails.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+MARKS = ("● ", "◆ ")
+
+
+def die(message):
+    sys.exit(f"close: {message}")
+
+
+def run(*args, check=True):
+    result = subprocess.run(args, capture_output=True, text=True)
+    if check and result.returncode != 0:
+        die(f"{' '.join(args[:3])} failed: {result.stderr.strip() or result.stdout.strip()}")
+    return result
+
+
+def zellij(session, *args):
+    return run("zellij", "--session", session, "action", *args).stdout
+
+
+def bare(name):
+    for mark in MARKS:
+        name = name.removeprefix(mark)
+    return name
+
+
+def session_in_tab(session, tab_id):
+    """The Claude Code session running in the tab, from `claude agents --json`."""
+    panes = {
+        str(p["id"])
+        for p in json.loads(zellij(session, "list-panes", "-a", "-j"))
+        if p["tab_id"] == tab_id and not p["is_plugin"]
+    }
+    listing = run("claude", "agents", "--json", check=False)
+    if listing.returncode != 0:
+        return None
+    for agent in json.loads(listing.stdout):
+        try:
+            env = dict(
+                item.split("=", 1)
+                for item in Path(f"/proc/{agent['pid']}/environ").read_text().split("\0")
+                if "=" in item
+            )
+        except OSError:
+            continue
+        if env.get("ZELLIJ_SESSION_NAME") == session and env.get("ZELLIJ_PANE_ID") in panes:
+            return agent
+    return None
+
+
+def find_worktree(directory, name):
+    """Return (path, branch, locked) for the worktree of that name, or None."""
+    listing = run("git", "-C", directory, "worktree", "list", "--porcelain").stdout
+    for block in listing.strip().split("\n\n"):
+        fields = dict(line.partition(" ")[::2] for line in block.splitlines())
+        path = fields.get("worktree", "")
+        if Path(path).name == name and "/worktrees/" in path:
+            return path, fields.get("branch", "").removeprefix("refs/heads/"), "locked" in fields
+    return None
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return
+    flags = {a for a in args if a.startswith("--")}
+    names = [a for a in args if not a.startswith("--")]
+    unknown = flags - {"--keep-worktree", "--force", "--dry-run"}
+    if unknown or len(names) != 1:
+        die("usage: close [--keep-worktree] [--force] [--dry-run] NAME")
+    session = os.environ.get("ZELLIJ_SESSION_NAME") or die("no Zellij session: ZELLIJ_SESSION_NAME is not set")
+
+    wanted = names[0].casefold()
+    tabs = [t for t in json.loads(zellij(session, "list-tabs", "-j")) if bare(t["name"]).casefold() == wanted]
+    if not tabs:
+        die(f"no tab named '{names[0]}'")
+    tab = tabs[0]
+    record_path = Path(f"/tmp/claude-spawn-{os.getuid()}") / session / str(tab["tab_id"])
+    if not record_path.exists():
+        die(f"tab '{bare(tab['name'])}' was not opened by spawn; close it yourself")
+    record = json.loads(record_path.read_text())
+
+    agent = session_in_tab(session, tab["tab_id"])
+    if agent and agent.get("status") == "busy" and "--force" not in flags:
+        die(f"the session in '{bare(tab['name'])}' is still working (pass --force to close it anyway)")
+
+    worktree = None
+    if record["worktree"] and "--keep-worktree" not in flags:
+        worktree = find_worktree(record["dir"], record["worktree"])
+    if worktree:
+        path = worktree[0]
+        dirty = run("git", "-C", path, "status", "--porcelain").stdout.strip()
+        if dirty:
+            die(f"worktree {path} has {len(dirty.splitlines())} uncommitted changes (pass --keep-worktree to leave it)")
+        unpushed = run("git", "-C", path, "rev-list", "--count", "HEAD", "--not", "--remotes").stdout.strip()
+        if unpushed != "0":
+            die(f"worktree {path} has {unpushed} commits on no remote (pass --keep-worktree to leave it)")
+
+    if "--dry-run" in flags:
+        print(f"would close tab {tab['tab_id']} '{bare(tab['name'])}'" + (f" and remove {worktree[0]}" if worktree else ""))
+        return
+
+    zellij(session, "close-tab-by-id", str(tab["tab_id"]))
+    record_path.unlink(missing_ok=True)
+    print(f"closed tab '{bare(tab['name'])}'")
+
+    if worktree:
+        path, branch, locked = worktree
+        if agent:
+            deadline = time.time() + 10
+            while Path(f"/proc/{agent['pid']}").exists() and time.time() < deadline:
+                time.sleep(0.2)
+        # The lock belonged to the session that just ended.
+        if locked:
+            run("git", "-C", record["dir"], "worktree", "unlock", path, check=False)
+        removed = run("git", "-C", record["dir"], "worktree", "remove", path, check=False)
+        if removed.returncode != 0:
+            die(f"tab closed, but the worktree stayed: {removed.stderr.strip()}")
+        print(f"removed worktree {path}")
+        if branch.startswith("worktree-"):
+            deleted = run("git", "-C", record["dir"], "branch", "-d", branch, check=False)
+            print(f"deleted branch {branch}" if deleted.returncode == 0 else f"kept branch {branch}: {deleted.stderr.strip()}")
+
+
+if __name__ == "__main__":
+    main()

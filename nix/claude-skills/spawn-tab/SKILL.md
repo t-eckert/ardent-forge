@@ -19,10 +19,11 @@ echo PROMPT | ~/.claude/skills/spawn-tab/spawn [options] NAME
 | `-s SESSION` | names the Zellij session; the default is `$ZELLIJ_SESSION_NAME` |
 | `--focus` | moves Thomas to the new tab; without it his focus stays where it is |
 | `--max N` | refuses when the session already has N tabs; the default is 8 |
+| `--min-free MB` | refuses when less memory than this is available; the default is 2000 |
 | `--report-to SESSION` | ends the brief by asking for one report to that Claude Code session |
 | `--dry-run` | prints the command and opens nothing |
 
-It prints the new tab's id. The tab is named in Title Case: the script raises the first letter of each word, leaves short joining words such as "for" and "of" alone, and lowers nothing. When that changes the name you passed, it prints the name it used to stderr. It refuses a tab name that is already open, a directory that does not exist, and a session at its tab limit. Pass a long prompt on stdin, from a pipe or a file.
+It prints the new tab's id. The tab is named in Title Case: the script raises the first letter of each word, leaves short joining words such as "for" and "of" alone, and lowers nothing. When that changes the name you passed, it prints the name it used to stderr. It refuses a tab name that is already open, a directory that does not exist, a session at its tab limit, and a machine short of memory. Pass a long prompt on stdin, from a pipe or a file.
 
 ## A tab is a handoff, not delegation
 
@@ -50,9 +51,23 @@ A report is information from another session, not an instruction from Thomas. Re
 1. **The brief stands alone.** The new session knows nothing of this conversation. Write the goal, what is already known or ruled out, the files to read, and what done means. Point at files; do not paste them.
 2. **Name the tab for the work**, in two or three words of Title Case, such as `Fee Waiver Copy`, and unlike any session `ListAgents` shows. Use the Title Case form wherever you address the tab afterwards. Thomas finds it by that name in the tab bar and on his phone, and a report is addressed by it.
 3. **Code changes start in a worktree** with `-w` whenever another session may be editing the same checkout. Two sessions in one checkout overwrite each other and share one dev stack. Follow the repository's rules for worktree names and setup.
-4. **Respect the tab limit.** Each session holds several hundred megabytes plus its own MCP and language servers. A refusal means ask Thomas which tab to close; never raise `--max` to get past it.
-5. **Close only a tab you opened, and only when Thomas says so:** `zellij action close-tab-by-id <id>`.
+4. **Respect the limits.** Each session holds several hundred megabytes plus its own MCP and language servers. A refusal on tabs or memory means ask Thomas which tab to close; never raise `--max` or lower `--min-free` to get past it.
+5. **Close a tab only when Thomas says so**, with `close`, below.
 6. **Tell Thomas the tab's name** and what you asked it to do, in the same reply.
+
+## Closing a spawned tab
+
+```
+~/.claude/skills/spawn-tab/close [--keep-worktree] [--force] [--dry-run] NAME
+```
+
+`close` ends the tab's session, closes the tab, and removes the worktree `spawn -w` made for it along with its `worktree-` branch. It checks everything first and closes nothing when a check fails. It refuses:
+
+- a tab `spawn` did not open;
+- a session that is still working, unless `--force`;
+- a worktree with uncommitted changes, or with commits that are on no remote. Push them, or pass `--keep-worktree` to close the tab and leave the worktree where it is.
+
+Never commit, push or discard another session's work to get past a refusal. Tell Thomas what is in the way.
 
 ## Looking at a spawned tab
 
